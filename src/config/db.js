@@ -1,5 +1,7 @@
-require('dotenv').config();
-const { Sequelize } = require('sequelize');
+import dotenv from 'dotenv';
+import { Sequelize } from 'sequelize';
+
+dotenv.config();
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -16,4 +18,4 @@ sequelize.authenticate()
   .then(() => console.log('✅ Conexión a MySQL exitosa'))
   .catch(err => console.error('❌ Error de conexión:', err));
 
-module.exports = sequelize;
+export default sequelize;
