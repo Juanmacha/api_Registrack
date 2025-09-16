@@ -42,16 +42,16 @@ app.use("/api/servicios", ServicioRoutes);
 app.use("/api/formularios-dinamicos", FormularioDinamicoRoutes);
 
 // Rutas protegidas
-app.use("/api/empleados", authMiddleware, EmpleadoRoutes);
-app.use("/api/pagos", authMiddleware, pagoRoutes);
-app.use("/api/roles", authMiddleware, RolesRoutes);
-app.use("/api/permisos", authMiddleware, PermisoRoutes);
-app.use("/api/privilegios", authMiddleware, PrivilegioRoutes);
-app.use("/api/citas", authMiddleware, CitasRoutes);
-app.use("/api/solicitudes", SolicitudesRoutes); // authMiddleware removido temporalmente
-app.use("/api/solicitud-cita", authMiddleware, SolicitudCitaRoutes);
-app.use("/api/seguimiento", authMiddleware, SeguimientoRoutes);
-app.use("/api/clientes", authMiddleware, ClienteRoutes);
+app.use("/api/gestion-empleados", authMiddleware, EmpleadoRoutes);
+app.use("/api/gestion-pagos", authMiddleware, pagoRoutes);
+app.use("/api/gestion-roles", authMiddleware, RolesRoutes);
+app.use("/api/gestion-permisos", authMiddleware, PermisoRoutes);
+app.use("/api/gestion-privilegios", authMiddleware, PrivilegioRoutes);
+app.use("/api/gestion-citas", authMiddleware, CitasRoutes);
+app.use("/api/gestion-solicitudes", SolicitudesRoutes); // authMiddleware removido temporalmente
+app.use("/api/gestion-solicitud-cita", authMiddleware, SolicitudCitaRoutes);
+app.use("/api/gestion-seguimiento", authMiddleware, SeguimientoRoutes);
+app.use("/api/gestion-clientes", authMiddleware, ClienteRoutes);
 app.use("/api/empresas", authMiddleware, EmpresaRoutes);
 
 // Middleware para manejar rutas no encontradas (debe ir antes del error handler)

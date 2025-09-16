@@ -25,7 +25,7 @@ router.get('/', authMiddleware, roleMiddleware(["administrador"]), getRoles);
 router.post('/', authMiddleware, roleMiddleware(["administrador"]), createRoleValidation, validateResults, createRole);
 router.get('/:id', authMiddleware, roleMiddleware(["administrador"]), getRoleById);
 router.put('/:id', authMiddleware, roleMiddleware(["administrador"]), updateRoleValidation, validateResults, updateRole);
-router.patch('/:id/state', authMiddleware, roleMiddleware(["administrador"]), validateResults, changeRoleState);
+router.patch('/:id/estado', authMiddleware, roleMiddleware(["administrador"]), validateResults, changeRoleState);
 router.delete('/:id', authMiddleware, roleMiddleware(["administrador"]), deleteRoleValidation, validateResults, deleteRole);
 
 export default router;
