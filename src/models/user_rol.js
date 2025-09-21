@@ -1,7 +1,7 @@
 import User from "./user.js";
 import Rol from "./Role.js";
-import Permiso from "./permiso.js";
-import Privilegio from "./privilegio.js";
+import Permiso from "./Permiso.js";
+import Privilegio from "./Privilegio.js";
 import RolPermisoPrivilegio from "./rol_permiso_privilegio.js";
 
 // Definir asociaciones después de crear los modelos
