@@ -1,0 +1,41 @@
+{
+  "name": "api_registrackvs1",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "sync-db": "node sync-db.js",
+    "sync-db:force": "node sync-db.js --force",
+    "sync-db:alter": "node sync-db.js --alter",
+    "sync-db:help": "node sync-db.js --help",
+    "seed-roles": "node seed-roles.js",
+    "create-admin": "node create-admin.js",
+    "setup": "npm run sync-db && npm run seed-roles && npm run create-admin",
+    "reset-db": "npm run sync-db:force && npm run seed-roles && npm run create-admin"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.3",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.6",
+    "pdfkit": "^0.17.1",
+    "sequelize": "^6.37.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
