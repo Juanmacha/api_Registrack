@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import sequelize from "./src/config/db.js";
+import sequelize, { testConnection } from "./src/config/db.js";
 import { User, Rol } from "./src/models/user_rol.js";
 import { createAdminFixed } from "./create-admin-fixed.js";
 
@@ -122,8 +122,11 @@ export async function initializeDatabase() {
     console.log("🚀 Iniciando verificación de base de datos...");
     
     // Verificar conexión a la base de datos
-    await sequelize.authenticate();
-    console.log("✅ Conexión a base de datos establecida");
+    const connectionOk = await testConnection();
+    if (!connectionOk) {
+      console.error("❌ No se pudo conectar a la base de datos");
+      return false;
+    }
 
     // Sincronizar modelos con la base de datos
     console.log("🔄 Sincronizando modelos con la base de datos...");

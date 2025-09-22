@@ -48,6 +48,7 @@ export const validateCreateEmpresa = [
   validateFieldTypes({
     nombre: 'string',
     nit: 'string',
+    tipo_empresa: 'string',
     direccion: 'string',
     telefono: 'phone',
     correo: 'email'
@@ -55,6 +56,7 @@ export const validateCreateEmpresa = [
   validateFieldRanges({
     nombre: { minLength: 2, maxLength: 100 },
     nit: { minLength: 8, maxLength: 20 },
+    tipo_empresa: { minLength: 2, maxLength: 50 },
     direccion: { minLength: 10, maxLength: 200 },
     telefono: { minLength: 7, maxLength: 15 }
   })

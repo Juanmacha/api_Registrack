@@ -30,11 +30,16 @@ const sequelize = new Sequelize(
   }
 );
 
-try {
-  await sequelize.authenticate();
-  console.log("✅ Conexión a MySQL exitosa");
-} catch (err) {
-  console.error("❌ Error de conexión:", err);
+// Función para probar la conexión
+export async function testConnection() {
+  try {
+    await sequelize.authenticate();
+    console.log("✅ Conexión a MySQL exitosa");
+    return true;
+  } catch (err) {
+    console.error("❌ Error de conexión:", err);
+    return false;
+  }
 }
 
 export default sequelize;

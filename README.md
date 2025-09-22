@@ -662,6 +662,8 @@ GET /api/archivos/cliente/:idCliente   # Archivos de un cliente
 - **GET /:id, DELETE /:id** (auth, según política): Obtener/eliminar tipo
 
 ### Empresas (`/api/empresas`)
+- **POST /** (auth, admin/empleado): Crear empresa
+  - Body requerido: `nombre` (string), `nit` (string), `tipo_empresa` (string, opcional, default: "Sociedad por Acciones Simplificada"), `direccion` (string, opcional), `telefono` (string, opcional), `correo` (email, opcional)
 - **GET /:id/clientes** (auth): Clientes de una empresa
 - **GET /nit/:nit/clientes** (auth): Clientes por NIT
 
@@ -1077,10 +1079,19 @@ curl -X POST "http://localhost:3000/api/gestion-clientes" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
-    "id_usuario": 1,
-    "marca": "MiMarcaEmpresarial",
-    "tipo_persona": "Jurídica",
-    "estado": true
+    "cliente": {
+      "id_usuario": 1,
+      "marca": "MiMarcaEmpresarial",
+      "tipo_persona": "Jurídica",
+      "estado": true
+    },
+    "empresa": {
+      "nombre": "Mi Empresa SAS",
+      "nit": "900123456-1",
+      "direccion": "Calle 123 #45-67",
+      "telefono": "3001234567",
+      "correo": "empresa@example.com"
+    }
   }'
 ```
 
@@ -1141,27 +1152,68 @@ curl -X GET "http://localhost:3000/api/gestion-pagos/1" \
 
 ### 🏢 Gestión de Empresas
 
-#### 39. Obtener clientes de una empresa
+#### 39. Crear empresa
 ```bash
-curl -X GET "http://localhost:3000/api/gestion-empresas/1/clientes" \
+curl -X POST "http://localhost:3000/api/empresas" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "Mi Nueva Empresa SAS",
+    "nit": "900987654-3",
+    "tipo_empresa": "Sociedad por Acciones Simplificada",
+    "direccion": "Carrera 50 #25-30, Bogotá",
+    "telefono": "3009876543",
+    "correo": "contacto@minuevaempresa.com"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Empresa creada exitosamente",
+  "data": {
+    "empresa": {
+      "id_empresa": 4,
+      "nombre": "Mi Nueva Empresa SAS",
+      "nit": 900987654,
+      "tipo_empresa": "Sociedad por Acciones Simplificada",
+      "direccion": "Carrera 50 #25-30, Bogotá",
+      "telefono": "3009876543",
+      "correo": "contacto@minuevaempresa.com"
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "nextSteps": [
+      "La empresa puede ahora asociarse con clientes",
+      "Configure los servicios disponibles para la empresa"
+    ]
+  }
+}
+```
+
+#### 40. Obtener clientes de una empresa
+```bash
+curl -X GET "http://localhost:3000/api/empresas/1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 40. Obtener clientes por NIT
+#### 41. Obtener clientes por NIT
 ```bash
-curl -X GET "http://localhost:3000/api/gestion-empresas/nit/900123456-1/clientes" \
+curl -X GET "http://localhost:3000/api/empresas/nit/900123456-1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
 ### 🔧 Gestión de Tipos de Archivo
 
-#### 41. Obtener tipos de archivo
+#### 42. Obtener tipos de archivo
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 42. Crear tipo de archivo
+#### 43. Crear tipo de archivo
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Content-Type: application/json" \
@@ -1171,7 +1223,7 @@ curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   }'
 ```
 
-#### 43. Actualizar tipo de archivo
+#### 44. Actualizar tipo de archivo
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-tipo-archivos/1" \
   -H "Content-Type: application/json" \
@@ -1183,13 +1235,13 @@ curl -X PUT "http://localhost:3000/api/gestion-tipo-archivos/1" \
 
 ### 📋 Formularios Dinámicos
 
-#### 44. Obtener formulario por servicio
+#### 45. Obtener formulario por servicio
 ```bash
 curl -X GET "http://localhost:3000/api/formularios-dinamicos/servicio/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 45. Validar formulario
+#### 46. Validar formulario
 ```bash
 curl -X POST "http://localhost:3000/api/formularios-dinamicos/validar" \
   -H "Content-Type: application/json" \
