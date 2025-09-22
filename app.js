@@ -55,6 +55,38 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Endpoint manual para inicializar base de datos
+app.post('/api/admin/init-database', async (req, res) => {
+  try {
+    const { initializeDatabase } = await import('./init-database.js');
+    
+    console.log("🔧 Inicialización manual de base de datos solicitada...");
+    const success = await initializeDatabase();
+    
+    if (success) {
+      res.status(200).json({
+        success: true,
+        message: 'Base de datos inicializada correctamente',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Error inicializando base de datos',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error en inicialización manual:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Aplicar middlewares de respuesta estandarizada
 app.use(successResponse());
 app.use(errorResponse());
