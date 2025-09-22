@@ -87,6 +87,42 @@ app.post('/api/admin/init-database', async (req, res) => {
   }
 });
 
+// Endpoint para crear admin específicamente
+app.post('/api/admin/create-admin', async (req, res) => {
+  try {
+    const { createAdminFixed } = await import('./create-admin-fixed.js');
+    
+    console.log("👤 Creación manual de administrador solicitada...");
+    const success = await createAdminFixed();
+    
+    if (success) {
+      res.status(200).json({
+        success: true,
+        message: 'Administrador creado correctamente',
+        credentials: {
+          email: 'admin@registrack.com',
+          password: 'Admin123!'
+        },
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Error creando administrador',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error en creación manual de admin:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Aplicar middlewares de respuesta estandarizada
 app.use(successResponse());
 app.use(errorResponse());

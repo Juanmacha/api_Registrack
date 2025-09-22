@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import sequelize from "./src/config/db.js";
 import { User, Rol } from "./src/models/user_rol.js";
+import { createAdminFixed } from "./create-admin-fixed.js";
 
 // Función para verificar si la base de datos está inicializada
 async function isDatabaseInitialized() {
@@ -152,7 +153,7 @@ export async function initializeDatabase() {
 
     // Crear administrador
     console.log("👤 Paso 2: Creando usuario administrador...");
-    const adminCreated = await createAdmin();
+    const adminCreated = await createAdminFixed();
     if (!adminCreated) {
       console.error("❌ Error creando administrador, abortando inicialización");
       return false;
