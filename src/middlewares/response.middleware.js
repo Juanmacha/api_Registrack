@@ -188,7 +188,8 @@ export const validateFieldTypes = (fieldTypes) => {
             isValid = typeof value === 'string' && /^[\+]?[1-9][\d]{0,15}$/.test(value.replace(/\s/g, ''));
             break;
           case 'document':
-            isValid = typeof value === 'string' && /^\d{6,10}$/.test(value);
+            isValid = (typeof value === 'string' && /^\d{6,10}$/.test(value)) || 
+                     (typeof value === 'number' && /^\d{6,10}$/.test(value.toString()));
             break;
           case 'password':
             isValid = typeof value === 'string' && /(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}/.test(value);
