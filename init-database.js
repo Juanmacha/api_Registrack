@@ -55,19 +55,9 @@ async function createAdmin() {
   try {
     console.log("👤 Verificando usuario administrador...");
     
-    const adminData = {
-      tipo_documento: "CC",
-      documento: 1234567890,
-      nombre: "Admin",
-      apellido: "Sistema",
-      correo: "admin@registrack.com",
-      contrasena: "Admin123!",
-      id_rol: 2, // ID del rol administrador
-    };
-
     // Verificar si ya existe el usuario
     const usuarioExistente = await User.findOne({
-      where: { correo: adminData.correo }
+      where: { correo: "admin@registrack.com" }
     });
 
     if (usuarioExistente) {
@@ -85,21 +75,42 @@ async function createAdmin() {
       return false;
     }
 
-    adminData.id_rol = rolAdmin.id;
+    console.log(`🔍 Rol administrador encontrado con ID: ${rolAdmin.id}`);
 
     // Hashear contraseña
     const saltRounds = 10;
-    adminData.contrasena = await bcrypt.hash(adminData.contrasena, saltRounds);
+    const hashedPassword = await bcrypt.hash("Admin123!", saltRounds);
 
     // Crear usuario administrador
+    const adminData = {
+      tipo_documento: "CC",
+      documento: 1234567890,
+      nombre: "Admin",
+      apellido: "Sistema",
+      correo: "admin@registrack.com",
+      contrasena: hashedPassword,
+      id_rol: rolAdmin.id,
+    };
+
+    console.log("📝 Creando usuario administrador con datos:", {
+      ...adminData,
+      contrasena: "[HASHED]"
+    });
+
     const nuevoAdmin = await User.create(adminData);
     console.log("✅ Usuario administrador creado exitosamente");
-    console.log(`📧 Email: ${adminData.correo}`);
+    console.log(`📧 Email: admin@registrack.com`);
     console.log(`🔑 Password: Admin123!`);
+    console.log(`🆔 ID del usuario: ${nuevoAdmin.id}`);
     
     return true;
   } catch (error) {
     console.error("❌ Error creando administrador:", error);
+    console.error("❌ Detalles del error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     return false;
   }
 }
@@ -113,6 +124,11 @@ export async function initializeDatabase() {
     await sequelize.authenticate();
     console.log("✅ Conexión a base de datos establecida");
 
+    // Sincronizar modelos con la base de datos
+    console.log("🔄 Sincronizando modelos con la base de datos...");
+    await sequelize.sync({ force: false });
+    console.log("✅ Modelos sincronizados");
+
     // Verificar si ya está inicializada
     const isInitialized = await isDatabaseInitialized();
     
@@ -124,13 +140,18 @@ export async function initializeDatabase() {
     console.log("🔧 Base de datos no inicializada, configurando...");
 
     // Crear roles primero
+    console.log("📋 Paso 1: Creando roles básicos...");
     const rolesCreated = await seedRoles();
     if (!rolesCreated) {
       console.error("❌ Error creando roles, abortando inicialización");
       return false;
     }
 
+    // Esperar un poco para asegurar que los roles se crearon
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Crear administrador
+    console.log("👤 Paso 2: Creando usuario administrador...");
     const adminCreated = await createAdmin();
     if (!adminCreated) {
       console.error("❌ Error creando administrador, abortando inicialización");
@@ -138,10 +159,20 @@ export async function initializeDatabase() {
     }
 
     console.log("🎉 Base de datos inicializada correctamente");
+    console.log("📊 Resumen:");
+    console.log("  - Roles creados: cliente, administrador, empleado");
+    console.log("  - Admin creado: admin@registrack.com");
+    console.log("  - Password: Admin123!");
+    
     return true;
     
   } catch (error) {
     console.error("❌ Error en inicialización de base de datos:", error);
+    console.error("❌ Detalles del error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     return false;
   }
 }
