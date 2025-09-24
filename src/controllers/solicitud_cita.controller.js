@@ -39,7 +39,7 @@ export const verMisSolicitudes = async (req, res) => {
     try {
         const solicitudes = await SolicitudCita.findAll({
             where: { id_cliente },
-            order: [['createdAt', 'DESC']]
+            order: [['id', 'DESC']]
         });
         res.json(solicitudes);
     } catch (error) {
@@ -58,7 +58,7 @@ export const getAllSolicitudes = async (req, res) => {
                 as: 'cliente',
                 attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
             }],
-            order: [['createdAt', 'DESC']]
+            order: [['id', 'DESC']]
         });
         res.json(solicitudes);
     } catch (error) {

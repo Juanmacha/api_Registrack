@@ -48,7 +48,7 @@ const SolicitudCita = sequelize.define("SolicitudCita", {
   }
 }, {
   tableName: "solicitudes_citas",
-  timestamps: true // Para saber cuándo se creó y actualizó
+  timestamps: false // La tabla no tiene columnas createdAt/updatedAt
 });
 
 // Relaciones

@@ -991,15 +991,206 @@ curl -X GET "http://localhost:3000/api/citas/reporte/excel" \
   -o reporte_citas.xlsx
 ```
 
+### 📋 Solicitudes de Citas
+
+#### 24. Crear solicitud de cita (Cliente)
+```bash
+curl -X POST "http://localhost:3000/api/gestion-solicitud-cita" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLIENTE_TOKEN>" \
+  -d '{
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "message": "Solicitud de cita creada exitosamente. Queda pendiente de aprobación.",
+  "solicitud": {
+    "id": 1,
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial",
+    "estado": "Pendiente",
+    "id_cliente": 1,
+    "observacion_admin": null,
+    "id_empleado_asignado": null
+  }
+}
+```
+
+#### 25. Ver mis solicitudes de cita (Cliente)
+```bash
+curl -X GET "http://localhost:3000/api/gestion-solicitud-cita/mis-solicitudes" \
+  -H "Authorization: Bearer <CLIENTE_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+[
+  {
+    "id": 1,
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial",
+    "estado": "Pendiente",
+    "id_cliente": 1,
+    "observacion_admin": null,
+    "id_empleado_asignado": null
+  }
+]
+```
+
+#### 26. Obtener todas las solicitudes de cita (Admin/Empleado)
+```bash
+curl -X GET "http://localhost:3000/api/gestion-solicitud-cita" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+[
+  {
+    "id": 1,
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial",
+    "estado": "Pendiente",
+    "id_cliente": 1,
+    "observacion_admin": null,
+    "id_empleado_asignado": null,
+    "cliente": {
+      "id_usuario": 1,
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "correo": "juan@example.com"
+    }
+  }
+]
+```
+
+#### 27. Gestionar solicitud de cita - Aprobar (Admin/Empleado)
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-solicitud-cita/1/gestionar" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "estado": "Aprobada",
+    "observacion_admin": "Cita aprobada. Se asignó al empleado Juan García.",
+    "id_empleado_asignado": 2,
+    "hora_fin": "11:00:00"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "message": "Solicitud aprobada y cita creada exitosamente.",
+  "solicitud": {
+    "id": 1,
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial",
+    "estado": "Aprobada",
+    "id_cliente": 1,
+    "observacion_admin": "Cita aprobada. Se asignó al empleado Juan García.",
+    "id_empleado_asignado": 2
+  },
+  "cita_creada": {
+    "id": 15,
+    "fecha": "2024-01-20",
+    "hora_inicio": "10:00:00",
+    "hora_fin": "11:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "estado": "Programada",
+    "id_cliente": 1,
+    "id_empleado": 2,
+    "observacion": "Necesito asesoría para certificar mi marca comercial"
+  }
+}
+```
+
+#### 28. Gestionar solicitud de cita - Rechazar (Admin/Empleado)
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-solicitud-cita/1/gestionar" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "estado": "Rechazada",
+    "observacion_admin": "No hay disponibilidad en esa fecha y hora. Por favor, solicite otro horario."
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "message": "Solicitud rechazada exitosamente.",
+  "solicitud": {
+    "id": 1,
+    "fecha_solicitada": "2024-01-20",
+    "hora_solicitada": "10:00:00",
+    "tipo": "Certificacion",
+    "modalidad": "Presencial",
+    "descripcion": "Necesito asesoría para certificar mi marca comercial",
+    "estado": "Rechazada",
+    "id_cliente": 1,
+    "observacion_admin": "No hay disponibilidad en esa fecha y hora. Por favor, solicite otro horario.",
+    "id_empleado_asignado": null
+  }
+}
+```
+
+#### 📋 Tipos de cita disponibles:
+- **General**: Consulta general
+- **Busqueda**: Búsqueda de antecedentes
+- **Ampliacion**: Ampliación de cobertura
+- **Certificacion**: Certificación de marca
+- **Renovacion**: Renovación de marca
+- **Cesion**: Cesión de derechos
+- **Oposicion**: Oposición de marca
+- **Respuesta de oposicion**: Respuesta a oposición
+
+#### 📋 Modalidades disponibles:
+- **Presencial**: Cita física en oficina
+- **Virtual**: Cita por videollamada
+
+#### 📋 Campos requeridos para crear solicitud:
+- `fecha_solicitada` (formato: YYYY-MM-DD)
+- `hora_solicitada` (formato: HH:MM:SS)
+- `tipo` (valores: General, Busqueda, Ampliacion, Certificacion, Renovacion, Cesion, Oposicion, Respuesta de oposicion)
+- `modalidad` (valores: Virtual, Presencial)
+
+#### 📋 Campos opcionales:
+- `descripcion` (texto libre)
+
+#### 📋 Estados de solicitud:
+- **Pendiente**: Solicitud creada, esperando aprobación
+- **Aprobada**: Solicitud aprobada, cita creada automáticamente
+- **Rechazada**: Solicitud rechazada con observaciones del administrador
+
 ### 📊 Seguimiento
 
-#### 24. Obtener historial de seguimiento
+#### 29. Obtener historial de seguimiento
 ```bash
 curl -X GET "http://localhost:3000/api/seguimiento/historial/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 25. Crear seguimiento
+#### 30. Crear seguimiento
 ```bash
 curl -X POST "http://localhost:3000/api/seguimiento/crear" \
   -H "Content-Type: application/json" \
@@ -1007,7 +1198,7 @@ curl -X POST "http://localhost:3000/api/seguimiento/crear" \
   -d '{
     "id_orden_servicio": 1,
     "titulo": "Revisión de documentos",
-    "descripcion": "Se han revisado todos los documentos presentados. Faltan algunos anexos que se solicitarán al cliente.",
+    "descripcion": "Se han revisado todos los documentos presentados. Faltan algunos anexos que se solicitarán al cliente.",                                   
     "documentos_adjuntos": {
       "acta_revision": "documento1.pdf",
       "observaciones": "observaciones.pdf"
@@ -1015,14 +1206,14 @@ curl -X POST "http://localhost:3000/api/seguimiento/crear" \
   }'
 ```
 
-#### 26. Actualizar seguimiento
+#### 31. Actualizar seguimiento
 ```bash
 curl -X PUT "http://localhost:3000/api/seguimiento/1" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
     "titulo": "Revisión de documentos - Actualizada",
-    "descripcion": "Se han revisado todos los documentos presentados. Los anexos faltantes han sido recibidos y están siendo procesados.",
+    "descripcion": "Se han revisado todos los documentos presentados. Los anexos faltantes han sido recibidos y están siendo procesados.",                     
     "documentos_adjuntos": {
       "acta_revision": "documento1.pdf",
       "observaciones": "observaciones.pdf",
@@ -1031,7 +1222,7 @@ curl -X PUT "http://localhost:3000/api/seguimiento/1" \
   }'
 ```
 
-#### 27. Buscar seguimiento por título
+#### 32. Buscar seguimiento por título
 ```bash
 curl -X GET "http://localhost:3000/api/seguimiento/buscar/1?titulo=revisión" \
   -H "Authorization: Bearer <TOKEN>"
@@ -1039,7 +1230,7 @@ curl -X GET "http://localhost:3000/api/seguimiento/buscar/1?titulo=revisión" \
 
 ### 📁 Archivos
 
-#### 28. Subir archivo
+#### 33. Subir archivo
 ```bash
 curl -X POST "http://localhost:3000/api/archivos/upload" \
   -H "Content-Type: application/json" \
@@ -1052,14 +1243,14 @@ curl -X POST "http://localhost:3000/api/archivos/upload" \
   }'
 ```
 
-#### 29. Descargar archivo
+#### 34. Descargar archivo
 ```bash
 curl -X GET "http://localhost:3000/api/archivos/1/download" \
   -H "Authorization: Bearer <TOKEN>" \
   -o archivo_descargado.pdf
 ```
 
-#### 30. Obtener archivos de un cliente
+#### 35. Obtener archivos de un cliente
 ```bash
 curl -X GET "http://localhost:3000/api/archivos/cliente/1" \
   -H "Authorization: Bearer <TOKEN>"
@@ -1067,13 +1258,13 @@ curl -X GET "http://localhost:3000/api/archivos/cliente/1" \
 
 ### 👥 Gestión de Clientes
 
-#### 31. Obtener todos los clientes
+#### 36. Obtener todos los clientes
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 32. Crear cliente
+#### 37. Crear cliente
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-clientes" \
   -H "Content-Type: application/json" \
@@ -1095,13 +1286,13 @@ curl -X POST "http://localhost:3000/api/gestion-clientes" \
   }'
 ```
 
-#### 33. Obtener cliente por ID
+#### 38. Obtener cliente por ID
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 34. Actualizar cliente
+#### 39. Actualizar cliente
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-clientes/1" \
   -H "Content-Type: application/json" \
@@ -1113,7 +1304,7 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/1" \
   }'
 ```
 
-#### 35. Descargar reporte de clientes en Excel
+#### 40. Descargar reporte de clientes en Excel
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
@@ -1122,13 +1313,13 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 
 ### 💰 Gestión de Pagos
 
-#### 36. Obtener todos los pagos
+#### 41. Obtener todos los pagos
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-pagos" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 37. Crear pago
+#### 42. Crear pago
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-pagos" \
   -H "Content-Type: application/json" \
@@ -1144,7 +1335,7 @@ curl -X POST "http://localhost:3000/api/gestion-pagos" \
   }'
 ```
 
-#### 38. Obtener pago por ID
+#### 43. Obtener pago por ID
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-pagos/1" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
@@ -1152,7 +1343,7 @@ curl -X GET "http://localhost:3000/api/gestion-pagos/1" \
 
 ### 🏢 Gestión de Empresas
 
-#### 39. Crear empresa
+#### 44. Crear empresa
 ```bash
 curl -X POST "http://localhost:3000/api/empresas" \
   -H "Content-Type: application/json" \
@@ -1193,13 +1384,13 @@ curl -X POST "http://localhost:3000/api/empresas" \
 }
 ```
 
-#### 40. Obtener clientes de una empresa
+#### 45. Obtener clientes de una empresa
 ```bash
 curl -X GET "http://localhost:3000/api/empresas/1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 41. Obtener clientes por NIT
+#### 46. Obtener clientes por NIT
 ```bash
 curl -X GET "http://localhost:3000/api/empresas/nit/900123456-1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
@@ -1207,13 +1398,13 @@ curl -X GET "http://localhost:3000/api/empresas/nit/900123456-1/clientes" \
 
 ### 🔧 Gestión de Tipos de Archivo
 
-#### 42. Obtener tipos de archivo
+#### 47. Obtener tipos de archivo
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 43. Crear tipo de archivo
+#### 48. Crear tipo de archivo
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Content-Type: application/json" \
@@ -1223,25 +1414,25 @@ curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   }'
 ```
 
-#### 44. Actualizar tipo de archivo
+#### 49. Actualizar tipo de archivo
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-tipo-archivos/1" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
-    "descripcion": "Certificado de existencia y representación legal - Actualizado"
+    "descripcion": "Certificado de existencia y representación legal - Actualizado"                                                                            
   }'
 ```
 
 ### 📋 Formularios Dinámicos
 
-#### 45. Obtener formulario por servicio
+#### 50. Obtener formulario por servicio
 ```bash
 curl -X GET "http://localhost:3000/api/formularios-dinamicos/servicio/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 46. Validar formulario
+#### 51. Validar formulario
 ```bash
 curl -X POST "http://localhost:3000/api/formularios-dinamicos/validar" \
   -H "Content-Type: application/json" \
