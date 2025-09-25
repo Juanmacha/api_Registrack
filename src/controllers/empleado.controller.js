@@ -43,14 +43,54 @@ export const getAllEmpleados = async (req, res) => {
             estado: true // Estado activo por defecto
           });
           
-          // Actualizar el mapa con el nuevo empleado
-          empleadosMap.set(usuario.id_usuario, nuevoEmpleado);
-          empleadoInfo = nuevoEmpleado;
+          // Obtener la información completa del empleado recién creado con datos del usuario
+          const empleadoCompleto = await Empleado.findByPk(nuevoEmpleado.id_empleado, {
+            include: [
+              { 
+                model: User, 
+                as: "usuario",
+                include: [
+                  {
+                    model: Rol,
+                    as: "rol"
+                  }
+                ]
+              }
+            ]
+          });
           
-          console.log(`✅ Empleado creado automáticamente para usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario})`);
+          // Actualizar el mapa con el empleado completo
+          empleadosMap.set(usuario.id_usuario, empleadoCompleto);
+          empleadoInfo = empleadoCompleto;
+          
+          console.log(`✅ Empleado creado automáticamente para usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario}, ID Empleado: ${nuevoEmpleado.id_empleado})`);
         } catch (createError) {
           console.error(`❌ Error al crear empleado para usuario ${usuario.id_usuario}:`, createError.message);
           // Continuar con el usuario aunque no se haya podido crear el empleado
+        }
+      }
+      
+      // Si el empleado existe pero no tiene información completa, obtenerla
+      if (empleadoInfo && !empleadoInfo.usuario) {
+        try {
+          const empleadoCompleto = await Empleado.findByPk(empleadoInfo.id_empleado, {
+            include: [
+              { 
+                model: User, 
+                as: "usuario",
+                include: [
+                  {
+                    model: Rol,
+                    as: "rol"
+                  }
+                ]
+              }
+            ]
+          });
+          empleadosMap.set(usuario.id_usuario, empleadoCompleto);
+          empleadoInfo = empleadoCompleto;
+        } catch (error) {
+          console.error(`❌ Error al obtener información completa del empleado ${empleadoInfo.id_empleado}:`, error.message);
         }
       }
       
@@ -62,7 +102,7 @@ export const getAllEmpleados = async (req, res) => {
         rol: usuario.rol?.nombre || 'Sin rol',
         id_rol: usuario.id_rol,
         estado_usuario: usuario.estado,
-        // Información del empleado (ahora siempre debería existir)
+        // Información del empleado (ahora siempre debería existir y ser completa)
         id_empleado: empleadoInfo?.id_empleado || null,
         estado_empleado: empleadoInfo?.estado || null,
         es_empleado_registrado: !!empleadoInfo
@@ -171,7 +211,20 @@ export const createEmpleado = async (req, res) => {
 
 export const updateEmpleado = async (req, res) => {
   const { id } = req.params;
-  const { id_usuario, estado } = req.body;
+  const { 
+    id_usuario, 
+    estado,
+    // Campos del usuario
+    tipo_documento,
+    documento,
+    nombre,
+    apellido,
+    correo,
+    contrasena,
+    id_rol,
+    estado_usuario
+  } = req.body;
+  
   try {
     const empleado = await Empleado.findByPk(id, {
       include: [
@@ -192,22 +245,58 @@ export const updateEmpleado = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
 
-    // Actualizar campos
-    empleado.id_usuario = id_usuario !== undefined ? id_usuario : empleado.id_usuario;
-    empleado.estado = estado !== undefined ? estado : empleado.estado;
+    // Actualizar campos del empleado
+    if (id_usuario !== undefined) {
+      empleado.id_usuario = id_usuario;
+    }
+    if (estado !== undefined) {
+      empleado.estado = estado;
+    }
     await empleado.save();
+
+    // Actualizar campos del usuario si se proporcionan
+    if (empleado.usuario) {
+      const usuario = empleado.usuario;
+      
+      if (tipo_documento !== undefined) usuario.tipo_documento = tipo_documento;
+      if (documento !== undefined) usuario.documento = documento;
+      if (nombre !== undefined) usuario.nombre = nombre;
+      if (apellido !== undefined) usuario.apellido = apellido;
+      if (correo !== undefined) usuario.correo = correo;
+      if (contrasena !== undefined) usuario.contrasena = contrasena;
+      if (id_rol !== undefined) usuario.id_rol = id_rol;
+      if (estado_usuario !== undefined) usuario.estado = estado_usuario;
+      
+      await usuario.save();
+    }
+
+    // Obtener la información actualizada
+    const empleadoActualizado = await Empleado.findByPk(id, {
+      include: [
+        { 
+          model: User, 
+          as: "usuario",
+          include: [
+            {
+              model: Rol,
+              as: "rol"
+            }
+          ]
+        }
+      ]
+    });
 
     // Formatear respuesta similar al getAllEmpleados
     const resultado = {
-      id_usuario: empleado.usuario?.id_usuario,
-      nombre: empleado.usuario?.nombre,
-      apellido: empleado.usuario?.apellido,
-      correo: empleado.usuario?.correo,
-      rol: empleado.usuario?.rol?.nombre || 'Sin rol',
-      id_rol: empleado.usuario?.id_rol,
-      estado_usuario: empleado.usuario?.estado,
-      id_empleado: empleado.id_empleado,
-      estado_empleado: empleado.estado,
+      id_usuario: empleadoActualizado.usuario?.id_usuario,
+      nombre: empleadoActualizado.usuario?.nombre,
+      apellido: empleadoActualizado.usuario?.apellido,
+      correo: empleadoActualizado.usuario?.correo,
+      rol: empleadoActualizado.usuario?.rol?.nombre || 'Sin rol',
+      id_rol: empleadoActualizado.usuario?.id_rol,
+      estado_usuario: empleadoActualizado.usuario?.estado,
+      id_empleado: empleadoActualizado.id_empleado,
+      estado_empleado: empleadoActualizado.estado,
       es_empleado_registrado: true
     };
 
@@ -315,10 +404,26 @@ export const descargarReporteEmpleados = async (req, res) => {
             estado: true // Estado activo por defecto
           });
           
-          // Actualizar el mapa con el nuevo empleado
-          empleadosMap.set(usuario.id_usuario, nuevoEmpleado);
+          // Obtener la información completa del empleado recién creado
+          const empleadoCompleto = await Empleado.findByPk(nuevoEmpleado.id_empleado, {
+            include: [
+              { 
+                model: User, 
+                as: "usuario",
+                include: [
+                  {
+                    model: Rol,
+                    as: "rol"
+                  }
+                ]
+              }
+            ]
+          });
           
-          console.log(`✅ Empleado creado automáticamente para reporte - usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario})`);
+          // Actualizar el mapa con el empleado completo
+          empleadosMap.set(usuario.id_usuario, empleadoCompleto);
+          
+          console.log(`✅ Empleado creado automáticamente para reporte - usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario}, ID Empleado: ${nuevoEmpleado.id_empleado})`);
         } catch (createError) {
           console.error(`❌ Error al crear empleado para reporte - usuario ${usuario.id_usuario}:`, createError.message);
         }

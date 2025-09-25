@@ -695,10 +695,12 @@ GET /api/gestion-empleados/reporte/excel # Reporte en Excel
   - Body requerido: `id_usuario` (int ≥1, debe existir y tener rol admin/empleado), `estado` (boolean, opcional, default: true)
   - Validaciones: Usuario debe existir, tener rol admin/empleado, y no tener empleado existente
   - Respuesta: Información completa del empleado creado
-- **PUT /:id** (auth, administrador): Actualizar empleado
+- **PUT /:id** (auth, administrador): Actualizar empleado y datos del usuario asociado
   - Parámetro: `id` (int ≥1, id_empleado)
-  - Body opcional: `id_usuario` (int ≥1), `estado` (boolean)
-  - Respuesta: Información completa del empleado actualizado
+  - Body opcional: 
+    - **Campos del empleado**: `id_usuario` (int ≥1), `estado` (boolean)
+    - **Campos del usuario**: `tipo_documento`, `documento`, `nombre`, `apellido`, `correo`, `contrasena`, `id_rol`, `estado_usuario`
+  - Respuesta: Información completa del empleado y usuario actualizados
 - **PATCH /:id/estado** (auth, administrador): Cambiar solo el estado del empleado
   - Parámetro: `id` (int ≥1, id_empleado)
   - Body requerido: `estado` (boolean)
@@ -1544,14 +1546,17 @@ curl -X POST "http://localhost:3000/api/gestion-empleados" \
 
 **⚠️ Nota**: El usuario debe existir y tener rol administrador (id_rol = 1) o empleado (id_rol = 2). No se puede crear un empleado para un usuario que ya tiene un registro de empleado.
 
-#### 50. Actualizar empleado
+#### 50. Actualizar empleado y datos del usuario
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
-    "id_usuario": 2,
-    "estado": false
+    "nombre": "Juan Carlos",
+    "apellido": "García López",
+    "correo": "juan.carlos@empleado.com",
+    "estado": false,
+    "estado_usuario": true
   }'
 ```
 
@@ -1559,9 +1564,9 @@ curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
 ```json
 {
   "id_usuario": 2,
-  "nombre": "Juan",
-  "apellido": "García",
-  "correo": "juan@empleado.com",
+  "nombre": "Juan Carlos",
+  "apellido": "García López",
+  "correo": "juan.carlos@empleado.com",
   "rol": "empleado",
   "id_rol": 2,
   "estado_usuario": true,
@@ -1569,6 +1574,31 @@ curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
   "estado_empleado": false,
   "es_empleado_registrado": true
 }
+```
+
+**⚠️ Nota**: Puedes editar cualquier combinación de campos del empleado y del usuario asociado. Los campos no incluidos en el body mantendrán sus valores actuales.
+
+**Ejemplos adicionales de edición:**
+
+**Editar solo documento y tipo de documento:**
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "tipo_documento": "CC",
+    "documento": "12345678"
+  }'
+```
+
+**Editar solo el rol del usuario:**
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "id_rol": 1
+  }'
 ```
 
 #### 51. Cambiar estado del empleado
