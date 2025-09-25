@@ -29,11 +29,32 @@ export const getAllEmpleados = async (req, res) => {
       empleadosMap.set(emp.id_usuario, emp);
     });
 
-    // Combinar usuarios con información de empleados
-    const resultado = usuarios.map(usuario => {
-      const empleadoInfo = empleadosMap.get(usuario.id_usuario);
+    // Crear registros de empleados faltantes y obtener información actualizada
+    const resultado = [];
+    
+    for (const usuario of usuarios) {
+      let empleadoInfo = empleadosMap.get(usuario.id_usuario);
       
-      return {
+      // Si no existe registro en la tabla empleados, crearlo automáticamente
+      if (!empleadoInfo) {
+        try {
+          const nuevoEmpleado = await Empleado.create({
+            id_usuario: usuario.id_usuario,
+            estado: true // Estado activo por defecto
+          });
+          
+          // Actualizar el mapa con el nuevo empleado
+          empleadosMap.set(usuario.id_usuario, nuevoEmpleado);
+          empleadoInfo = nuevoEmpleado;
+          
+          console.log(`✅ Empleado creado automáticamente para usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario})`);
+        } catch (createError) {
+          console.error(`❌ Error al crear empleado para usuario ${usuario.id_usuario}:`, createError.message);
+          // Continuar con el usuario aunque no se haya podido crear el empleado
+        }
+      }
+      
+      resultado.push({
         id_usuario: usuario.id_usuario,
         nombre: usuario.nombre,
         apellido: usuario.apellido,
@@ -41,12 +62,12 @@ export const getAllEmpleados = async (req, res) => {
         rol: usuario.rol?.nombre || 'Sin rol',
         id_rol: usuario.id_rol,
         estado_usuario: usuario.estado,
-        // Información del empleado si existe
+        // Información del empleado (ahora siempre debería existir)
         id_empleado: empleadoInfo?.id_empleado || null,
         estado_empleado: empleadoInfo?.estado || null,
         es_empleado_registrado: !!empleadoInfo
-      };
-    });
+      });
+    }
 
     res.status(200).json(resultado);
   } catch (error) {
@@ -150,6 +171,28 @@ export const descargarReporteEmpleados = async (req, res) => {
       empleadosMap.set(emp.id_usuario, emp);
     });
 
+    // Crear registros de empleados faltantes
+    for (const usuario of usuarios) {
+      let empleadoInfo = empleadosMap.get(usuario.id_usuario);
+      
+      // Si no existe registro en la tabla empleados, crearlo automáticamente
+      if (!empleadoInfo) {
+        try {
+          const nuevoEmpleado = await Empleado.create({
+            id_usuario: usuario.id_usuario,
+            estado: true // Estado activo por defecto
+          });
+          
+          // Actualizar el mapa con el nuevo empleado
+          empleadosMap.set(usuario.id_usuario, nuevoEmpleado);
+          
+          console.log(`✅ Empleado creado automáticamente para reporte - usuario ${usuario.nombre} ${usuario.apellido} (ID: ${usuario.id_usuario})`);
+        } catch (createError) {
+          console.error(`❌ Error al crear empleado para reporte - usuario ${usuario.id_usuario}:`, createError.message);
+        }
+      }
+    }
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Empleados y Administradores");
 
@@ -161,8 +204,7 @@ export const descargarReporteEmpleados = async (req, res) => {
       { header: "Rol", key: "rol", width: 20 },
       { header: "Estado Usuario", key: "estado_usuario", width: 15 },
       { header: "ID Empleado", key: "id_empleado", width: 15 },
-      { header: "Estado Empleado", key: "estado_empleado", width: 15 },
-      { header: "Es Empleado Registrado", key: "es_empleado_registrado", width: 25 }
+      { header: "Estado Empleado", key: "estado_empleado", width: 15 }
     ];
 
     usuarios.forEach(usuario => {
@@ -176,8 +218,7 @@ export const descargarReporteEmpleados = async (req, res) => {
         rol: usuario.rol?.nombre || 'Sin rol',
         estado_usuario: usuario.estado ? 'Activo' : 'Inactivo',
         id_empleado: empleadoInfo?.id_empleado || 'N/A',
-        estado_empleado: empleadoInfo?.estado ? 'Activo' : (empleadoInfo?.estado === false ? 'Inactivo' : 'N/A'),
-        es_empleado_registrado: empleadoInfo ? 'Sí' : 'No'
+        estado_empleado: empleadoInfo?.estado ? 'Activo' : (empleadoInfo?.estado === false ? 'Inactivo' : 'N/A')
       });
     });
 

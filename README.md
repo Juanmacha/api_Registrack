@@ -686,7 +686,7 @@ GET /api/gestion-empleados/reporte/excel # Reporte en Excel
 - **GET /nit/:nit/clientes** (auth): Clientes por NIT
 
 ### Empleados (`/api/gestion-empleados`) [auth, administrador]
-- **GET /** (auth, administrador): Listar todos los usuarios con rol administrador o empleado, incluyendo información de empleados registrados
+- **GET /** (auth, administrador): Listar todos los usuarios con rol administrador o empleado. **Crea automáticamente registros de empleados faltantes** para que todos tengan un id_empleado
 - **GET /:id** (auth, administrador): Obtener empleado por ID con información del usuario
   - Parámetro: `id` (int ≥1)
 - **POST /** (auth, administrador): Crear empleado
@@ -700,15 +700,18 @@ GET /api/gestion-empleados/reporte/excel # Reporte en Excel
 - **DELETE /:id** (auth, administrador): Eliminar empleado
   - Parámetro: `id` (int ≥1)
 - **GET /reporte/excel** (auth, administrador): Descargar reporte de empleados y administradores en Excel
-  - Descarga archivo con columnas: ID Usuario, Nombre, Apellido, Email, Rol, Estado Usuario, ID Empleado, Estado Empleado, Es Empleado Registrado
+  - Descarga archivo con columnas: ID Usuario, Nombre, Apellido, Email, Rol, Estado Usuario, ID Empleado, Estado Empleado
 
 **Notas importantes:**
 - Solo administradores pueden acceder a estos endpoints
 - El endpoint GET muestra TODOS los usuarios con rol administrador o empleado
+- **CREACIÓN AUTOMÁTICA**: Si un usuario con rol admin/empleado no tiene registro en la tabla empleados, se crea automáticamente con estado activo
+- Todos los usuarios con rol admin/empleado tendrán un `id_empleado` después de la primera consulta
 - Los empleados se asocian con usuarios existentes (no se crean usuarios nuevos)
 - El `id_usuario` debe existir en la tabla usuarios
 - El reporte Excel incluye tanto administradores como empleados
-- El campo `es_empleado_registrado` indica si el usuario está registrado en la tabla empleados
+- El campo `es_empleado_registrado` siempre será `true` después de la creación automática
+- El reporte Excel también crea empleados faltantes automáticamente antes de generar el archivo
 
 ### Otros módulos
 - **Pagos**: Gestión de pagos y transacciones
@@ -1458,9 +1461,9 @@ curl -X GET "http://localhost:3000/api/gestion-empleados" \
     "rol": "administrador",
     "id_rol": 1,
     "estado_usuario": true,
-    "id_empleado": null,
-    "estado_empleado": null,
-    "es_empleado_registrado": false
+    "id_empleado": 1,
+    "estado_empleado": true,
+    "es_empleado_registrado": true
   },
   {
     "id_usuario": 2,
@@ -1470,12 +1473,14 @@ curl -X GET "http://localhost:3000/api/gestion-empleados" \
     "rol": "empleado",
     "id_rol": 2,
     "estado_usuario": true,
-    "id_empleado": 1,
+    "id_empleado": 2,
     "estado_empleado": true,
     "es_empleado_registrado": true
   }
 ]
 ```
+
+**⚠️ Nota importante**: Si un usuario con rol administrador o empleado no tenía registro en la tabla empleados, se crea automáticamente al hacer esta consulta. Por eso todos los usuarios en la respuesta tendrán un `id_empleado` válido.
 
 #### 48. Obtener empleado por ID
 ```bash
@@ -1575,7 +1580,7 @@ curl -X DELETE "http://localhost:3000/api/gestion-empleados/1" \
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-empleados/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
-  -o reporte_empleados.xlsx
+  -o reporte_empleados_y_administradores.xlsx
 ```
 
 **Respuesta**: Descarga un archivo Excel con el nombre `reporte_empleados_y_administradores.xlsx` que contiene:
@@ -1587,7 +1592,8 @@ curl -X GET "http://localhost:3000/api/gestion-empleados/reporte/excel" \
 - Estado Usuario
 - ID Empleado
 - Estado Empleado
-- Es Empleado Registrado
+
+**⚠️ Nota**: El reporte Excel también crea automáticamente registros de empleados faltantes antes de generar el archivo, garantizando que todos los usuarios tengan un `id_empleado`.
 
 ### 🔧 Gestión de Tipos de Archivo
 
