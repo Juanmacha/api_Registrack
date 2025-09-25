@@ -701,15 +701,15 @@ GET /api/gestion-empleados/reporte/excel # Reporte en Excel
     - **Campos del empleado**: `id_usuario` (int ≥1), `estado` (boolean)
     - **Campos del usuario**: `tipo_documento`, `documento`, `nombre`, `apellido`, `correo`, `contrasena`, `id_rol`, `estado_usuario`
   - Respuesta: Información completa del empleado y usuario actualizados
-- **PATCH /:id/estado** (auth, administrador): Cambiar solo el estado del empleado
+- **PATCH /:id/estado** (auth, administrador): Cambiar estado del empleado y usuario asociado
   - Parámetro: `id` (int ≥1, id_empleado)
   - Body requerido: `estado` (boolean)
-  - Respuesta: Información completa del empleado con estado actualizado
-- **DELETE /:id** (auth, administrador): Eliminar empleado
+  - Respuesta: Información completa del empleado y usuario con estados actualizados
+- **DELETE /:id** (auth, administrador): Eliminar empleado y usuario asociado
   - Parámetro: `id` (int ≥1, id_empleado)
-  - Respuesta: Mensaje de confirmación
+  - Respuesta: Mensaje de confirmación con IDs eliminados
 - **GET /reporte/excel** (auth, administrador): Descargar reporte de empleados y administradores en Excel
-  - Descarga archivo con columnas: ID Usuario, Nombre, Apellido, Email, Rol, Estado Usuario, ID Empleado, Estado Empleado
+  - Descarga archivo con columnas: ID Usuario, Nombre, Apellido, Email, Tipo Documento, Documento, Rol, Estado Usuario, ID Empleado, Estado Empleado
   - **Crea automáticamente empleados faltantes** antes de generar el reporte
 
 **Notas importantes:**
@@ -725,6 +725,8 @@ GET /api/gestion-empleados/reporte/excel # Reporte en Excel
 - El campo `es_empleado_registrado` siempre será `true` después de la creación automática
 - El reporte Excel también crea empleados faltantes automáticamente antes de generar el archivo
 - **ESTRUCTURA UNIFICADA**: Todas las respuestas siguen el mismo formato con información completa
+- **INFORMACIÓN DE IDENTIFICACIÓN**: Todas las respuestas incluyen `tipo_documento` y `documento` del usuario
+- **REPORTE EXCEL COMPLETO**: Incluye columnas de tipo de documento y número de documento
 
 ### Otros módulos
 - **Pagos**: Gestión de pagos y transacciones
@@ -788,6 +790,8 @@ curl -X POST "http://localhost:3000/api/usuarios/login" \
     "nombre": "Admin",
     "apellido": "Sistema",
     "correo": "admin@registrack.com",
+    "tipo_documento": "CC",
+    "documento": "87654321",
     "rol": "administrador"
   }
 }
@@ -1471,6 +1475,8 @@ curl -X GET "http://localhost:3000/api/gestion-empleados" \
     "nombre": "Admin",
     "apellido": "Sistema",
     "correo": "admin@registrack.com",
+    "tipo_documento": "CC",
+    "documento": "87654321",
     "rol": "administrador",
     "id_rol": 1,
     "estado_usuario": true,
@@ -1483,6 +1489,8 @@ curl -X GET "http://localhost:3000/api/gestion-empleados" \
     "nombre": "Juan",
     "apellido": "García",
     "correo": "juan@empleado.com",
+    "tipo_documento": "CC",
+    "documento": "12345678",
     "rol": "empleado",
     "id_rol": 2,
     "estado_usuario": true,
@@ -1578,6 +1586,8 @@ curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
 
 **⚠️ Nota**: Puedes editar cualquier combinación de campos del empleado y del usuario asociado. Los campos no incluidos en el body mantendrán sus valores actuales.
 
+**🔄 Respuesta actualizada**: Después de la edición, la respuesta incluye **toda la información actualizada** del usuario y empleado, no solo los campos modificados.
+
 **Ejemplos adicionales de edición:**
 
 **Editar solo documento y tipo de documento:**
@@ -1601,7 +1611,7 @@ curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
   }'
 ```
 
-#### 51. Cambiar estado del empleado
+#### 51. Cambiar estado del empleado y usuario asociado
 ```bash
 curl -X PATCH "http://localhost:3000/api/gestion-empleados/1/estado" \
   -H "Content-Type: application/json" \
@@ -1627,7 +1637,9 @@ curl -X PATCH "http://localhost:3000/api/gestion-empleados/1/estado" \
 }
 ```
 
-#### 52. Eliminar empleado
+**🔄 Respuesta actualizada**: El cambio de estado actualiza **tanto el empleado como el usuario asociado** y devuelve información completa de ambos.
+
+#### 52. Eliminar empleado y usuario asociado
 ```bash
 curl -X DELETE "http://localhost:3000/api/gestion-empleados/1" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
@@ -1636,9 +1648,13 @@ curl -X DELETE "http://localhost:3000/api/gestion-empleados/1" \
 **Respuesta esperada:**
 ```json
 {
-  "message": "Empleado eliminado correctamente."
+  "message": "Empleado y usuario asociado eliminados correctamente.",
+  "id_empleado_eliminado": 1,
+  "id_usuario_eliminado": 2
 }
 ```
+
+**⚠️ Importante**: Esta operación elimina **tanto el empleado como el usuario asociado** de forma permanente. Esta acción no se puede deshacer.
 
 #### 53. Descargar reporte de empleados en Excel
 ```bash
@@ -2261,7 +2277,8 @@ Para soporte técnico o consultas:
    - ✅ **getEmpleadoById**: Respuesta completa con información del usuario
    - ✅ **createEmpleado**: Validaciones robustas y respuesta completa
    - ✅ **updateEmpleado**: Respuesta completa del empleado actualizado
-   - ✅ **changeEmpleadoState**: Respuesta completa con estado actualizado
+   - ✅ **deleteEmpleado**: Elimina empleado y usuario asociado completamente
+   - ✅ **changeEmpleadoState**: Actualiza estado del empleado y usuario asociado
    - ✅ **descargarReporteEmpleados**: Crea empleados faltantes antes del reporte
 
 #### **🐛 Problemas Resueltos:**
@@ -2273,6 +2290,9 @@ Para soporte técnico o consultas:
 | Falta de validaciones | ✅ Resuelto | Validaciones robustas en POST |
 | Información incompleta | ✅ Resuelto | Incluye datos de usuario, rol y empleado |
 | Reporte Excel incompleto | ✅ Resuelto | Crea empleados faltantes automáticamente |
+| Eliminación parcial | ✅ Resuelto | Elimina empleado y usuario asociado completamente |
+| Estados desincronizados | ✅ Resuelto | Cambio de estado sincroniza empleado y usuario |
+| Información de identificación incompleta | ✅ Resuelto | Incluye tipo_documento y documento en todas las respuestas |
 
 #### **📊 Métricas de Mejora:**
 
@@ -2289,17 +2309,54 @@ Para soporte técnico o consultas:
 - ✅ **Validaciones robustas** - Verificaciones completas antes de crear
 - ✅ **Información completa** - Datos de usuario, rol y empleado siempre incluidos
 - ✅ **Reporte Excel mejorado** - Crea empleados faltantes automáticamente
+- ✅ **Eliminación completa** - Elimina empleado y usuario asociado en una sola operación
+- ✅ **Sincronización de estados** - Cambio de estado actualiza empleado y usuario simultáneamente
+- ✅ **Información de identificación completa** - Incluye tipo_documento y documento en todas las respuestas
 
 #### **📝 Documentación Actualizada:**
 
 - ✅ README.md completamente actualizado
-- ✅ Ejemplos de respuesta actualizados
+- ✅ Ejemplos de respuesta actualizados con tipo_documento y documento
 - ✅ Validaciones documentadas
 - ✅ Notas importantes agregadas
 - ✅ Estructura de respuestas documentada
+- ✅ Reporte Excel actualizado con nuevas columnas
+
+#### **🆕 Últimas Actualizaciones (Enero 2024):**
+
+**Información de Identificación Completa:**
+- ✅ **Tipo de Documento**: Incluido en todas las respuestas de empleados
+- ✅ **Número de Documento**: Incluido en todas las respuestas de empleados
+- ✅ **Reporte Excel Mejorado**: Nuevas columnas para identificación completa
+- ✅ **Consistencia Total**: Todas las funciones devuelven la misma estructura
+
+**Estructura de Respuesta Actualizada:**
+```json
+{
+  "id_usuario": 2,
+  "nombre": "Juan",
+  "apellido": "García",
+  "correo": "juan@empleado.com",
+  "tipo_documento": "CC",
+  "documento": "12345678",
+  "rol": "empleado",
+  "id_rol": 2,
+  "estado_usuario": true,
+  "id_empleado": 1,
+  "estado_empleado": true,
+  "es_empleado_registrado": true
+}
+```
+
+**Funciones Actualizadas:**
+- ✅ `getAllEmpleados` - Incluye tipo_documento y documento
+- ✅ `getEmpleadoById` - Incluye tipo_documento y documento
+- ✅ `createEmpleado` - Incluye tipo_documento y documento
+- ✅ `updateEmpleado` - Incluye tipo_documento y documento
+- ✅ `changeEmpleadoState` - Incluye tipo_documento y documento
 
 ---
 
 **API Registrack** - Sistema integral de gestión de servicios legales y de propiedad intelectual.
 
-**Versión actual**: 2.1 - Módulo de Empleados Completamente Actualizado ✅
+**Versión actual**: 2.2 - Módulo de Empleados con Información de Identificación Completa ✅

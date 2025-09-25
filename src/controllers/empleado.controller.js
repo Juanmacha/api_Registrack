@@ -99,6 +99,8 @@ export const getAllEmpleados = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         correo: usuario.correo,
+        tipo_documento: usuario.tipo_documento,
+        documento: usuario.documento,
         rol: usuario.rol?.nombre || 'Sin rol',
         id_rol: usuario.id_rol,
         estado_usuario: usuario.estado,
@@ -143,6 +145,8 @@ export const getEmpleadoById = async (req, res) => {
       nombre: empleado.usuario?.nombre,
       apellido: empleado.usuario?.apellido,
       correo: empleado.usuario?.correo,
+      tipo_documento: empleado.usuario?.tipo_documento,
+      documento: empleado.usuario?.documento,
       rol: empleado.usuario?.rol?.nombre || 'Sin rol',
       id_rol: empleado.usuario?.id_rol,
       estado_usuario: empleado.usuario?.estado,
@@ -195,6 +199,8 @@ export const createEmpleado = async (req, res) => {
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       correo: usuario.correo,
+      tipo_documento: usuario.tipo_documento,
+      documento: usuario.documento,
       rol: usuario.rol?.nombre || 'Sin rol',
       id_rol: usuario.id_rol,
       estado_usuario: usuario.estado,
@@ -292,6 +298,8 @@ export const updateEmpleado = async (req, res) => {
       nombre: empleadoActualizado.usuario?.nombre,
       apellido: empleadoActualizado.usuario?.apellido,
       correo: empleadoActualizado.usuario?.correo,
+      tipo_documento: empleadoActualizado.usuario?.tipo_documento,
+      documento: empleadoActualizado.usuario?.documento,
       rol: empleadoActualizado.usuario?.rol?.nombre || 'Sin rol',
       id_rol: empleadoActualizado.usuario?.id_rol,
       estado_usuario: empleadoActualizado.usuario?.estado,
@@ -329,39 +337,78 @@ export const changeEmpleadoState = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
     
+    // Actualizar estado del empleado
     empleado.estado = estado;
     await empleado.save();
 
+    // Actualizar estado del usuario asociado
+    if (empleado.usuario) {
+      empleado.usuario.estado = estado;
+      await empleado.usuario.save();
+    }
+
+    // Obtener datos actualizados para la respuesta
+    const empleadoActualizado = await Empleado.findByPk(id, {
+      include: [
+        { 
+          model: User, 
+          as: "usuario",
+          include: [
+            {
+              model: Rol,
+              as: "rol"
+            }
+          ]
+        }
+      ]
+    });
+
     // Formatear respuesta similar al getAllEmpleados
     const resultado = {
-      id_usuario: empleado.usuario?.id_usuario,
-      nombre: empleado.usuario?.nombre,
-      apellido: empleado.usuario?.apellido,
-      correo: empleado.usuario?.correo,
-      rol: empleado.usuario?.rol?.nombre || 'Sin rol',
-      id_rol: empleado.usuario?.id_rol,
-      estado_usuario: empleado.usuario?.estado,
-      id_empleado: empleado.id_empleado,
-      estado_empleado: empleado.estado,
+      id_usuario: empleadoActualizado.usuario?.id_usuario,
+      nombre: empleadoActualizado.usuario?.nombre,
+      apellido: empleadoActualizado.usuario?.apellido,
+      correo: empleadoActualizado.usuario?.correo,
+      tipo_documento: empleadoActualizado.usuario?.tipo_documento,
+      documento: empleadoActualizado.usuario?.documento,
+      rol: empleadoActualizado.usuario?.rol?.nombre || 'Sin rol',
+      id_rol: empleadoActualizado.usuario?.id_rol,
+      estado_usuario: empleadoActualizado.usuario?.estado,
+      id_empleado: empleadoActualizado.id_empleado,
+      estado_empleado: empleadoActualizado.estado,
       es_empleado_registrado: true
     };
 
     res.status(200).json(resultado);
   } catch (error) {
-    res.status(500).json({ message: "Error al cambiar el estado del empleado.", error: error.message });
+    res.status(500).json({ message: "Error al cambiar el estado del empleado y usuario.", error: error.message });
   }
 };
 
 export const deleteEmpleado = async (req, res) => {
   const { id } = req.params;
   try {
-    const deleted = await Empleado.destroy({ where: { id_empleado: id } });
-    if (!deleted) {
+    // Primero obtener el empleado para acceder al id_usuario
+    const empleado = await Empleado.findByPk(id);
+    if (!empleado) {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
-    res.status(200).json({ message: "Empleado eliminado correctamente." });
+
+    const id_usuario = empleado.id_usuario;
+
+    // Eliminar el empleado
+    await Empleado.destroy({ where: { id_empleado: id } });
+
+    // Eliminar el usuario asociado
+    await User.destroy({ where: { id_usuario: id_usuario } });
+
+    res.status(200).json({ 
+      message: "Empleado y usuario asociado eliminados correctamente.",
+      id_empleado_eliminado: parseInt(id),
+      id_usuario_eliminado: id_usuario
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error al eliminar el empleado.", error: error.message });
+    res.status(500).json({ message: "Error al eliminar el empleado y usuario.", error: error.message });
   }
 };
 
