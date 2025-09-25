@@ -433,7 +433,14 @@ sequenceDiagram
 - Historial de servicios
 - Reportes de actividad
 
-### 8. Sistema de Pagos (`/api/pagos`)
+### 8. Gestión de Empleados (`/api/gestion-empleados`)
+- Administración completa de empleados (solo administradores)
+- Asociación con usuarios existentes
+- Control de estado (activo/inactivo)
+- Reportes en Excel con información detallada
+- CRUD completo (Crear, Leer, Actualizar, Eliminar)
+
+### 9. Sistema de Pagos (`/api/pagos`)
 - Registro de pagos
 - Asociación con órdenes de servicio
 - Estados de pago
@@ -490,6 +497,17 @@ DELETE /api/seguimiento/:id
 POST /api/archivos/upload              # Subir archivo
 GET /api/archivos/:id/download         # Descargar archivo
 GET /api/archivos/cliente/:idCliente   # Archivos de un cliente
+```
+
+### Empleados
+```http
+GET /api/gestion-empleados             # Listar todos los empleados
+GET /api/gestion-empleados/:id         # Obtener empleado por ID
+POST /api/gestion-empleados            # Crear empleado
+PUT /api/gestion-empleados/:id         # Actualizar empleado
+PATCH /api/gestion-empleados/:id/estado # Cambiar estado del empleado
+DELETE /api/gestion-empleados/:id      # Eliminar empleado
+GET /api/gestion-empleados/reporte/excel # Reporte en Excel
 ```
 
 ## 📋 Detalles de endpoints y validaciones
@@ -666,6 +684,31 @@ GET /api/archivos/cliente/:idCliente   # Archivos de un cliente
   - Body requerido: `nombre` (string), `nit` (string), `tipo_empresa` (string, opcional, default: "Sociedad por Acciones Simplificada"), `direccion` (string, opcional), `telefono` (string, opcional), `correo` (email, opcional)
 - **GET /:id/clientes** (auth): Clientes de una empresa
 - **GET /nit/:nit/clientes** (auth): Clientes por NIT
+
+### Empleados (`/api/gestion-empleados`) [auth, administrador]
+- **GET /** (auth, administrador): Listar todos los usuarios con rol administrador o empleado, incluyendo información de empleados registrados
+- **GET /:id** (auth, administrador): Obtener empleado por ID con información del usuario
+  - Parámetro: `id` (int ≥1)
+- **POST /** (auth, administrador): Crear empleado
+  - Body requerido: `id_usuario` (int ≥1, debe existir), `estado` (boolean, opcional, default: true)
+- **PUT /:id** (auth, administrador): Actualizar empleado
+  - Parámetro: `id` (int ≥1)
+  - Body opcional: `id_usuario` (int ≥1), `estado` (boolean)
+- **PATCH /:id/estado** (auth, administrador): Cambiar solo el estado del empleado
+  - Parámetro: `id` (int ≥1)
+  - Body requerido: `estado` (boolean)
+- **DELETE /:id** (auth, administrador): Eliminar empleado
+  - Parámetro: `id` (int ≥1)
+- **GET /reporte/excel** (auth, administrador): Descargar reporte de empleados y administradores en Excel
+  - Descarga archivo con columnas: ID Usuario, Nombre, Apellido, Email, Rol, Estado Usuario, ID Empleado, Estado Empleado, Es Empleado Registrado
+
+**Notas importantes:**
+- Solo administradores pueden acceder a estos endpoints
+- El endpoint GET muestra TODOS los usuarios con rol administrador o empleado
+- Los empleados se asocian con usuarios existentes (no se crean usuarios nuevos)
+- El `id_usuario` debe existir en la tabla usuarios
+- El reporte Excel incluye tanto administradores como empleados
+- El campo `es_empleado_registrado` indica si el usuario está registrado en la tabla empleados
 
 ### Otros módulos
 - **Pagos**: Gestión de pagos y transacciones
@@ -940,13 +983,13 @@ curl -X PUT "http://localhost:3000/api/gestion-solicitudes/anular/1" \
 
 #### 19. Obtener todas las citas
 ```bash
-curl -X GET "http://localhost:3000/api/citas" \
+curl -X GET "http://localhost:3000/api/gestion-citas" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
 #### 20. Crear cita
 ```bash
-curl -X POST "http://localhost:3000/api/citas" \
+curl -X POST "http://localhost:3000/api/gestion-citas" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
@@ -964,7 +1007,7 @@ curl -X POST "http://localhost:3000/api/citas" \
 
 #### 21. Reprogramar cita
 ```bash
-curl -X PUT "http://localhost:3000/api/citas/1/reprogramar" \
+curl -X PUT "http://localhost:3000/api/gestion-citas/1/reprogramar" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
@@ -976,7 +1019,7 @@ curl -X PUT "http://localhost:3000/api/citas/1/reprogramar" \
 
 #### 22. Anular cita
 ```bash
-curl -X PUT "http://localhost:3000/api/citas/1/anular" \
+curl -X PUT "http://localhost:3000/api/gestion-citas/1/anular" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
@@ -986,7 +1029,7 @@ curl -X PUT "http://localhost:3000/api/citas/1/anular" \
 
 #### 23. Descargar reporte de citas en Excel
 ```bash
-curl -X GET "http://localhost:3000/api/citas/reporte/excel" \
+curl -X GET "http://localhost:3000/api/gestion-citas/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -o reporte_citas.xlsx
 ```
@@ -1232,7 +1275,7 @@ curl -X GET "http://localhost:3000/api/seguimiento/buscar/1?titulo=revisión" \
 
 #### 33. Subir archivo
 ```bash
-curl -X POST "http://localhost:3000/api/archivos/upload" \
+curl -X POST "http://localhost:3000/api/gestion-archivos/upload" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
@@ -1245,14 +1288,14 @@ curl -X POST "http://localhost:3000/api/archivos/upload" \
 
 #### 34. Descargar archivo
 ```bash
-curl -X GET "http://localhost:3000/api/archivos/1/download" \
+curl -X GET "http://localhost:3000/api/gestion-archivos/1/download" \
   -H "Authorization: Bearer <TOKEN>" \
   -o archivo_descargado.pdf
 ```
 
 #### 35. Obtener archivos de un cliente
 ```bash
-curl -X GET "http://localhost:3000/api/archivos/cliente/1" \
+curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
@@ -1345,7 +1388,7 @@ curl -X GET "http://localhost:3000/api/gestion-pagos/1" \
 
 #### 44. Crear empresa
 ```bash
-curl -X POST "http://localhost:3000/api/empresas" \
+curl -X POST "http://localhost:3000/api/gestion-empresas" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
@@ -1386,25 +1429,175 @@ curl -X POST "http://localhost:3000/api/empresas" \
 
 #### 45. Obtener clientes de una empresa
 ```bash
-curl -X GET "http://localhost:3000/api/empresas/1/clientes" \
+curl -X GET "http://localhost:3000/api/gestion-empresas/1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
 #### 46. Obtener clientes por NIT
 ```bash
-curl -X GET "http://localhost:3000/api/empresas/nit/900123456-1/clientes" \
+curl -X GET "http://localhost:3000/api/gestion-empresas/nit/900123456-1/clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
+### 👨‍💼 Gestión de Empleados
+
+#### 47. Obtener todos los empleados
+```bash
+curl -X GET "http://localhost:3000/api/gestion-empleados" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+[
+  {
+    "id_usuario": 1,
+    "nombre": "Admin",
+    "apellido": "Sistema",
+    "correo": "admin@registrack.com",
+    "rol": "administrador",
+    "id_rol": 1,
+    "estado_usuario": true,
+    "id_empleado": null,
+    "estado_empleado": null,
+    "es_empleado_registrado": false
+  },
+  {
+    "id_usuario": 2,
+    "nombre": "Juan",
+    "apellido": "García",
+    "correo": "juan@empleado.com",
+    "rol": "empleado",
+    "id_rol": 2,
+    "estado_usuario": true,
+    "id_empleado": 1,
+    "estado_empleado": true,
+    "es_empleado_registrado": true
+  }
+]
+```
+
+#### 48. Obtener empleado por ID
+```bash
+curl -X GET "http://localhost:3000/api/gestion-empleados/1" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_empleado": 1,
+  "id_usuario": 2,
+  "estado": true,
+  "usuario": {
+    "id_usuario": 2,
+    "nombre": "Juan",
+    "apellido": "García",
+    "correo": "juan@empleado.com",
+    "rol": "empleado"
+  }
+}
+```
+
+#### 49. Crear empleado
+```bash
+curl -X POST "http://localhost:3000/api/gestion-empleados" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "id_usuario": 3,
+    "estado": true
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_empleado": 2,
+  "id_usuario": 3,
+  "estado": true
+}
+```
+
+#### 50. Actualizar empleado
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-empleados/1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "id_usuario": 2,
+    "estado": false
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_empleado": 1,
+  "id_usuario": 2,
+  "estado": false
+}
+```
+
+#### 51. Cambiar estado del empleado
+```bash
+curl -X PATCH "http://localhost:3000/api/gestion-empleados/1/estado" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "estado": true
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_empleado": 1,
+  "id_usuario": 2,
+  "estado": true
+}
+```
+
+#### 52. Eliminar empleado
+```bash
+curl -X DELETE "http://localhost:3000/api/gestion-empleados/1" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "message": "Empleado eliminado correctamente."
+}
+```
+
+#### 53. Descargar reporte de empleados en Excel
+```bash
+curl -X GET "http://localhost:3000/api/gestion-empleados/reporte/excel" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -o reporte_empleados.xlsx
+```
+
+**Respuesta**: Descarga un archivo Excel con el nombre `reporte_empleados_y_administradores.xlsx` que contiene:
+- ID Usuario
+- Nombre
+- Apellido
+- Email
+- Rol
+- Estado Usuario
+- ID Empleado
+- Estado Empleado
+- Es Empleado Registrado
+
 ### 🔧 Gestión de Tipos de Archivo
 
-#### 47. Obtener tipos de archivo
+#### 54. Obtener tipos de archivo
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 48. Crear tipo de archivo
+#### 55. Crear tipo de archivo
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   -H "Content-Type: application/json" \
@@ -1414,7 +1607,7 @@ curl -X POST "http://localhost:3000/api/gestion-tipo-archivos" \
   }'
 ```
 
-#### 49. Actualizar tipo de archivo
+#### 56. Actualizar tipo de archivo
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-tipo-archivos/1" \
   -H "Content-Type: application/json" \
@@ -1426,13 +1619,13 @@ curl -X PUT "http://localhost:3000/api/gestion-tipo-archivos/1" \
 
 ### 📋 Formularios Dinámicos
 
-#### 50. Obtener formulario por servicio
+#### 57. Obtener formulario por servicio
 ```bash
 curl -X GET "http://localhost:3000/api/formularios-dinamicos/servicio/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 51. Validar formulario
+#### 58. Validar formulario
 ```bash
 curl -X POST "http://localhost:3000/api/formularios-dinamicos/validar" \
   -H "Content-Type: application/json" \
