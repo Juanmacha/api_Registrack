@@ -78,11 +78,40 @@ export const getAllEmpleados = async (req, res) => {
 export const getEmpleadoById = async (req, res) => {
   const { id } = req.params;
   try {
-    const empleado = await Empleado.findByPk(id, { include: [{ model: User, as: "usuario" }] });
+    const empleado = await Empleado.findByPk(id, { 
+      include: [
+        { 
+          model: User, 
+          as: "usuario",
+          include: [
+            {
+              model: Rol,
+              as: "rol"
+            }
+          ]
+        }
+      ] 
+    });
+    
     if (!empleado) {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
-    res.status(200).json(empleado);
+
+    // Formatear respuesta similar al getAllEmpleados
+    const resultado = {
+      id_usuario: empleado.usuario?.id_usuario,
+      nombre: empleado.usuario?.nombre,
+      apellido: empleado.usuario?.apellido,
+      correo: empleado.usuario?.correo,
+      rol: empleado.usuario?.rol?.nombre || 'Sin rol',
+      id_rol: empleado.usuario?.id_rol,
+      estado_usuario: empleado.usuario?.estado,
+      id_empleado: empleado.id_empleado,
+      estado_empleado: empleado.estado,
+      es_empleado_registrado: true
+    };
+
+    res.status(200).json(resultado);
   } catch (error) {
     res.status(500).json({ message: "Error al obtener el empleado.", error: error.message });
   }
@@ -91,8 +120,50 @@ export const getEmpleadoById = async (req, res) => {
 export const createEmpleado = async (req, res) => {
   const { id_usuario, estado } = req.body;
   try {
-    const newEmpleado = await Empleado.create({ id_usuario, estado });
-    res.status(201).json(newEmpleado);
+    // Verificar que el usuario existe y tiene rol admin o empleado
+    const usuario = await User.findByPk(id_usuario, {
+      include: [
+        {
+          model: Rol,
+          as: "rol"
+        }
+      ]
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    if (![1, 2].includes(usuario.id_rol)) {
+      return res.status(400).json({ message: "El usuario debe tener rol administrador o empleado." });
+    }
+
+    // Verificar si ya existe un empleado para este usuario
+    const empleadoExistente = await Empleado.findOne({ where: { id_usuario } });
+    if (empleadoExistente) {
+      return res.status(400).json({ message: "Ya existe un empleado para este usuario." });
+    }
+
+    const newEmpleado = await Empleado.create({ 
+      id_usuario, 
+      estado: estado !== undefined ? estado : true 
+    });
+
+    // Formatear respuesta similar al getAllEmpleados
+    const resultado = {
+      id_usuario: usuario.id_usuario,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      correo: usuario.correo,
+      rol: usuario.rol?.nombre || 'Sin rol',
+      id_rol: usuario.id_rol,
+      estado_usuario: usuario.estado,
+      id_empleado: newEmpleado.id_empleado,
+      estado_empleado: newEmpleado.estado,
+      es_empleado_registrado: true
+    };
+
+    res.status(201).json(resultado);
   } catch (error) {
     res.status(500).json({ message: "Error al crear el empleado.", error: error.message });
   }
@@ -102,14 +173,45 @@ export const updateEmpleado = async (req, res) => {
   const { id } = req.params;
   const { id_usuario, estado } = req.body;
   try {
-    const empleado = await Empleado.findByPk(id);
+    const empleado = await Empleado.findByPk(id, {
+      include: [
+        { 
+          model: User, 
+          as: "usuario",
+          include: [
+            {
+              model: Rol,
+              as: "rol"
+            }
+          ]
+        }
+      ]
+    });
+    
     if (!empleado) {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
+
+    // Actualizar campos
     empleado.id_usuario = id_usuario !== undefined ? id_usuario : empleado.id_usuario;
     empleado.estado = estado !== undefined ? estado : empleado.estado;
     await empleado.save();
-    res.status(200).json(empleado);
+
+    // Formatear respuesta similar al getAllEmpleados
+    const resultado = {
+      id_usuario: empleado.usuario?.id_usuario,
+      nombre: empleado.usuario?.nombre,
+      apellido: empleado.usuario?.apellido,
+      correo: empleado.usuario?.correo,
+      rol: empleado.usuario?.rol?.nombre || 'Sin rol',
+      id_rol: empleado.usuario?.id_rol,
+      estado_usuario: empleado.usuario?.estado,
+      id_empleado: empleado.id_empleado,
+      estado_empleado: empleado.estado,
+      es_empleado_registrado: true
+    };
+
+    res.status(200).json(resultado);
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar el empleado.", error: error.message });
   }
@@ -119,13 +221,43 @@ export const changeEmpleadoState = async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body;
   try {
-    const empleado = await Empleado.findByPk(id);
+    const empleado = await Empleado.findByPk(id, {
+      include: [
+        { 
+          model: User, 
+          as: "usuario",
+          include: [
+            {
+              model: Rol,
+              as: "rol"
+            }
+          ]
+        }
+      ]
+    });
+    
     if (!empleado) {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
+    
     empleado.estado = estado;
     await empleado.save();
-    res.status(200).json(empleado);
+
+    // Formatear respuesta similar al getAllEmpleados
+    const resultado = {
+      id_usuario: empleado.usuario?.id_usuario,
+      nombre: empleado.usuario?.nombre,
+      apellido: empleado.usuario?.apellido,
+      correo: empleado.usuario?.correo,
+      rol: empleado.usuario?.rol?.nombre || 'Sin rol',
+      id_rol: empleado.usuario?.id_rol,
+      estado_usuario: empleado.usuario?.estado,
+      id_empleado: empleado.id_empleado,
+      estado_empleado: empleado.estado,
+      es_empleado_registrado: true
+    };
+
+    res.status(200).json(resultado);
   } catch (error) {
     res.status(500).json({ message: "Error al cambiar el estado del empleado.", error: error.message });
   }
