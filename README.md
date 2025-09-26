@@ -428,7 +428,7 @@ sequenceDiagram
 - Tipos de archivo configurables
 
 ### 7. Gestión de Clientes (`/api/gestion-clientes`) ⭐ **ACTUALIZADO**
-- **Filtrado inteligente**: Solo muestra clientes creados por solicitudes
+- **Visualización completa**: Muestra todos los clientes (solicitudes, directos, importados)
 - **Creación automática**: Clientes se crean automáticamente al hacer solicitudes
 - **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
 - **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
@@ -1324,7 +1324,7 @@ curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
 
 ### 👥 Gestión de Clientes ⭐ **ACTUALIZADO**
 
-#### 36. Obtener todos los clientes (Solo clientes de solicitudes)
+#### 36. Obtener todos los clientes
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
@@ -1365,8 +1365,8 @@ curl -X GET "http://localhost:3000/api/gestion-clientes" \
   "meta": {
     "timestamp": "2024-01-15T14:35:00.000Z",
     "filters": {
-      "applied": "Solo clientes creados por solicitudes",
-      "available": "Use query parameters para filtrar por estado, tipo_persona, etc."
+      "applied": "Todos los clientes",
+      "available": "Use query parameters para filtrar por estado, tipo_persona, origen, etc."
     }
   }
 }
@@ -1464,7 +1464,7 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 ```
 
 **Notas importantes:**
-- ✅ **Filtrado automático**: Solo muestra clientes con `origen: "solicitud"`
+- ✅ **Visualización completa**: Muestra todos los clientes independientemente del origen
 - ✅ **Creación automática**: Los clientes se crean automáticamente al hacer solicitudes
 - ✅ **Campo origen**: Distingue entre "solicitud", "directo" e "importado"
 - ✅ **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
@@ -2458,9 +2458,9 @@ Para soporte técnico o consultas:
 
 ### **📋 Resumen de Cambios:**
 
-#### **1. Filtrado Inteligente por Origen**
+#### **1. Visualización Completa de Clientes**
 - ✅ **Campo origen**: Distingue entre "solicitud", "directo" e "importado"
-- ✅ **Filtrado automático**: GET /api/gestion-clientes solo muestra clientes de solicitudes
+- ✅ **Visualización completa**: GET /api/gestion-clientes muestra todos los clientes
 - ✅ **Trazabilidad completa**: Sabe cómo se creó cada cliente
 
 #### **2. Creación Automática en Solicitudes**
@@ -2539,7 +2539,7 @@ Para soporte técnico o consultas:
   },
   "meta": {
     "filters": {
-      "applied": "Solo clientes creados por solicitudes"
+      "applied": "Todos los clientes"
     }
   }
 }
@@ -2553,7 +2553,7 @@ Para soporte técnico o consultas:
 - ✅ **Empresa asociada**: Se crea y asocia automáticamente
 
 #### **Para el Sistema:**
-- ✅ **Filtrado inteligente**: Solo muestra clientes relevantes
+- ✅ **Visualización completa**: Muestra todos los clientes para análisis completo
 - ✅ **Trazabilidad completa**: Sabe cómo se creó cada cliente
 - ✅ **Datos consistentes**: Evita duplicados y errores
 

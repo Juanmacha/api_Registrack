@@ -7,10 +7,9 @@ export const createCliente = async (clienteData) => {
   return await Cliente.create(clienteData);
 };
 
-// Obtener todos los clientes (solo los creados por solicitudes)
+// Obtener todos los clientes
 export const getAllClientes = async () => {
   return await Cliente.findAll({
-    where: { origen: 'solicitud' },
     include: [
       { model: Empresa, through: { attributes: [] } },
       { model: User, as: "Usuario" }

@@ -97,8 +97,8 @@ export const listarClientes = async (req, res) => {
       meta: {
         timestamp: new Date().toISOString(),
         filters: {
-          applied: "Solo clientes creados por solicitudes",
-          available: "Use query parameters para filtrar por estado, tipo_persona, etc."
+          applied: "Todos los clientes",
+          available: "Use query parameters para filtrar por estado, tipo_persona, origen, etc."
         }
       }
     });
