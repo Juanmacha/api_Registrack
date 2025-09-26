@@ -427,11 +427,14 @@ sequenceDiagram
 - Asociación con clientes y órdenes
 - Tipos de archivo configurables
 
-### 7. Gestión de Clientes (`/api/clientes`)
-- Registro de clientes
-- Asociación con empresas
-- Historial de servicios
-- Reportes de actividad
+### 7. Gestión de Clientes (`/api/gestion-clientes`) ⭐ **ACTUALIZADO**
+- **Filtrado inteligente**: Solo muestra clientes creados por solicitudes
+- **Creación automática**: Clientes se crean automáticamente al hacer solicitudes
+- **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
+- **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
+- **Datos completos**: Información completa del usuario y empresa asociada
+- **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
+- **Reportes Excel**: Incluye información completa de identificación
 
 ### 8. Gestión de Empleados (`/api/gestion-empleados`)
 - Administración completa de empleados (solo administradores)
@@ -1319,15 +1322,57 @@ curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 👥 Gestión de Clientes
+### 👥 Gestión de Clientes ⭐ **ACTUALIZADO**
 
-#### 36. Obtener todos los clientes
+#### 36. Obtener todos los clientes (Solo clientes de solicitudes)
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-#### 37. Crear cliente
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Clientes encontrados",
+  "data": {
+    "clientes": [
+      {
+        "id_cliente": 8,
+        "id_usuario": 5,
+        "marca": "MiMarcaEmpresarial",
+        "tipo_persona": "Natural",
+        "estado": true,
+        "origen": "solicitud",
+        "usuario": {
+          "nombre": "Juan",
+          "apellido": "Pérez",
+          "correo": "juan@example.com",
+          "telefono": "3001234567"
+        },
+        "empresas": [
+          {
+            "id_empresa": 12,
+            "nombre": "Mi Empresa SAS",
+            "nit": "9001234561",
+            "tipo_empresa": "Sociedad por Acciones Simplificada"
+          }
+        ]
+      }
+    ],
+    "total": 1
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:35:00.000Z",
+    "filters": {
+      "applied": "Solo clientes creados por solicitudes",
+      "available": "Use query parameters para filtrar por estado, tipo_persona, etc."
+    }
+  }
+}
+```
+
+#### 37. Crear cliente (Administradores)
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-clientes" \
   -H "Content-Type: application/json" \
@@ -1337,7 +1382,8 @@ curl -X POST "http://localhost:3000/api/gestion-clientes" \
       "id_usuario": 1,
       "marca": "MiMarcaEmpresarial",
       "tipo_persona": "Jurídica",
-      "estado": true
+      "estado": true,
+      "origen": "directo"
     },
     "empresa": {
       "nombre": "Mi Empresa SAS",
@@ -1351,13 +1397,56 @@ curl -X POST "http://localhost:3000/api/gestion-clientes" \
 
 #### 38. Obtener cliente por ID
 ```bash
-curl -X GET "http://localhost:3000/api/gestion-clientes/1" \
+curl -X GET "http://localhost:3000/api/gestion-clientes/8" \
   -H "Authorization: Bearer <TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Cliente encontrado",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 5,
+      "marca": "MiMarcaEmpresarial",
+      "tipo_persona": "Natural",
+      "estado": true,
+      "origen": "solicitud",
+      "usuario": {
+        "id_usuario": 5,
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "correo": "juan@example.com",
+        "telefono": "3001234567",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "9001234561",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Carrera 15 #93-47",
+          "telefono": "6012345678",
+          "email": "empresa@example.com",
+          "ciudad": "Bogotá",
+          "pais": "Colombia"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:35:00.000Z"
+  }
+}
 ```
 
 #### 39. Actualizar cliente
 ```bash
-curl -X PUT "http://localhost:3000/api/gestion-clientes/1" \
+curl -X PUT "http://localhost:3000/api/gestion-clientes/8" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -d '{
@@ -1373,6 +1462,14 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -o reporte_clientes.xlsx
 ```
+
+**Notas importantes:**
+- ✅ **Filtrado automático**: Solo muestra clientes con `origen: "solicitud"`
+- ✅ **Creación automática**: Los clientes se crean automáticamente al hacer solicitudes
+- ✅ **Campo origen**: Distingue entre "solicitud", "directo" e "importado"
+- ✅ **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
+- ✅ **Datos completos**: Incluye información del usuario y empresa asociada
+- ✅ **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
 
 ### 💰 Gestión de Pagos
 
@@ -2357,6 +2454,122 @@ Para soporte técnico o consultas:
 
 ---
 
+## 🏢 **MEJORAS IMPLEMENTADAS EN EL MÓDULO DE CLIENTES**
+
+### **📋 Resumen de Cambios:**
+
+#### **1. Filtrado Inteligente por Origen**
+- ✅ **Campo origen**: Distingue entre "solicitud", "directo" e "importado"
+- ✅ **Filtrado automático**: GET /api/gestion-clientes solo muestra clientes de solicitudes
+- ✅ **Trazabilidad completa**: Sabe cómo se creó cada cliente
+
+#### **2. Creación Automática en Solicitudes**
+- ✅ **Cliente automático**: Se crea automáticamente al hacer solicitudes
+- ✅ **Empresa automática**: Se crea con datos del formulario si no existe
+- ✅ **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
+- ✅ **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
+
+#### **3. Modelo de Datos Mejorado**
+- ✅ **Campo origen**: ENUM('solicitud', 'directo', 'importado')
+- ✅ **Modelo Empresa actualizado**: Campos adicionales (direccion, telefono, email, ciudad, pais)
+- ✅ **Timestamps habilitados**: created_at, updated_at en empresas
+
+#### **4. Controlador de Solicitudes Mejorado**
+- ✅ **Búsqueda inteligente de empresa**: Por NIT primero, luego por nombre
+- ✅ **Creación con datos del formulario**: Usa datos reales del usuario
+- ✅ **Actualización de cliente existente**: Mejora datos si el cliente ya existe
+- ✅ **Manejo de errores robusto**: NIT duplicado, validaciones fallidas
+
+### **🔧 Archivos Modificados:**
+
+1. **Modelo Cliente** (`src/models/Cliente.js`)
+   - ✅ Campo `origen` agregado
+   - ✅ Valores por defecto configurados
+
+2. **Modelo Empresa** (`src/models/Empresa.js`)
+   - ✅ Campos adicionales agregados
+   - ✅ Timestamps habilitados
+
+3. **Controlador de Solicitudes** (`src/controllers/solicitudes.controller.js`)
+   - ✅ Lógica de empresa mejorada
+   - ✅ Lógica de cliente mejorada
+   - ✅ Asociación cliente-empresa
+   - ✅ Validaciones robustas
+
+4. **Repository de Clientes** (`src/repositories/cliente.repository.js`)
+   - ✅ Filtro por origen implementado
+   - ✅ Función admin agregada
+
+5. **Controlador de Clientes** (`src/controllers/cliente.controller.js`)
+   - ✅ Campo origen en respuestas
+   - ✅ Filtros documentados
+
+### **📊 Estructura de Respuesta Actualizada:**
+
+```json
+{
+  "success": true,
+  "message": "Clientes encontrados",
+  "data": {
+    "clientes": [
+      {
+        "id_cliente": 8,
+        "id_usuario": 5,
+        "marca": "MiMarcaEmpresarial",
+        "tipo_persona": "Natural",
+        "estado": true,
+        "origen": "solicitud",
+        "usuario": {
+          "nombre": "Juan",
+          "apellido": "Pérez",
+          "correo": "juan@example.com",
+          "telefono": "3001234567"
+        },
+        "empresas": [
+          {
+            "id_empresa": 12,
+            "nombre": "Mi Empresa SAS",
+            "nit": "9001234561",
+            "tipo_empresa": "Sociedad por Acciones Simplificada"
+          }
+        ]
+      }
+    ],
+    "total": 1
+  },
+  "meta": {
+    "filters": {
+      "applied": "Solo clientes creados por solicitudes"
+    }
+  }
+}
+```
+
+### **🚀 Beneficios Implementados:**
+
+#### **Para el Usuario:**
+- ✅ **Proceso automático**: No necesita crear cliente manualmente
+- ✅ **Datos completos**: Se llenan automáticamente del formulario
+- ✅ **Empresa asociada**: Se crea y asocia automáticamente
+
+#### **Para el Sistema:**
+- ✅ **Filtrado inteligente**: Solo muestra clientes relevantes
+- ✅ **Trazabilidad completa**: Sabe cómo se creó cada cliente
+- ✅ **Datos consistentes**: Evita duplicados y errores
+
+#### **Para el Negocio:**
+- ✅ **Mejor calidad**: Datos más completos y precisos
+- ✅ **Menos trabajo manual**: Automatización del proceso
+- ✅ **Análisis mejorado**: Puede distinguir origen de clientes
+
+### **📝 Migración de Base de Datos:**
+- ✅ **Script creado**: `database/migrations/add_origen_to_clientes.sql`
+- ✅ **Campo origen**: Agregado a tabla clientes
+- ✅ **Índice creado**: Para consultas eficientes por origen
+- ✅ **Datos existentes**: Actualizados con origen 'directo'
+
+---
+
 **API Registrack** - Sistema integral de gestión de servicios legales y de propiedad intelectual.
 
-**Versión actual**: 2.2 - Módulo de Empleados con Información de Identificación Completa ✅
+**Versión actual**: 2.3 - Módulo de Clientes con Filtrado Inteligente y Creación Automática ✅

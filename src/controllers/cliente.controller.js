@@ -83,6 +83,7 @@ export const listarClientes = async (req, res) => {
           marca: cliente.marca,
           tipo_persona: cliente.tipo_persona,
           estado: cliente.estado,
+          origen: cliente.origen,
           usuario: cliente.Usuario ? {
             nombre: cliente.Usuario.nombre,
             apellido: cliente.Usuario.apellido,
@@ -96,6 +97,7 @@ export const listarClientes = async (req, res) => {
       meta: {
         timestamp: new Date().toISOString(),
         filters: {
+          applied: "Solo clientes creados por solicitudes",
           available: "Use query parameters para filtrar por estado, tipo_persona, etc."
         }
       }
@@ -141,6 +143,7 @@ export const obtenerCliente = async (req, res) => {
           marca: cliente.marca,
           tipo_persona: cliente.tipo_persona,
           estado: cliente.estado,
+          origen: cliente.origen,
           usuario: cliente.Usuario ? {
             id_usuario: cliente.Usuario.id_usuario,
             nombre: cliente.Usuario.nombre,

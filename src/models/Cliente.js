@@ -24,6 +24,11 @@ const Cliente = sequelize.define("Cliente", {
     allowNull: false,
     defaultValue: true,
   },
+  origen: {
+    type: DataTypes.ENUM("solicitud", "directo", "importado"),
+    allowNull: false,
+    defaultValue: "directo",
+  },
 }, {
   tableName: "clientes",
   timestamps: false,

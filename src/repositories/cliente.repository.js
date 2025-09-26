@@ -7,8 +7,19 @@ export const createCliente = async (clienteData) => {
   return await Cliente.create(clienteData);
 };
 
-// Obtener todos los clientes (con sus empresas y usuarios)
+// Obtener todos los clientes (solo los creados por solicitudes)
 export const getAllClientes = async () => {
+  return await Cliente.findAll({
+    where: { origen: 'solicitud' },
+    include: [
+      { model: Empresa, through: { attributes: [] } },
+      { model: User, as: "Usuario" }
+    ]
+  });
+};
+
+// Obtener todos los clientes sin filtro (para administradores)
+export const getAllClientesAdmin = async () => {
   return await Cliente.findAll({
     include: [
       { model: Empresa, through: { attributes: [] } },
