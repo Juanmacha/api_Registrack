@@ -21,7 +21,16 @@ export const crearCliente = async (req, res) => {
           id_usuario: cliente.id_usuario,
           marca: cliente.marca,
           tipo_persona: cliente.tipo_persona,
-          estado: cliente.estado
+          estado: cliente.estado,
+          origen: cliente.origen,
+          usuario: {
+            nombre: cliente.Usuario?.nombre || 'N/A',
+            apellido: cliente.Usuario?.apellido || 'N/A',
+            correo: cliente.Usuario?.correo || 'N/A',
+            telefono: cliente.Usuario?.telefono || 'N/A',
+            tipo_documento: cliente.Usuario?.tipo_documento || 'N/A',
+            documento: cliente.Usuario?.documento || 'N/A'
+          }
         },
         empresa: empresa ? {
           id_empresa: empresa.id_empresa,
@@ -88,7 +97,9 @@ export const listarClientes = async (req, res) => {
             nombre: cliente.Usuario.nombre,
             apellido: cliente.Usuario.apellido,
             correo: cliente.Usuario.correo,
-            telefono: cliente.Usuario.telefono
+            telefono: cliente.Usuario.telefono,
+            tipo_documento: cliente.Usuario.tipo_documento,
+            documento: cliente.Usuario.documento
           } : null,
           empresas: cliente.Empresas || []
         })),

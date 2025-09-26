@@ -1348,7 +1348,9 @@ curl -X GET "http://localhost:3000/api/gestion-clientes" \
           "nombre": "Juan",
           "apellido": "Pérez",
           "correo": "juan@example.com",
-          "telefono": "3001234567"
+          "telefono": "3001234567",
+          "tipo_documento": "CC",
+          "documento": "12345678"
         },
         "empresas": [
           {
@@ -1470,6 +1472,255 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 - ✅ **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
 - ✅ **Datos completos**: Incluye información del usuario y empresa asociada
 - ✅ **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
+
+---
+
+## 🧪 **GUÍA DE PRUEBAS EN POSTMAN**
+
+### **📋 Crear Cliente - Guía Paso a Paso**
+
+#### **Paso 1: Obtener Token de Administrador**
+```bash
+POST http://localhost:3000/api/usuarios/login
+Content-Type: application/json
+
+{
+  "correo": "admin@registrack.com",
+  "contrasena": "admin123"
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Login exitoso",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Admin",
+      "apellido": "Sistema",
+      "correo": "admin@registrack.com",
+      "rol": "administrador"
+    }
+  }
+}
+```
+
+#### **Paso 2: Crear Cliente con Empresa**
+```bash
+POST http://localhost:3000/api/gestion-clientes
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "cliente": {
+    "id_usuario": 1,
+    "marca": "MiMarcaEmpresarial",
+    "tipo_persona": "Jurídica",
+    "estado": true,
+    "origen": "directo"
+  },
+  "empresa": {
+    "nombre": "Mi Empresa SAS",
+    "nit": "900123456-1",
+    "tipo_empresa": "Sociedad por Acciones Simplificada",
+    "direccion": "Calle 123 #45-67",
+    "telefono": "3001234567",
+    "correo": "empresa@example.com",
+    "ciudad": "Bogotá",
+    "pais": "Colombia"
+  }
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Cliente creado exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 1,
+      "marca": "MiMarcaEmpresarial",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "directo",
+      "usuario": {
+        "nombre": "Admin",
+        "apellido": "Sistema",
+        "correo": "admin@registrack.com",
+        "telefono": "3001234567",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      }
+    },
+    "empresa": {
+      "id_empresa": 12,
+      "nombre": "Mi Empresa SAS",
+      "nit": "900123456-1",
+      "direccion": "Calle 123 #45-67",
+      "telefono": "3001234567",
+      "correo": "empresa@example.com"
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:35:00.000Z",
+    "nextSteps": [
+      "El cliente puede ahora realizar solicitudes",
+      "Configure los servicios disponibles para el cliente",
+      "Asigne un empleado responsable si es necesario"
+    ]
+  }
+}
+```
+
+#### **Paso 3: Crear Cliente sin Empresa**
+```bash
+POST http://localhost:3000/api/gestion-clientes
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "cliente": {
+    "id_usuario": 2,
+    "marca": "MiMarcaPersonal",
+    "tipo_persona": "Natural",
+    "estado": true,
+    "origen": "directo"
+  }
+}
+```
+
+#### **Paso 4: Verificar Cliente Creado**
+```bash
+GET http://localhost:3000/api/gestion-clientes
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Clientes encontrados",
+  "data": {
+    "clientes": [
+      {
+        "id_cliente": 8,
+        "id_usuario": 1,
+        "marca": "MiMarcaEmpresarial",
+        "tipo_persona": "Jurídica",
+        "estado": true,
+        "origen": "directo",
+        "usuario": {
+          "nombre": "Admin",
+          "apellido": "Sistema",
+          "correo": "admin@registrack.com",
+          "telefono": "3001234567",
+          "tipo_documento": "CC",
+          "documento": "12345678"
+        },
+        "empresas": [
+          {
+            "id_empresa": 12,
+            "nombre": "Mi Empresa SAS",
+            "nit": "900123456-1",
+            "tipo_empresa": "Sociedad por Acciones Simplificada"
+          }
+        ]
+      }
+    ],
+    "total": 1
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:35:00.000Z",
+    "filters": {
+      "applied": "Todos los clientes",
+      "available": "Use query parameters para filtrar por estado, tipo_persona, origen, etc."
+    }
+  }
+}
+```
+
+### **⚠️ Validaciones Importantes**
+
+#### **Campos Requeridos del Cliente:**
+- `id_usuario`: Debe existir en la tabla usuarios
+- `marca`: String (opcional)
+- `tipo_persona`: "Natural" o "Jurídica" (opcional)
+- `estado`: Boolean (opcional, default: true)
+- `origen`: "solicitud", "directo" o "importado" (opcional, default: "directo")
+
+#### **Campos Requeridos de la Empresa:**
+- `nombre`: String requerido
+- `nit`: String requerido (debe ser único)
+- `tipo_empresa`: String (opcional, default: "Sociedad por Acciones Simplificada")
+- `direccion`, `telefono`, `correo`, `ciudad`, `pais`: Opcionales
+
+### ** Posibles Errores**
+
+#### **Error 400 - Usuario no encontrado:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "El usuario especificado no existe",
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "field": "id_usuario",
+      "value": 999
+    }
+  }
+}
+```
+
+#### **Error 401 - No autorizado:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Token no válido o expirado",
+    "code": "UNAUTHORIZED"
+  }
+}
+```
+
+#### **Error 500 - NIT duplicado:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Ya existe una empresa con este NIT",
+    "code": "DUPLICATE_ERROR",
+    "details": {
+      "field": "nit",
+      "value": "900123456-1"
+    }
+  }
+}
+```
+
+### **📋 Pasos en Postman:**
+
+1. **Crear nueva petición POST**
+2. **URL**: `http://localhost:3000/api/gestion-clientes`
+3. **Headers**: 
+   - `Content-Type: application/json`
+   - `Authorization: Bearer <TOKEN>`
+4. **Body**: Seleccionar "raw" y "JSON"
+5. **Pegar el JSON** del ejemplo
+6. **Enviar petición**
+
+### **✅ Campos de Identificación Incluidos:**
+
+- **tipo_documento**: CC, CE, NIT, etc.
+- **documento**: Número de documento del usuario
+- **nombre**: Nombre del usuario
+- **apellido**: Apellido del usuario
+- **correo**: Correo electrónico
+- **telefono**: Número de teléfono
 
 ### 💰 Gestión de Pagos
 
@@ -2473,6 +2724,7 @@ Para soporte técnico o consultas:
 - ✅ **Campo origen**: ENUM('solicitud', 'directo', 'importado')
 - ✅ **Modelo Empresa actualizado**: Campos adicionales (direccion, telefono, email, ciudad, pais)
 - ✅ **Timestamps habilitados**: created_at, updated_at en empresas
+- ✅ **Campos de identificación**: tipo_documento y documento incluidos en respuestas
 
 #### **4. Controlador de Solicitudes Mejorado**
 - ✅ **Búsqueda inteligente de empresa**: Por NIT primero, luego por nombre
@@ -2523,7 +2775,9 @@ Para soporte técnico o consultas:
           "nombre": "Juan",
           "apellido": "Pérez",
           "correo": "juan@example.com",
-          "telefono": "3001234567"
+          "telefono": "3001234567",
+          "tipo_documento": "CC",
+          "documento": "12345678"
         },
         "empresas": [
           {
@@ -2551,6 +2805,7 @@ Para soporte técnico o consultas:
 - ✅ **Proceso automático**: No necesita crear cliente manualmente
 - ✅ **Datos completos**: Se llenan automáticamente del formulario
 - ✅ **Empresa asociada**: Se crea y asocia automáticamente
+- ✅ **Identificación completa**: Incluye tipo de documento y número de documento
 
 #### **Para el Sistema:**
 - ✅ **Visualización completa**: Muestra todos los clientes para análisis completo
