@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { 
-  crearCliente, 
   listarClientes, 
   obtenerCliente, 
   editarCliente, 
+  editarEmpresaCliente,
   borrarCliente,
   descargarReporteClientes
 } from "../controllers/cliente.controller.js";
@@ -17,8 +17,8 @@ const router = Router();
 // Rutas Clientes con seguridad
 router.get("/", roleMiddleware(["administrador", "empleado"]), listarClientes); 
 router.get("/:id", roleMiddleware(["administrador", "empleado", "cliente"]), obtenerCliente);
-router.post("/", roleMiddleware(["administrador", "empleado"]), crearCliente);
 router.put("/:id", roleMiddleware(["administrador", "empleado"]), editarCliente);
+router.put("/:id/empresa", roleMiddleware(["administrador", "empleado"]), editarEmpresaCliente);
 router.delete("/:id", roleMiddleware(["administrador"]), borrarCliente);
 
 // Ruta para descargar reporte Excel de clientes

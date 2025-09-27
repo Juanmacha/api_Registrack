@@ -39,9 +39,23 @@ export const getClienteById = async (id_cliente) => {
 
 // Actualizar cliente
 export const updateCliente = async (id_cliente, updateData) => {
-  const cliente = await Cliente.findByPk(id_cliente);
+  const cliente = await Cliente.findByPk(id_cliente, {
+    include: [
+      { model: Empresa, through: { attributes: [] } },
+      { model: User, as: "Usuario" }
+    ]
+  });
   if (!cliente) return null;
-  return await cliente.update(updateData);
+  
+  await cliente.update(updateData);
+  
+  // Retornar el cliente actualizado con las relaciones
+  return await Cliente.findByPk(id_cliente, {
+    include: [
+      { model: Empresa, through: { attributes: [] } },
+      { model: User, as: "Usuario" }
+    ]
+  });
 };
 
 // Eliminar cliente

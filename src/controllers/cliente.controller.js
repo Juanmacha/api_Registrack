@@ -1,4 +1,5 @@
-import { registrarCliente, obtenerClientes, obtenerClientePorId, actualizarCliente, eliminarCliente } from "../services/cliente.service.js";
+import { obtenerClientes, obtenerClientePorId, actualizarCliente, eliminarCliente } from "../services/cliente.service.js";
+import { getClienteById } from "../repositories/cliente.repository.js";
 import ExcelJS from "exceljs";
 import { 
   SUCCESS_MESSAGES, 
@@ -6,76 +7,6 @@ import {
   VALIDATION_MESSAGES,
   ERROR_CODES 
 } from "../constants/messages.js";
-
-// CREATE
-export const crearCliente = async (req, res) => {
-  try {
-    const { cliente, empresa } = await registrarCliente(req.body.cliente, req.body.empresa);
-    
-    res.status(201).json({
-      success: true,
-      message: SUCCESS_MESSAGES.CLIENT_CREATED,
-      data: {
-        cliente: {
-          id_cliente: cliente.id_cliente,
-          id_usuario: cliente.id_usuario,
-          marca: cliente.marca,
-          tipo_persona: cliente.tipo_persona,
-          estado: cliente.estado,
-          origen: cliente.origen,
-          usuario: {
-            nombre: cliente.Usuario?.nombre || 'N/A',
-            apellido: cliente.Usuario?.apellido || 'N/A',
-            correo: cliente.Usuario?.correo || 'N/A',
-            telefono: cliente.Usuario?.telefono || 'N/A',
-            tipo_documento: cliente.Usuario?.tipo_documento || 'N/A',
-            documento: cliente.Usuario?.documento || 'N/A'
-          }
-        },
-        empresa: empresa ? {
-          id_empresa: empresa.id_empresa,
-          nombre: empresa.nombre,
-          nit: empresa.nit,
-          direccion: empresa.direccion,
-          telefono: empresa.telefono,
-          correo: empresa.correo
-        } : null
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        nextSteps: [
-          "El cliente puede ahora realizar solicitudes",
-          "Configure los servicios disponibles para el cliente",
-          "Asigne un empleado responsable si es necesario"
-        ]
-      }
-    });
-  } catch (error) {
-    console.error("Error al crear cliente:", error);
-    
-    if (error.message.includes("usuario") || error.message.includes("Usuario")) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: VALIDATION_MESSAGES.CLIENT.INVALID_USER_ID,
-          code: ERROR_CODES.VALIDATION_ERROR,
-          details: { field: "id_usuario", value: req.body.cliente?.id_usuario },
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: {
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-        code: ERROR_CODES.INTERNAL_ERROR,
-        details: process.env.NODE_ENV === "development" ? error.message : "Error al registrar cliente",
-        timestamp: new Date().toISOString()
-      }
-    });
-  }
-};
 
 // READ - todos
 export const listarClientes = async (req, res) => {
@@ -185,7 +116,7 @@ export const obtenerCliente = async (req, res) => {
   }
 };
 
-// UPDATE
+// UPDATE - Cliente completo
 export const editarCliente = async (req, res) => {
   try {
     const cliente = await actualizarCliente(req.params.id, req.body);
@@ -211,12 +142,24 @@ export const editarCliente = async (req, res) => {
           id_usuario: cliente.id_usuario,
           marca: cliente.marca,
           tipo_persona: cliente.tipo_persona,
-          estado: cliente.estado
+          estado: cliente.estado,
+          origen: cliente.origen,
+          usuario: cliente.Usuario ? {
+            id_usuario: cliente.Usuario.id_usuario,
+            nombre: cliente.Usuario.nombre,
+            apellido: cliente.Usuario.apellido,
+            correo: cliente.Usuario.correo,
+            telefono: cliente.Usuario.telefono,
+            tipo_documento: cliente.Usuario.tipo_documento,
+            documento: cliente.Usuario.documento
+          } : null,
+          empresas: cliente.Empresas || []
         }
       },
       meta: {
         timestamp: new Date().toISOString(),
-        changes: Object.keys(req.body).join(', ')
+        changes: Object.keys(req.body).join(', '),
+        note: "Cliente actualizado exitosamente. Los cambios se reflejan en el sistema."
       }
     });
   } catch (error) {
@@ -227,6 +170,86 @@ export const editarCliente = async (req, res) => {
         message: ERROR_MESSAGES.INTERNAL_ERROR,
         code: ERROR_CODES.INTERNAL_ERROR,
         details: process.env.NODE_ENV === "development" ? error.message : "Error al actualizar cliente",
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+};
+
+// UPDATE - Empresa asociada
+export const editarEmpresaCliente = async (req, res) => {
+  try {
+    const { id_empresa, ...datosEmpresa } = req.body;
+    
+    if (!id_empresa) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "ID de empresa es requerido",
+          code: ERROR_CODES.VALIDATION_ERROR,
+          details: { field: "id_empresa", value: id_empresa },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Importar la función de actualización de empresa
+    const { updateEmpresa } = await import("../repositories/empresa.repository.js");
+    
+    // Actualizar la empresa
+    const empresaActualizada = await updateEmpresa(id_empresa, datosEmpresa);
+    
+    if (!empresaActualizada) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Empresa no encontrada",
+          code: ERROR_CODES.NOT_FOUND,
+          details: { id_empresa },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Obtener el cliente actualizado con todas las relaciones
+    const clienteActualizado = await getClienteById(req.params.id);
+    
+    res.status(200).json({
+      success: true,
+      message: "Empresa del cliente actualizada exitosamente",
+      data: {
+        cliente: {
+          id_cliente: clienteActualizado.id_cliente,
+          id_usuario: clienteActualizado.id_usuario,
+          marca: clienteActualizado.marca,
+          tipo_persona: clienteActualizado.tipo_persona,
+          estado: clienteActualizado.estado,
+          origen: clienteActualizado.origen,
+          usuario: clienteActualizado.Usuario ? {
+            id_usuario: clienteActualizado.Usuario.id_usuario,
+            nombre: clienteActualizado.Usuario.nombre,
+            apellido: clienteActualizado.Usuario.apellido,
+            correo: clienteActualizado.Usuario.correo,
+            tipo_documento: clienteActualizado.Usuario.tipo_documento,
+            documento: clienteActualizado.Usuario.documento
+          } : null,
+          empresas: clienteActualizado.Empresas || []
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        changes: Object.keys(datosEmpresa).join(', '),
+        note: "Empresa asociada actualizada. Los cambios se reflejan en el sistema."
+      }
+    });
+  } catch (error) {
+    console.error("Error al actualizar empresa del cliente:", error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: ERROR_MESSAGES.INTERNAL_ERROR,
+        code: ERROR_CODES.INTERNAL_ERROR,
+        details: process.env.NODE_ENV === "development" ? error.message : "Error al actualizar empresa del cliente",
         timestamp: new Date().toISOString()
       }
     });

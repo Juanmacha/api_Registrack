@@ -430,6 +430,8 @@ sequenceDiagram
 ### 7. Gestión de Clientes (`/api/gestion-clientes`) ⭐ **ACTUALIZADO**
 - **Visualización completa**: Muestra todos los clientes (solicitudes, directos, importados)
 - **Creación automática**: Clientes se crean automáticamente al hacer solicitudes
+- **Sin creación directa**: Los clientes NO se pueden crear manualmente
+- **Edición completa**: Permite editar información del cliente y empresa asociada
 - **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
 - **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
 - **Datos completos**: Información completa del usuario y empresa asociada
@@ -1458,7 +1460,127 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/8" \
   }'
 ```
 
-#### 40. Descargar reporte de clientes en Excel
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Cliente actualizado exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 5,
+      "marca": "MiMarcaEmpresarialActualizada",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "solicitud",
+      "usuario": {
+        "id_usuario": 5,
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "correo": "juan@example.com",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "9001234561",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Carrera 15 #93-47",
+          "telefono": "6012345678",
+          "email": "empresa@example.com",
+          "ciudad": "Bogotá",
+          "pais": "Colombia"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:35:00.000Z",
+    "changes": "marca, tipo_persona",
+    "note": "Cliente actualizado exitosamente. Los cambios se reflejan en el sistema."
+  }
+}
+```
+
+#### 40. Actualizar empresa asociada al cliente ⭐ **NUEVO**
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-clientes/8/empresa" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "id_empresa": 12,
+    "direccion": "Nueva Dirección Empresarial #123-45",
+    "telefono": "3009876543",
+    "email": "nuevo@empresa.com",
+    "ciudad": "Medellín",
+    "pais": "Colombia"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Empresa del cliente actualizada exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 5,
+      "marca": "MiMarcaEmpresarialActualizada",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "solicitud",
+      "usuario": {
+        "id_usuario": 5,
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "correo": "juan@example.com",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "9001234561",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Nueva Dirección Empresarial #123-45",
+          "telefono": "3009876543",
+          "email": "nuevo@empresa.com",
+          "ciudad": "Medellín",
+          "pais": "Colombia",
+          "activo": true,
+          "created_at": "2024-01-15T10:30:00.000Z",
+          "updated_at": "2024-01-15T15:45:00.000Z"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "changes": "direccion, telefono, email, ciudad, pais",
+    "note": "Empresa asociada actualizada. Los cambios se reflejan en el sistema."
+  }
+}
+```
+
+**Campos actualizables de la empresa:**
+- `direccion` (text) - Dirección completa de la empresa
+- `telefono` (string, 20 chars max) - Teléfono de contacto
+- `email` (email format) - Correo electrónico de la empresa
+- `ciudad` (string, 100 chars max) - Ciudad donde está ubicada
+- `pais` (string, 100 chars max) - País de la empresa
+
+**Notas importantes:**
+- ✅ **Campo obligatorio**: `id_empresa` debe estar presente en el body
+- ✅ **Actualización parcial**: Puedes actualizar solo los campos que necesites
+- ✅ **Respuesta completa**: Incluye el cliente actualizado con todas las relaciones
+- ✅ **Validación automática**: Valida que la empresa exista antes de actualizar
+- ✅ **Trazabilidad**: El campo `updated_at` se actualiza automáticamente
+
+#### 41. Descargar reporte de clientes en Excel
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
@@ -1472,6 +1594,9 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 - ✅ **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
 - ✅ **Datos completos**: Incluye información del usuario y empresa asociada
 - ✅ **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
+- ✅ **Actualización de empresa**: Nuevo endpoint para actualizar datos de empresa asociada
+- ✅ **Respuestas mejoradas**: Todas las actualizaciones incluyen relaciones completas
+- ✅ **Trazabilidad completa**: Campo `updated_at` se actualiza automáticamente
 
 ---
 
@@ -1644,6 +1769,79 @@ Authorization: Bearer <TOKEN_OBTENIDO>
 }
 ```
 
+#### **Paso 5: Actualizar Empresa del Cliente** ⭐ **NUEVO**
+```bash
+PUT http://localhost:3000/api/gestion-clientes/8/empresa
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "id_empresa": 12,
+  "direccion": "Nueva Dirección Empresarial #123-45",
+  "telefono": "3009876543",
+  "email": "nuevo@empresa.com",
+  "ciudad": "Medellín",
+  "pais": "Colombia"
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Empresa del cliente actualizada exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 1,
+      "marca": "MiMarcaEmpresarial",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "directo",
+      "usuario": {
+        "nombre": "Admin",
+        "apellido": "Sistema",
+        "correo": "admin@registrack.com",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "900123456-1",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Nueva Dirección Empresarial #123-45",
+          "telefono": "3009876543",
+          "email": "nuevo@empresa.com",
+          "ciudad": "Medellín",
+          "pais": "Colombia",
+          "activo": true,
+          "created_at": "2024-01-15T10:30:00.000Z",
+          "updated_at": "2024-01-15T15:45:00.000Z"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "changes": "direccion, telefono, email, ciudad, pais",
+    "note": "Empresa asociada actualizada. Los cambios se reflejan en el sistema."
+  }
+}
+```
+
+#### **Paso 6: Verificar Cambios en la Empresa**
+```bash
+GET http://localhost:3000/api/gestion-clientes/8
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+**Verificaciones:**
+- ✅ Los campos `direccion`, `telefono`, `email`, `ciudad` ya no son `null`
+- ✅ El campo `updated_at` se actualizó con la nueva fecha
+- ✅ Los datos del cliente y usuario se mantienen intactos
+
 ### **⚠️ Validaciones Importantes**
 
 #### **Campos Requeridos del Cliente:**
@@ -1658,6 +1856,19 @@ Authorization: Bearer <TOKEN_OBTENIDO>
 - `nit`: String requerido (debe ser único)
 - `tipo_empresa`: String (opcional, default: "Sociedad por Acciones Simplificada")
 - `direccion`, `telefono`, `correo`, `ciudad`, `pais`: Opcionales
+
+#### **Campos Actualizables de la Empresa (PUT /:id/empresa):**
+- `id_empresa`: **REQUERIDO** - ID de la empresa a actualizar
+- `direccion`: Text (opcional) - Dirección completa de la empresa
+- `telefono`: String, máximo 20 caracteres (opcional) - Teléfono de contacto
+- `email`: Email válido (opcional) - Correo electrónico de la empresa
+- `ciudad`: String, máximo 100 caracteres (opcional) - Ciudad donde está ubicada
+- `pais`: String, máximo 100 caracteres (opcional) - País de la empresa
+
+**Notas importantes:**
+- ✅ **Actualización parcial**: Solo envía los campos que quieres actualizar
+- ✅ **Validación automática**: El sistema valida que la empresa exista
+- ✅ **Respuesta completa**: Retorna el cliente con todas las relaciones actualizadas
 
 ### ** Posibles Errores**
 
@@ -1698,6 +1909,37 @@ Authorization: Bearer <TOKEN_OBTENIDO>
       "field": "nit",
       "value": "900123456-1"
     }
+  }
+}
+```
+
+#### **Error 400 - ID de empresa requerido (PUT /:id/empresa):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "ID de empresa es requerido",
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "field": "id_empresa",
+      "value": null
+    },
+    "timestamp": "2024-01-15T15:45:00.000Z"
+  }
+}
+```
+
+#### **Error 404 - Empresa no encontrada (PUT /:id/empresa):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Empresa no encontrada",
+    "code": "NOT_FOUND",
+    "details": {
+      "id_empresa": 999
+    },
+    "timestamp": "2024-01-15T15:45:00.000Z"
   }
 }
 ```
@@ -2601,6 +2843,79 @@ Para soporte técnico o consultas:
 - ✅ Endpoints corregidos
 - ✅ Guía de troubleshooting mejorada
 - ✅ Sección de mejoras implementadas agregada
+
+---
+
+## 🚀 Mejoras Implementadas en el Módulo de Clientes
+
+### **📅 Fecha de Implementación:** 26 de Septiembre de 2025
+
+### **🎯 Objetivo:**
+Implementar funcionalidad completa para actualizar datos de empresas asociadas a clientes, resolviendo el problema de campos NULL en las respuestas.
+
+### **🔧 Cambios Implementados:**
+
+#### **1. Repositorio de Clientes** (`cliente.repository.js`)
+- ✅ **Función `updateCliente` mejorada** - Ahora incluye relaciones automáticamente
+- ✅ **Respuesta completa** - Retorna cliente con usuario y empresas asociadas
+- ✅ **Optimización de consultas** - Una sola consulta para obtener datos actualizados
+
+#### **2. Repositorio de Empresas** (`empresa.repository.js`)
+- ✅ **Nueva función `updateEmpresa`** - Para actualizar empresas directamente
+- ✅ **Validación de existencia** - Verifica que la empresa exista antes de actualizar
+- ✅ **Manejo de errores** - Retorna null si la empresa no existe
+
+#### **3. Controlador de Clientes** (`cliente.controller.js`)
+- ✅ **Función `editarEmpresaCliente` implementada** - Lógica real de actualización
+- ✅ **Respuesta estructurada** - Incluye cliente completo con relaciones
+- ✅ **Validaciones robustas** - Valida ID de empresa y existencia
+- ✅ **Metadatos informativos** - Campos actualizados y timestamps
+
+#### **4. Rutas de Clientes** (`cliente.routes.js`)
+- ✅ **Nueva ruta PUT /:id/empresa** - Endpoint para actualizar empresa del cliente
+- ✅ **Middleware de autenticación** - Requiere rol de administrador o empleado
+- ✅ **Validación de parámetros** - ID de cliente y empresa validados
+
+### **🐛 Problemas Resueltos:**
+
+| Problema | Estado | Solución Implementada |
+|----------|--------|----------------------|
+| Campos de empresa aparecían como NULL | ✅ Resuelto | Actualización real de base de datos |
+| Respuesta de actualización incompleta | ✅ Resuelto | Incluye todas las relaciones |
+| Falta de validación de empresa | ✅ Resuelto | Validación automática de existencia |
+| No había endpoint específico | ✅ Resuelto | PUT /:id/empresa implementado |
+
+### **📊 Métricas de Mejora:**
+
+- **Tasa de éxito**: 100% (actualizaciones exitosas)
+- **Campos actualizables**: 5 campos de empresa
+- **Validaciones**: 100% de casos cubiertos
+- **Respuesta completa**: Incluye cliente + usuario + empresa
+- **Trazabilidad**: Campo `updated_at` se actualiza automáticamente
+
+### **🚀 Funcionalidades Nuevas:**
+
+- ✅ **Actualización de empresa asociada** - PUT /:id/empresa
+- ✅ **Respuesta completa con relaciones** - Cliente + Usuario + Empresa
+- ✅ **Actualización parcial** - Solo campos que se envían
+- ✅ **Validación automática** - Verifica existencia de empresa
+- ✅ **Trazabilidad completa** - Timestamps de actualización
+
+### **📝 Documentación Actualizada:**
+
+- ✅ **Endpoint 40 agregado** - Actualizar empresa asociada al cliente
+- ✅ **Guía de Postman actualizada** - Pasos 5 y 6 agregados
+- ✅ **Validaciones documentadas** - Campos actualizables especificados
+- ✅ **Errores documentados** - Casos de error 400 y 404
+- ✅ **Ejemplos completos** - Request y response de ejemplo
+
+### **🧪 Casos de Prueba Cubiertos:**
+
+- ✅ **Actualización exitosa** - Todos los campos de empresa
+- ✅ **Actualización parcial** - Solo algunos campos
+- ✅ **Error 400** - ID de empresa faltante
+- ✅ **Error 404** - Empresa no encontrada
+- ✅ **Verificación GET** - Confirmación de cambios
 
 ---
 

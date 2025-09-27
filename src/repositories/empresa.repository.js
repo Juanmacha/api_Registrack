@@ -11,6 +11,17 @@ export const createEmpresa = async (empresaData) => {
   return await Empresa.create(empresaData);
 };
 
+// Actualizar empresa
+export const updateEmpresa = async (id_empresa, updateData) => {
+  const empresa = await Empresa.findByPk(id_empresa);
+  
+  if (!empresa) {
+    return null;
+  }
+  
+  return await empresa.update(updateData);
+};
+
 // Obtener todas las empresas
 export const getAllEmpresas = async () => {
   return await Empresa.findAll();
