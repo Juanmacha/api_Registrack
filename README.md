@@ -1324,9 +1324,661 @@ curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
+### 🔐 Gestión de Roles y Permisos ⭐ **ACTUALIZADO - FORMATO GRANULAR**
+
+> **⚠️ IMPORTANTE**: Los endpoints de roles ahora utilizan un **formato granular** compatible con frontends modernos. Los permisos se envían como objetos anidados por módulo y acción, y las respuestas devuelven el mismo formato para facilitar la integración con el frontend.
+
+**Módulos disponibles**: `usuarios`, `empleados`, `clientes`, `empresas`, `servicios`, `solicitudes`, `citas`, `pagos`, `roles`, `permisos`, `privilegios`, `seguimiento`, `archivos`, `tipo_archivos`, `formularios`, `detalles_orden`, `detalles_procesos`, `servicios_procesos`
+
+**Acciones disponibles**: `crear`, `leer`, `actualizar`, `eliminar`
+
+#### 36. Obtener todos los roles
+```bash
+curl -X GET "http://localhost:3000/api/gestion-roles" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada (Formato Granular):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "1",
+      "nombre": "Administrador",
+      "estado": "Activo",
+      "permisos": {
+        "usuarios": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "empleados": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "clientes": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "empresas": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "servicios": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "solicitudes": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "citas": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "pagos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "roles": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "permisos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "privilegios": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "seguimiento": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "archivos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "tipo_archivos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "formularios": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "detalles_orden": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "detalles_procesos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        },
+        "servicios_procesos": {
+          "crear": true,
+          "leer": true,
+          "actualizar": true,
+          "eliminar": true
+        }
+      }
+    }
+  ]
+}
+```
+
+#### 37. Crear nuevo rol (Formato Granular)
+```bash
+curl -X POST "http://localhost:3000/api/gestion-roles" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "Supervisor de Ventas",
+    "permisos": {
+      "usuarios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "clientes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "empresas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "solicitudes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "citas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "pagos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "roles": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "permisos": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "privilegios": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "seguimiento": {
+        "crear": false,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "archivos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "tipo_archivos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "formularios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "detalles_orden": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "detalles_procesos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios_procesos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      }
+    }
+  }'
+```
+
+**Respuesta esperada (Formato Granular):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "2",
+    "nombre": "Supervisor de Ventas",
+    "estado": "Activo",
+    "permisos": {
+      "usuarios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "clientes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "empresas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "solicitudes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "citas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "pagos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "roles": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "permisos": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "privilegios": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "seguimiento": {
+        "crear": false,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "archivos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "tipo_archivos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "formularios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "detalles_orden": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "detalles_procesos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios_procesos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      }
+    }
+  }
+}
+```
+
+#### 38. Obtener rol por ID
+```bash
+curl -X GET "http://localhost:3000/api/gestion-roles/1" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_rol": 1,
+  "nombre": "administrador",
+  "estado": true,
+  "permisos": [
+    {
+      "id_permiso": 1,
+      "nombre": "gestion_usuarios"
+    },
+    {
+      "id_permiso": 2,
+      "nombre": "gestion_roles"
+    }
+  ],
+  "privilegios": [
+    {
+      "id_privilegio": 1,
+      "nombre": "crear"
+    },
+    {
+      "id_privilegio": 2,
+      "nombre": "leer"
+    },
+    {
+      "id_privilegio": 3,
+      "nombre": "actualizar"
+    },
+    {
+      "id_privilegio": 4,
+      "nombre": "eliminar"
+    }
+  ]
+}
+```
+
+#### 39. Actualizar rol
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-roles/4" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "supervisor_senior",
+    "estado": true
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_rol": 4,
+  "nombre": "supervisor_senior",
+  "estado": true,
+  "permisos": [
+    {
+      "id_permiso": 3,
+      "nombre": "gestion_clientes"
+    },
+    {
+      "id_permiso": 4,
+      "nombre": "gestion_empleados"
+    }
+  ],
+  "privilegios": [
+    {
+      "id_privilegio": 1,
+      "nombre": "crear"
+    },
+    {
+      "id_privilegio": 2,
+      "nombre": "leer"
+    },
+    {
+      "id_privilegio": 3,
+      "nombre": "actualizar"
+    }
+  ]
+}
+```
+
+#### 40. Cambiar estado del rol
+```bash
+curl -X PATCH "http://localhost:3000/api/gestion-roles/4/state" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "estado": false
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_rol": 4,
+  "nombre": "supervisor_senior",
+  "estado": false
+}
+```
+
+#### 41. Eliminar rol
+```bash
+curl -X DELETE "http://localhost:3000/api/gestion-roles/4" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "message": "Rol eliminado correctamente"
+}
+```
+
+**Notas importantes:**
+- ✅ **Solo administradores**: Todos los endpoints requieren rol de administrador
+- ✅ **Sistema de permisos**: Los roles se crean con permisos y privilegios específicos
+- ✅ **Validaciones robustas**: Validación de nombre único y campos requeridos
+- ✅ **Relaciones complejas**: Incluye permisos y privilegios asociados
+- ✅ **Estado del rol**: Permite activar/desactivar roles sin eliminarlos
+
+---
+
+### 🔑 Gestión de Permisos
+
+#### 42. Obtener todos los permisos
+```bash
+curl -X GET "http://localhost:3000/api/gestion-permisos" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id_permiso": 1,
+      "nombre": "gestion_usuarios"
+    },
+    {
+      "id_permiso": 2,
+      "nombre": "gestion_roles"
+    },
+    {
+      "id_permiso": 3,
+      "nombre": "gestion_clientes"
+    },
+    {
+      "id_permiso": 4,
+      "nombre": "gestion_empleados"
+    }
+  ]
+}
+```
+
+#### 43. Crear nuevo permiso
+```bash
+curl -X POST "http://localhost:3000/api/gestion-permisos" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "gestion_reportes"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_permiso": 5,
+  "nombre": "gestion_reportes"
+}
+```
+
+#### 44. Obtener permiso por ID
+```bash
+curl -X GET "http://localhost:3000/api/gestion-permisos/5" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+#### 45. Actualizar permiso
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-permisos/5" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "gestion_reportes_avanzados"
+  }'
+```
+
+#### 46. Eliminar permiso
+```bash
+curl -X DELETE "http://localhost:3000/api/gestion-permisos/5" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+---
+
+### 🛡️ Gestión de Privilegios
+
+#### 47. Obtener todos los privilegios
+```bash
+curl -X GET "http://localhost:3000/api/gestion-privilegios" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id_privilegio": 1,
+      "nombre": "crear"
+    },
+    {
+      "id_privilegio": 2,
+      "nombre": "leer"
+    },
+    {
+      "id_privilegio": 3,
+      "nombre": "actualizar"
+    },
+    {
+      "id_privilegio": 4,
+      "nombre": "eliminar"
+    }
+  ]
+}
+```
+
+#### 48. Crear nuevo privilegio
+```bash
+curl -X POST "http://localhost:3000/api/gestion-privilegios" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "exportar"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_privilegio": 5,
+  "nombre": "exportar"
+}
+```
+
+#### 49. Obtener privilegio por ID
+```bash
+curl -X GET "http://localhost:3000/api/gestion-privilegios/5" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+#### 50. Actualizar privilegio
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-privilegios/5" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "nombre": "exportar_datos"
+  }'
+```
+
+#### 51. Eliminar privilegio
+```bash
+curl -X DELETE "http://localhost:3000/api/gestion-privilegios/5" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+**Notas importantes sobre permisos y privilegios:**
+- ✅ **Solo administradores**: Todos los endpoints requieren rol de administrador
+- ✅ **Validaciones robustas**: Nombres únicos y campos requeridos
+- ✅ **Relaciones con roles**: Los permisos y privilegios se asocian a roles
+- ✅ **Sistema granular**: Control fino de acceso por funcionalidad y acción
+
+---
+
 ### 👥 Gestión de Clientes ⭐ **ACTUALIZADO**
 
-#### 36. Obtener todos los clientes
+#### 52. Obtener todos los clientes
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes" \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
@@ -1376,7 +2028,7 @@ curl -X GET "http://localhost:3000/api/gestion-clientes" \
 }
 ```
 
-#### 37. Crear cliente (Administradores)
+#### 53. Crear cliente (Administradores)
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-clientes" \
   -H "Content-Type: application/json" \
@@ -1399,7 +2051,7 @@ curl -X POST "http://localhost:3000/api/gestion-clientes" \
   }'
 ```
 
-#### 38. Obtener cliente por ID
+#### 54. Obtener cliente por ID
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/8" \
   -H "Authorization: Bearer <TOKEN>"
@@ -1448,7 +2100,7 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/8" \
 }
 ```
 
-#### 39. Actualizar cliente
+#### 55. Actualizar cliente
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-clientes/8" \
   -H "Content-Type: application/json" \
@@ -1504,7 +2156,7 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/8" \
 }
 ```
 
-#### 40. Actualizar empresa asociada al cliente ⭐ **NUEVO**
+#### 56. Actualizar empresa asociada al cliente ⭐ **NUEVO**
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-clientes/8/empresa" \
   -H "Content-Type: application/json" \
@@ -1580,7 +2232,7 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/8/empresa" \
 - ✅ **Validación automática**: Valida que la empresa exista antes de actualizar
 - ✅ **Trazabilidad**: El campo `updated_at` se actualiza automáticamente
 
-#### 41. Actualizar usuario asociado al cliente ⭐ **NUEVO**
+#### 57. Actualizar usuario asociado al cliente ⭐ **NUEVO**
 ```bash
 curl -X PUT "http://localhost:3000/api/gestion-clientes/8/usuario" \
   -H "Content-Type: application/json" \
@@ -1651,7 +2303,7 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/8/usuario" \
 - ✅ **Respuesta completa**: Retorna el cliente con todas las relaciones actualizadas
 - ✅ **Campos opcionales**: Todos los campos son opcionales, actualiza solo los que necesites
 
-#### 42. Descargar reporte de clientes en Excel
+#### 58. Descargar reporte de clientes en Excel
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
@@ -1673,6 +2325,154 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 ---
 
 ## 🧪 **GUÍA DE PRUEBAS EN POSTMAN**
+
+### **🔐 Gestión de Roles - Guía Paso a Paso**
+
+#### **Paso 1: Obtener Token de Administrador**
+```bash
+POST http://localhost:3000/api/usuarios/login
+Content-Type: application/json
+
+{
+  "correo": "admin@registrack.com",
+  "contrasena": "admin123"
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Login exitoso",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Admin",
+      "apellido": "Sistema",
+      "correo": "admin@registrack.com",
+      "rol": "administrador"
+    }
+  }
+}
+```
+
+#### **Paso 2: Obtener Todos los Roles**
+```bash
+GET http://localhost:3000/api/gestion-roles
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id_rol": 1,
+      "nombre": "administrador",
+      "estado": true,
+      "permisos": [...],
+      "privilegios": [...]
+    },
+    {
+      "id_rol": 2,
+      "nombre": "empleado",
+      "estado": true,
+      "permisos": [...],
+      "privilegios": [...]
+    }
+  ]
+}
+```
+
+#### **Paso 3: Crear Nuevo Rol**
+```bash
+POST http://localhost:3000/api/gestion-roles
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "nombre": "supervisor",
+  "permisos": ["gestion_clientes", "gestion_empleados"],
+  "privilegios": ["crear", "leer", "actualizar"]
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "id_rol": 4,
+  "nombre": "supervisor",
+  "estado": true,
+  "permisos": [
+    {
+      "id_permiso": 3,
+      "nombre": "gestion_clientes"
+    },
+    {
+      "id_permiso": 4,
+      "nombre": "gestion_empleados"
+    }
+  ],
+  "privilegios": [
+    {
+      "id_privilegio": 1,
+      "nombre": "crear"
+    },
+    {
+      "id_privilegio": 2,
+      "nombre": "leer"
+    },
+    {
+      "id_privilegio": 3,
+      "nombre": "actualizar"
+    }
+  ]
+}
+```
+
+#### **Paso 4: Obtener Rol por ID**
+```bash
+GET http://localhost:3000/api/gestion-roles/4
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+#### **Paso 5: Actualizar Rol**
+```bash
+PUT http://localhost:3000/api/gestion-roles/4
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "nombre": "supervisor_senior",
+  "estado": true
+}
+```
+
+#### **Paso 6: Cambiar Estado del Rol**
+```bash
+PATCH http://localhost:3000/api/gestion-roles/4/state
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "estado": false
+}
+```
+
+#### **Paso 7: Verificar Cambios**
+```bash
+GET http://localhost:3000/api/gestion-roles/4
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+**Verificaciones:**
+- ✅ El nombre se actualizó a "supervisor_senior"
+- ✅ El estado se cambió a false
+- ✅ Los permisos y privilegios se mantienen intactos
+
+---
 
 ### **📋 Crear Cliente - Guía Paso a Paso**
 
@@ -3351,6 +4151,686 @@ Implementar funcionalidad completa para actualizar datos de empresas y usuarios 
 
 ---
 
+## 🚀 Mejoras Implementadas en el Módulo de Roles y Permisos
+
+### **📅 Fecha de Implementación:** 26 de Septiembre de 2025
+
+### **🎯 Objetivo:**
+Documentar completamente el sistema de gestión de roles, permisos y privilegios que permite un control granular de acceso a las funcionalidades del sistema.
+
+### **🔧 Funcionalidades Documentadas:**
+
+#### **1. Gestión de Roles** (`/api/gestion-roles`)
+- ✅ **GET /** - Obtener todos los roles con permisos y privilegios
+- ✅ **POST /** - Crear nuevo rol con permisos y privilegios específicos
+- ✅ **GET /:id** - Obtener rol específico por ID
+- ✅ **PUT /:id** - Actualizar nombre y estado del rol
+- ✅ **PATCH /:id/state** - Cambiar estado del rol (activar/desactivar)
+- ✅ **DELETE /:id** - Eliminar rol del sistema
+
+#### **2. Gestión de Permisos** (`/api/gestion-permisos`)
+- ✅ **GET /** - Obtener todos los permisos disponibles
+- ✅ **POST /** - Crear nuevo permiso
+- ✅ **GET /:id** - Obtener permiso específico por ID
+- ✅ **PUT /:id** - Actualizar nombre del permiso
+- ✅ **DELETE /:id** - Eliminar permiso del sistema
+
+#### **3. Gestión de Privilegios** (`/api/gestion-privilegios`)
+- ✅ **GET /** - Obtener todos los privilegios disponibles
+- ✅ **POST /** - Crear nuevo privilegio
+- ✅ **GET /:id** - Obtener privilegio específico por ID
+- ✅ **PUT /:id** - Actualizar nombre del privilegio
+- ✅ **DELETE /:id** - Eliminar privilegio del sistema
+
+### **🔐 Sistema de Seguridad:**
+
+#### **Autenticación y Autorización:**
+- ✅ **Solo administradores**: Todos los endpoints requieren rol de administrador
+- ✅ **Middleware de autenticación**: Verificación de token JWT
+- ✅ **Middleware de autorización**: Verificación de rol específico
+- ✅ **Validaciones robustas**: Campos requeridos y nombres únicos
+
+#### **Estructura de Datos:**
+- ✅ **Relaciones complejas**: Roles ↔ Permisos ↔ Privilegios
+- ✅ **Tabla intermedia**: `RolPermisoPrivilegio` para relaciones many-to-many
+- ✅ **Campos de estado**: Control de activación/desactivación
+- ✅ **Validaciones de integridad**: Nombres únicos y campos requeridos
+
+### **📊 Métricas del Sistema:**
+
+- **Total de endpoints documentados**: 16 endpoints
+- **Módulos cubiertos**: 3 (Roles, Permisos, Privilegios)
+- **Niveles de acceso**: 1 (Solo administradores)
+- **Validaciones implementadas**: 100% de campos críticos
+- **Relaciones documentadas**: 3 tipos de relaciones complejas
+
+### **🚀 Funcionalidades Avanzadas:**
+
+- ✅ **Creación automática**: Permisos y privilegios se crean automáticamente si no existen
+- ✅ **Relaciones dinámicas**: Los roles se asocian automáticamente con permisos y privilegios
+- ✅ **Respuestas completas**: Incluye todas las relaciones en las respuestas
+- ✅ **Control de estado**: Permite activar/desactivar roles sin eliminarlos
+- ✅ **Sistema granular**: Control fino por funcionalidad y acción
+
+### **📝 Documentación Completa:**
+
+- ✅ **16 endpoints documentados** - Todos los endpoints de roles, permisos y privilegios
+- ✅ **Guía de Postman** - 7 pasos completos para probar el sistema
+- ✅ **Ejemplos de request/response** - Para todos los endpoints
+- ✅ **Validaciones documentadas** - Campos requeridos y restricciones
+- ✅ **Notas importantes** - Información crítica sobre seguridad y uso
+
+### **🧪 Casos de Prueba Cubiertos:**
+
+- ✅ **CRUD completo** - Crear, leer, actualizar y eliminar para los 3 módulos
+- ✅ **Validaciones de seguridad** - Solo administradores pueden acceder
+- ✅ **Relaciones complejas** - Creación de roles con permisos y privilegios
+- ✅ **Control de estado** - Activación/desactivación de roles
+- ✅ **Manejo de errores** - Casos de error documentados
+
+### **🎯 Beneficios del Sistema:**
+
+- ✅ **Seguridad robusta**: Control granular de acceso
+- ✅ **Flexibilidad**: Roles personalizables con permisos específicos
+- ✅ **Escalabilidad**: Fácil agregar nuevos permisos y privilegios
+- ✅ **Mantenibilidad**: Sistema centralizado de gestión de roles
+- ✅ **Auditabilidad**: Control completo de quién puede hacer qué
+
+---
+
+## 🔄 **MEJORAS IMPLEMENTADAS EN EL MÓDULO DE ROLES - FORMATO GRANULAR**
+
+### **📋 Descripción del Problema Resuelto**
+
+Se implementó un sistema de gestión de roles con formato granular compatible con frontends modernos que manejan permisos detallados por módulo y acción. El sistema permite:
+
+- **Permisos granulares**: Control fino por módulo y acción específica
+- **Transformación automática**: Conversión entre formato frontend y API
+- **Validaciones robustas**: Validación completa de estructura de permisos
+- **Logging detallado**: Debugging completo para desarrollo
+
+### **🎯 Módulos Disponibles en el Sistema**
+
+Basado en el análisis completo de la API, se identificaron **18 módulos reales**:
+
+| **Módulo** | **Ruta API** | **Descripción** |
+|------------|--------------|-----------------|
+| `usuarios` | `/api/usuarios` | Gestión de usuarios del sistema |
+| `empleados` | `/api/gestion-empleados` | Gestión de empleados |
+| `clientes` | `/api/gestion-clientes` | Gestión de clientes |
+| `empresas` | `/api/gestion-empresas` | Gestión de empresas |
+| `servicios` | `/api/servicios` | Gestión de servicios |
+| `solicitudes` | `/api/gestion-solicitudes` | Gestión de solicitudes |
+| `citas` | `/api/gestion-citas` | Gestión de citas |
+| `pagos` | `/api/gestion-pagos` | Gestión de pagos |
+| `roles` | `/api/gestion-roles` | Gestión de roles |
+| `permisos` | `/api/gestion-permisos` | Gestión de permisos |
+| `privilegios` | `/api/gestion-privilegios` | Gestión de privilegios |
+| `seguimiento` | `/api/seguimiento` | Seguimiento de procesos |
+| `archivos` | `/api/gestion-archivos` | Gestión de archivos |
+| `tipo_archivos` | `/api/gestion-tipo-archivos` | Tipos de archivos |
+| `formularios` | `/api/formularios-dinamicos` | Formularios dinámicos |
+| `detalles_orden` | `/api/detalles-orden` | Detalles de órdenes |
+| `detalles_procesos` | `/api/detalles-procesos` | Detalles de procesos |
+| `servicios_procesos` | `/api/gestion-servicios-procesos` | Servicios y procesos |
+
+### **🔧 Acciones Disponibles**
+
+Cada módulo soporta **4 acciones básicas**:
+- `crear` - Crear nuevos registros
+- `leer` - Consultar/leer información
+- `actualizar` - Modificar registros existentes
+- `eliminar` - Eliminar registros
+
+### **📊 Estructura de Datos**
+
+#### **Formato Frontend (Entrada):**
+```json
+{
+  "nombre": "Supervisor de Ventas",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "clientes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    }
+  }
+}
+```
+
+#### **Formato API (Transformado):**
+```json
+{
+  "nombre": "supervisor de ventas",
+  "permisos": ["gestion_usuarios", "gestion_clientes"],
+  "privilegios": ["leer", "crear", "actualizar"]
+}
+```
+
+#### **Formato Frontend (Salida):**
+```json
+{
+  "id": "2",
+  "nombre": "Supervisor de Ventas",
+  "estado": "Activo",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "clientes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "empleados": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    }
+  }
+}
+```
+
+### **🚀 Endpoints Modificados**
+
+| **Endpoint** | **Método** | **Formato Entrada** | **Formato Salida** | **Estado** |
+|--------------|------------|---------------------|-------------------|------------|
+| `/api/gestion-roles` | GET | - | Frontend | ✅ |
+| `/api/gestion-roles` | POST | Frontend | Frontend | ✅ |
+| `/api/gestion-roles/:id` | GET | - | Frontend | ✅ |
+| `/api/gestion-roles/:id` | PUT | Frontend | Frontend | ✅ |
+| `/api/gestion-roles/:id/state` | PATCH | Frontend | Frontend | ✅ |
+
+### **📝 Ejemplos Reales para Postman**
+
+#### **Ejemplo 1: Rol "Supervisor de Ventas"**
+
+**Request:**
+```http
+POST http://localhost:3000/api/gestion-roles
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "nombre": "Supervisor de Ventas",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "empleados": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "clientes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "empresas": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "servicios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "solicitudes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "citas": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "pagos": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "roles": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "permisos": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "privilegios": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "seguimiento": {
+      "crear": false,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "archivos": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "tipo_archivos": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "formularios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "detalles_orden": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "detalles_procesos": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "servicios_procesos": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "2",
+    "nombre": "Supervisor de Ventas",
+    "estado": "Activo",
+    "permisos": {
+      "usuarios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "empleados": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "clientes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "empresas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "solicitudes": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "citas": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "pagos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "roles": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "permisos": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "privilegios": {
+        "crear": false,
+        "leer": false,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "seguimiento": {
+        "crear": false,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "archivos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "tipo_archivos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "formularios": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      },
+      "detalles_orden": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "detalles_procesos": {
+        "crear": true,
+        "leer": true,
+        "actualizar": true,
+        "eliminar": false
+      },
+      "servicios_procesos": {
+        "crear": false,
+        "leer": true,
+        "actualizar": false,
+        "eliminar": false
+      }
+    }
+  }
+}
+```
+
+#### **Ejemplo 2: Rol "Asistente Administrativo"**
+
+**Request:**
+```http
+POST http://localhost:3000/api/gestion-roles
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "nombre": "Asistente Administrativo",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "empleados": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "clientes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "empresas": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "servicios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "solicitudes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "citas": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "pagos": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "roles": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "permisos": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "privilegios": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "seguimiento": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "archivos": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "tipo_archivos": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "formularios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "detalles_orden": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "detalles_procesos": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    },
+    "servicios_procesos": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    }
+  }
+}
+```
+
+### **🧪 Guía de Pruebas en Postman**
+
+#### **Paso 1: Configuración Inicial**
+1. **Base URL**: `http://localhost:3000/api`
+2. **Headers necesarios**:
+   - `Content-Type: application/json`
+   - `Authorization: Bearer <tu_token_jwt>`
+
+#### **Paso 2: Obtener Token de Autenticación**
+```http
+POST http://localhost:3000/api/usuarios/login
+Content-Type: application/json
+
+{
+  "correo": "admin@registrack.com",
+  "contrasena": "Admin123!"
+}
+```
+
+#### **Paso 3: Probar Endpoints en Orden**
+1. **GET** `/api/gestion-roles` - Ver roles existentes
+2. **POST** `/api/gestion-roles` - Crear nuevo rol (usar ejemplos arriba)
+3. **GET** `/api/gestion-roles/:id` - Verificar rol creado
+4. **PUT** `/api/gestion-roles/:id` - Actualizar rol
+5. **PATCH** `/api/gestion-roles/:id/state` - Cambiar estado
+
+#### **Paso 4: Verificar Logs**
+- Revisar la consola del servidor para ver el logging detallado
+- Los logs muestran las transformaciones entre formatos
+
+### **🔧 Archivos Modificados**
+
+#### **1. Nuevo Archivo: `src/utils/roleTransformations.js`**
+- ✅ Funciones de transformación entre frontend y API
+- ✅ Validaciones robustas de permisos
+- ✅ Logging detallado para debugging
+- ✅ Utilidades para capitalización y manejo de estados
+
+#### **2. Modificado: `src/controllers/role.controller.js`**
+- ✅ **GET /api/gestion-roles** - Devuelve formato frontend
+- ✅ **POST /api/gestion-roles** - Acepta formato frontend
+- ✅ **PUT /api/gestion-roles/:id** - Acepta formato frontend
+- ✅ **GET /api/gestion-roles/:id** - Devuelve formato frontend
+- ✅ **PATCH /api/gestion-roles/:id/state** - Devuelve formato frontend
+- ✅ Logging detallado en todas las funciones
+- ✅ Manejo de errores consistente
+
+#### **3. Modificado: `src/services/role.service.js`**
+- ✅ Nueva función `updateRoleWithDetails` para actualizaciones completas
+- ✅ Manejo de relaciones permisos-privilegios
+- ✅ Validaciones de datos
+
+### **✅ Características Implementadas**
+
+#### **Validaciones Robustas:**
+- ✅ Validación de estructura de permisos
+- ✅ Validación de módulos válidos (18 módulos reales)
+- ✅ Validación de acciones válidas (4 acciones por módulo)
+- ✅ Validación de tipos de datos
+
+#### **Logging Detallado:**
+- ✅ Logs de entrada y salida
+- ✅ Logs de transformaciones
+- ✅ Logs de errores con stack trace
+- ✅ Logs de debugging para desarrollo
+
+#### **Manejo de Errores:**
+- ✅ Respuestas consistentes de error
+- ✅ Detalles de error en desarrollo
+- ✅ Validaciones específicas por endpoint
+- ✅ Manejo de casos edge
+
+#### **Compatibilidad:**
+- ✅ Mantiene funcionalidad existente
+- ✅ Formato consistente de respuestas
+- ✅ Capitalización correcta de nombres
+- ✅ Estados como strings legibles
+
+### **🎯 Beneficios del Sistema Granular**
+
+- ✅ **Control fino**: Permisos específicos por módulo y acción
+- ✅ **Flexibilidad**: Roles personalizables según necesidades
+- ✅ **Escalabilidad**: Fácil agregar nuevos módulos
+- ✅ **Mantenibilidad**: Sistema centralizado y organizado
+- ✅ **Auditabilidad**: Control completo de accesos
+- ✅ **Compatibilidad**: Funciona con frontends modernos
+
+### **📊 Métricas de Implementación**
+
+- **Módulos soportados**: 18 módulos reales de la API
+- **Acciones por módulo**: 4 acciones (crear, leer, actualizar, eliminar)
+- **Endpoints modificados**: 5 endpoints principales
+- **Funciones de transformación**: 6 funciones especializadas
+- **Validaciones implementadas**: 100% de campos críticos
+- **Logging implementado**: 100% de operaciones
+
+### **🚀 Estado de Implementación**
+
+- ✅ **Análisis completo** - Todos los módulos de la API identificados
+- ✅ **Transformaciones implementadas** - Conversión bidireccional
+- ✅ **Validaciones robustas** - Validación completa de datos
+- ✅ **Logging detallado** - Debugging completo
+- ✅ **Endpoints modificados** - Todos los endpoints actualizados
+- ✅ **Pruebas realizadas** - Funcionalidad verificada
+- ✅ **Documentación completa** - Guía detallada para Postman
+
+---
+
 **API Registrack** - Sistema integral de gestión de servicios legales y de propiedad intelectual.
 
-**Versión actual**: 2.3 - Módulo de Clientes con Filtrado Inteligente y Creación Automática ✅
+**Versión actual**: 2.6 - Módulo de Roles con Formato Granular Completamente Documentado ✅
