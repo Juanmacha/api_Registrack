@@ -3,6 +3,7 @@ import {
   listarClientes, 
   obtenerCliente, 
   editarCliente, 
+  editarUsuarioCliente,
   editarEmpresaCliente,
   borrarCliente,
   descargarReporteClientes
@@ -18,6 +19,7 @@ const router = Router();
 router.get("/", roleMiddleware(["administrador", "empleado"]), listarClientes); 
 router.get("/:id", roleMiddleware(["administrador", "empleado", "cliente"]), obtenerCliente);
 router.put("/:id", roleMiddleware(["administrador", "empleado"]), editarCliente);
+router.put("/:id/usuario", roleMiddleware(["administrador", "empleado"]), editarUsuarioCliente);
 router.put("/:id/empresa", roleMiddleware(["administrador", "empleado"]), editarEmpresaCliente);
 router.delete("/:id", roleMiddleware(["administrador"]), borrarCliente);
 

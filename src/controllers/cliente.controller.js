@@ -176,6 +176,113 @@ export const editarCliente = async (req, res) => {
   }
 };
 
+// UPDATE - Usuario asociado al cliente
+export const editarUsuarioCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { telefono, nombre, apellido, correo, tipo_documento, documento } = req.body;
+    
+    // Obtener el cliente para acceder al id_usuario
+    const cliente = await getClienteById(id);
+    
+    if (!cliente) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Cliente no encontrado",
+          code: ERROR_CODES.NOT_FOUND,
+          details: { id },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Preparar datos de actualización del usuario
+    const datosUsuario = {};
+    if (telefono !== undefined) datosUsuario.telefono = telefono;
+    if (nombre !== undefined) datosUsuario.nombre = nombre;
+    if (apellido !== undefined) datosUsuario.apellido = apellido;
+    if (correo !== undefined) datosUsuario.correo = correo;
+    if (tipo_documento !== undefined) datosUsuario.tipo_documento = tipo_documento;
+    if (documento !== undefined) datosUsuario.documento = documento;
+    
+    // Verificar que hay al menos un campo para actualizar
+    if (Object.keys(datosUsuario).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Debe proporcionar al menos un campo para actualizar",
+          code: ERROR_CODES.VALIDATION_ERROR,
+          details: { campos_disponibles: ["telefono", "nombre", "apellido", "correo", "tipo_documento", "documento"] },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Importar el servicio de usuario
+    const { updateUsuarioById } = await import("../services/user.services.js");
+    
+    // Actualizar el usuario
+    const usuarioActualizado = await updateUsuarioById(cliente.id_usuario, datosUsuario);
+    
+    if (!usuarioActualizado) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Usuario asociado no encontrado",
+          code: ERROR_CODES.NOT_FOUND,
+          details: { id_usuario: cliente.id_usuario },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Obtener el cliente actualizado con todas las relaciones
+    const clienteActualizado = await getClienteById(id);
+    
+    res.status(200).json({
+      success: true,
+      message: "Usuario del cliente actualizado exitosamente",
+      data: {
+        cliente: {
+          id_cliente: clienteActualizado.id_cliente,
+          id_usuario: clienteActualizado.id_usuario,
+          marca: clienteActualizado.marca,
+          tipo_persona: clienteActualizado.tipo_persona,
+          estado: clienteActualizado.estado,
+          origen: clienteActualizado.origen,
+          usuario: clienteActualizado.Usuario ? {
+            id_usuario: clienteActualizado.Usuario.id_usuario,
+            nombre: clienteActualizado.Usuario.nombre,
+            apellido: clienteActualizado.Usuario.apellido,
+            correo: clienteActualizado.Usuario.correo,
+            telefono: clienteActualizado.Usuario.telefono,
+            tipo_documento: clienteActualizado.Usuario.tipo_documento,
+            documento: clienteActualizado.Usuario.documento
+          } : null,
+          empresas: clienteActualizado.Empresas || []
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        changes: Object.keys(datosUsuario).join(', '),
+        note: "Usuario asociado actualizado. Los cambios se reflejan en el sistema."
+      }
+    });
+  } catch (error) {
+    console.error("Error al actualizar usuario del cliente:", error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: ERROR_MESSAGES.INTERNAL_ERROR,
+        code: ERROR_CODES.INTERNAL_ERROR,
+        details: process.env.NODE_ENV === "development" ? error.message : "Error al actualizar usuario del cliente",
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+};
+
 // UPDATE - Empresa asociada
 export const editarEmpresaCliente = async (req, res) => {
   try {

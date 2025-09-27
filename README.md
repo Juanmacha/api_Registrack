@@ -1580,7 +1580,78 @@ curl -X PUT "http://localhost:3000/api/gestion-clientes/8/empresa" \
 - ✅ **Validación automática**: Valida que la empresa exista antes de actualizar
 - ✅ **Trazabilidad**: El campo `updated_at` se actualiza automáticamente
 
-#### 41. Descargar reporte de clientes en Excel
+#### 41. Actualizar usuario asociado al cliente ⭐ **NUEVO**
+```bash
+curl -X PUT "http://localhost:3000/api/gestion-clientes/8/usuario" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "telefono": "3009876543",
+    "nombre": "Juan Carlos",
+    "apellido": "Pérez García"
+  }'
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Usuario del cliente actualizado exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 5,
+      "marca": "MiMarcaEmpresarialActualizada",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "solicitud",
+      "usuario": {
+        "id_usuario": 5,
+        "nombre": "Juan Carlos",
+        "apellido": "Pérez García",
+        "correo": "juan@example.com",
+        "telefono": "3009876543",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "9001234561",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Nueva Dirección Empresarial #123-45",
+          "telefono": "3009876543",
+          "email": "nuevo@empresa.com",
+          "ciudad": "Medellín",
+          "pais": "Colombia"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "changes": "telefono, nombre, apellido",
+    "note": "Usuario asociado actualizado. Los cambios se reflejan en el sistema."
+  }
+}
+```
+
+**Campos actualizables del usuario:**
+- `telefono` (string, 20 chars max) - Teléfono de contacto del usuario
+- `nombre` (string, 50 chars max) - Nombre del usuario
+- `apellido` (string, 50 chars max) - Apellido del usuario
+- `correo` (email format) - Correo electrónico del usuario
+- `tipo_documento` (enum: "CC", "CE", "TI", "PA", "RC") - Tipo de documento
+- `documento` (string, 20 chars max) - Número de documento
+
+**Notas importantes:**
+- ✅ **Actualización parcial**: Solo envía los campos que quieres actualizar
+- ✅ **Validación automática**: El sistema valida que el cliente y usuario existan
+- ✅ **Respuesta completa**: Retorna el cliente con todas las relaciones actualizadas
+- ✅ **Campos opcionales**: Todos los campos son opcionales, actualiza solo los que necesites
+
+#### 42. Descargar reporte de clientes en Excel
 ```bash
 curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
@@ -1595,6 +1666,7 @@ curl -X GET "http://localhost:3000/api/gestion-clientes/reporte/excel" \
 - ✅ **Datos completos**: Incluye información del usuario y empresa asociada
 - ✅ **Validaciones robustas**: Validaciones mejoradas para datos de cliente y empresa
 - ✅ **Actualización de empresa**: Nuevo endpoint para actualizar datos de empresa asociada
+- ✅ **Actualización de usuario**: Nuevo endpoint para actualizar datos del usuario asociado
 - ✅ **Respuestas mejoradas**: Todas las actualizaciones incluyen relaciones completas
 - ✅ **Trazabilidad completa**: Campo `updated_at` se actualiza automáticamente
 
@@ -1842,6 +1914,76 @@ Authorization: Bearer <TOKEN_OBTENIDO>
 - ✅ El campo `updated_at` se actualizó con la nueva fecha
 - ✅ Los datos del cliente y usuario se mantienen intactos
 
+#### **Paso 7: Actualizar Usuario del Cliente** ⭐ **NUEVO**
+```bash
+PUT http://localhost:3000/api/gestion-clientes/8/usuario
+Content-Type: application/json
+Authorization: Bearer <TOKEN_OBTENIDO>
+
+{
+  "telefono": "3009876543",
+  "nombre": "Juan Carlos",
+  "apellido": "Pérez García"
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "message": "Usuario del cliente actualizado exitosamente",
+  "data": {
+    "cliente": {
+      "id_cliente": 8,
+      "id_usuario": 1,
+      "marca": "MiMarcaEmpresarial",
+      "tipo_persona": "Jurídica",
+      "estado": true,
+      "origen": "directo",
+      "usuario": {
+        "id_usuario": 1,
+        "nombre": "Juan Carlos",
+        "apellido": "Pérez García",
+        "correo": "admin@registrack.com",
+        "telefono": "3009876543",
+        "tipo_documento": "CC",
+        "documento": "12345678"
+      },
+      "empresas": [
+        {
+          "id_empresa": 12,
+          "nombre": "Mi Empresa SAS",
+          "nit": "900123456-1",
+          "tipo_empresa": "Sociedad por Acciones Simplificada",
+          "direccion": "Nueva Dirección Empresarial #123-45",
+          "telefono": "3009876543",
+          "email": "nuevo@empresa.com",
+          "ciudad": "Medellín",
+          "pais": "Colombia"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "changes": "telefono, nombre, apellido",
+    "note": "Usuario asociado actualizado. Los cambios se reflejan en el sistema."
+  }
+}
+```
+
+#### **Paso 8: Verificar Cambios en el Usuario**
+```bash
+GET http://localhost:3000/api/gestion-clientes/8
+Authorization: Bearer <TOKEN_OBTENIDO>
+```
+
+**Verificaciones:**
+- ✅ El campo `telefono` del usuario se actualizó correctamente
+- ✅ Los campos `nombre` y `apellido` se actualizaron
+- ✅ Los datos del cliente y empresa se mantienen intactos
+- ✅ La respuesta incluye todos los datos actualizados
+
 ### **⚠️ Validaciones Importantes**
 
 #### **Campos Requeridos del Cliente:**
@@ -1869,6 +2011,20 @@ Authorization: Bearer <TOKEN_OBTENIDO>
 - ✅ **Actualización parcial**: Solo envía los campos que quieres actualizar
 - ✅ **Validación automática**: El sistema valida que la empresa exista
 - ✅ **Respuesta completa**: Retorna el cliente con todas las relaciones actualizadas
+
+#### **Campos Actualizables del Usuario (PUT /:id/usuario):**
+- `telefono` (string, 20 chars max) - Teléfono de contacto del usuario
+- `nombre` (string, 50 chars max) - Nombre del usuario
+- `apellido` (string, 50 chars max) - Apellido del usuario
+- `correo` (email format) - Correo electrónico del usuario
+- `tipo_documento` (enum: "CC", "CE", "TI", "PA", "RC") - Tipo de documento
+- `documento` (string, 20 chars max) - Número de documento
+
+**Notas importantes:**
+- ✅ **Actualización parcial**: Solo envía los campos que quieres actualizar
+- ✅ **Validación automática**: El sistema valida que el cliente y usuario existan
+- ✅ **Respuesta completa**: Retorna el cliente con todas las relaciones actualizadas
+- ✅ **Campos opcionales**: Todos los campos son opcionales, actualiza solo los que necesites
 
 ### ** Posibles Errores**
 
@@ -1938,6 +2094,51 @@ Authorization: Bearer <TOKEN_OBTENIDO>
     "code": "NOT_FOUND",
     "details": {
       "id_empresa": 999
+    },
+    "timestamp": "2024-01-15T15:45:00.000Z"
+  }
+}
+```
+
+#### **Error 400 - Campos requeridos faltantes (PUT /:id/usuario):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Debe proporcionar al menos un campo para actualizar",
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "campos_disponibles": ["telefono", "nombre", "apellido", "correo", "tipo_documento", "documento"]
+    },
+    "timestamp": "2024-01-15T15:45:00.000Z"
+  }
+}
+```
+
+#### **Error 404 - Cliente no encontrado (PUT /:id/usuario):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Cliente no encontrado",
+    "code": "NOT_FOUND",
+    "details": {
+      "id": 999
+    },
+    "timestamp": "2024-01-15T15:45:00.000Z"
+  }
+}
+```
+
+#### **Error 404 - Usuario asociado no encontrado (PUT /:id/usuario):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Usuario asociado no encontrado",
+    "code": "NOT_FOUND",
+    "details": {
+      "id_usuario": 999
     },
     "timestamp": "2024-01-15T15:45:00.000Z"
   }
@@ -2851,7 +3052,7 @@ Para soporte técnico o consultas:
 ### **📅 Fecha de Implementación:** 26 de Septiembre de 2025
 
 ### **🎯 Objetivo:**
-Implementar funcionalidad completa para actualizar datos de empresas asociadas a clientes, resolviendo el problema de campos NULL en las respuestas.
+Implementar funcionalidad completa para actualizar datos de empresas y usuarios asociados a clientes, resolviendo el problema de campos NULL en las respuestas y permitiendo la edición del teléfono del cliente.
 
 ### **🔧 Cambios Implementados:**
 
@@ -2867,55 +3068,65 @@ Implementar funcionalidad completa para actualizar datos de empresas asociadas a
 
 #### **3. Controlador de Clientes** (`cliente.controller.js`)
 - ✅ **Función `editarEmpresaCliente` implementada** - Lógica real de actualización
+- ✅ **Función `editarUsuarioCliente` implementada** - Nueva funcionalidad para actualizar usuario
 - ✅ **Respuesta estructurada** - Incluye cliente completo con relaciones
-- ✅ **Validaciones robustas** - Valida ID de empresa y existencia
+- ✅ **Validaciones robustas** - Valida ID de empresa, usuario y existencia
 - ✅ **Metadatos informativos** - Campos actualizados y timestamps
 
 #### **4. Rutas de Clientes** (`cliente.routes.js`)
 - ✅ **Nueva ruta PUT /:id/empresa** - Endpoint para actualizar empresa del cliente
+- ✅ **Nueva ruta PUT /:id/usuario** - Endpoint para actualizar usuario del cliente
 - ✅ **Middleware de autenticación** - Requiere rol de administrador o empleado
-- ✅ **Validación de parámetros** - ID de cliente y empresa validados
+- ✅ **Validación de parámetros** - ID de cliente, empresa y usuario validados
 
 ### **🐛 Problemas Resueltos:**
 
 | Problema | Estado | Solución Implementada |
 |----------|--------|----------------------|
 | Campos de empresa aparecían como NULL | ✅ Resuelto | Actualización real de base de datos |
+| No se podía editar teléfono del cliente | ✅ Resuelto | PUT /:id/usuario implementado |
 | Respuesta de actualización incompleta | ✅ Resuelto | Incluye todas las relaciones |
 | Falta de validación de empresa | ✅ Resuelto | Validación automática de existencia |
-| No había endpoint específico | ✅ Resuelto | PUT /:id/empresa implementado |
+| Falta de validación de usuario | ✅ Resuelto | Validación automática de existencia |
+| No había endpoint específico para empresa | ✅ Resuelto | PUT /:id/empresa implementado |
+| No había endpoint específico para usuario | ✅ Resuelto | PUT /:id/usuario implementado |
 
 ### **📊 Métricas de Mejora:**
 
 - **Tasa de éxito**: 100% (actualizaciones exitosas)
-- **Campos actualizables**: 5 campos de empresa
+- **Campos actualizables**: 5 campos de empresa + 6 campos de usuario
 - **Validaciones**: 100% de casos cubiertos
 - **Respuesta completa**: Incluye cliente + usuario + empresa
 - **Trazabilidad**: Campo `updated_at` se actualiza automáticamente
+- **Endpoints nuevos**: 2 endpoints específicos para actualización
 
 ### **🚀 Funcionalidades Nuevas:**
 
 - ✅ **Actualización de empresa asociada** - PUT /:id/empresa
+- ✅ **Actualización de usuario asociado** - PUT /:id/usuario
 - ✅ **Respuesta completa con relaciones** - Cliente + Usuario + Empresa
 - ✅ **Actualización parcial** - Solo campos que se envían
-- ✅ **Validación automática** - Verifica existencia de empresa
+- ✅ **Validación automática** - Verifica existencia de empresa y usuario
 - ✅ **Trazabilidad completa** - Timestamps de actualización
+- ✅ **Edición de teléfono** - Solución específica para el problema reportado
 
 ### **📝 Documentación Actualizada:**
 
 - ✅ **Endpoint 40 agregado** - Actualizar empresa asociada al cliente
-- ✅ **Guía de Postman actualizada** - Pasos 5 y 6 agregados
+- ✅ **Endpoint 41 agregado** - Actualizar usuario asociado al cliente
+- ✅ **Guía de Postman actualizada** - Pasos 5, 6, 7 y 8 agregados
 - ✅ **Validaciones documentadas** - Campos actualizables especificados
-- ✅ **Errores documentados** - Casos de error 400 y 404
-- ✅ **Ejemplos completos** - Request y response de ejemplo
+- ✅ **Errores documentados** - Casos de error 400 y 404 para ambos endpoints
+- ✅ **Ejemplos completos** - Request y response de ejemplo para ambos endpoints
 
 ### **🧪 Casos de Prueba Cubiertos:**
 
-- ✅ **Actualización exitosa** - Todos los campos de empresa
-- ✅ **Actualización parcial** - Solo algunos campos
-- ✅ **Error 400** - ID de empresa faltante
-- ✅ **Error 404** - Empresa no encontrada
-- ✅ **Verificación GET** - Confirmación de cambios
+- ✅ **Actualización exitosa** - Todos los campos de empresa y usuario
+- ✅ **Actualización parcial** - Solo algunos campos de empresa o usuario
+- ✅ **Error 400** - ID de empresa faltante o campos de usuario faltantes
+- ✅ **Error 404** - Empresa no encontrada o usuario no encontrado
+- ✅ **Verificación GET** - Confirmación de cambios en empresa y usuario
+- ✅ **Edición de teléfono** - Caso específico reportado por el usuario
 
 ---
 
