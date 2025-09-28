@@ -252,8 +252,36 @@ export const actualizarServicio = async (req, res) => {
     
     // Verificar cambios en process_states (si se envía)
     if (updateData.process_states) {
-      console.log('🔍 [Backend] process_states recibido, se procesará después de la actualización');
-      hayCambios = true; // Siempre hay cambios si se envía process_states
+      console.log('🔍 [Backend] Verificando cambios en process_states...');
+      
+      // Obtener procesos existentes para comparar
+      const Proceso = (await import('../models/Proceso.js')).default;
+      const procesosExistentes = await Proceso.findAll({
+        where: { servicio_id: id },
+        order: [['order_number', 'ASC']]
+      });
+      
+      // Convertir procesos existentes al formato esperado
+      const procesosExistentesFormateados = procesosExistentes.map(p => ({
+        id: p.id_proceso.toString(),
+        name: p.nombre,
+        order: p.order_number,
+        status_key: p.status_key
+      }));
+      
+      // Comparar con los datos recibidos
+      const procesosExistentesJson = JSON.stringify(procesosExistentesFormateados);
+      const procesosNuevosJson = JSON.stringify(updateData.process_states);
+      
+      console.log('🔍 [Backend] Procesos existentes:', procesosExistentesJson);
+      console.log('🔍 [Backend] Procesos nuevos:', procesosNuevosJson);
+      
+      if (procesosExistentesJson !== procesosNuevosJson) {
+        hayCambios = true;
+        console.log('✅ [Backend] Cambios detectados en process_states');
+      } else {
+        console.log('🔍 [Backend] No hay cambios en process_states');
+      }
     }
     
     console.log('🔍 [Backend] ¿Hay cambios detectados?', hayCambios);
