@@ -1,11 +1,32 @@
 import { SolicitudesService } from "../services/solicitudes.service.js";
-import { OrdenServicio, Servicio } from "../models/orden_servico_Servicio.js";
-import Cliente from "../models/Cliente.js";
+import { OrdenServicio, Servicio, Cliente, User } from "../models/associations.js";
 import Empresa from "../models/Empresa.js";
 import EmpresaCliente from "../models/EmpresaCliente.js";
 import { Op } from "sequelize";
 
 const solicitudesService = new SolicitudesService();
+
+// Función para transformar solicitud a formato frontend
+const transformarSolicitudAFrontend = (ordenServicio) => {
+  return {
+    id: ordenServicio.id_orden_servicio?.toString() || ordenServicio.id?.toString(),
+    expediente: ordenServicio.numero_expediente || `EXP-${ordenServicio.id_orden_servicio || ordenServicio.id}`,
+    titular: ordenServicio.cliente?.usuario ? 
+      `${ordenServicio.cliente.usuario.nombre} ${ordenServicio.cliente.usuario.apellido}` : 
+      ordenServicio.cliente?.marca || 'Sin titular',
+    marca: ordenServicio.cliente?.marca || 'Sin marca',
+    tipoSolicitud: ordenServicio.servicio?.nombre || 'Sin servicio',
+    encargado: ordenServicio.empleado_asignado?.usuario ? 
+      `${ordenServicio.empleado_asignado.usuario.nombre} ${ordenServicio.empleado_asignado.usuario.apellido}` : 
+      'Sin asignar',
+    estado: ordenServicio.estado || 'Pendiente',
+    email: ordenServicio.cliente?.usuario?.correo || '',
+    telefono: '', // Campo no disponible en la BD actual
+    comentarios: ordenServicio.comentarios || [],
+    fechaCreacion: ordenServicio.fecha_solicitud || ordenServicio.created_at,
+    fechaFin: ordenServicio.fecha_fin || null
+  };
+};
 
 // Función para validar datos de empresa
 const validarDatosEmpresa = (empresaData) => {
@@ -217,47 +238,52 @@ export const crearSolicitud = async (req, res) => {
       });
     }
 
-    console.log('✅ Usuario autenticado:', req.user.id, req.user.role);
-    console.log('🔍 Debug - req.user.id:', req.user.id);
-    console.log('🔍 Debug - req.user.role:', req.user.role);
+    console.log('✅ Usuario autenticado:', req.user.id_usuario, req.user.rol);
+    console.log('🔍 Debug - req.user.id_usuario:', req.user.id_usuario);
+    console.log('🔍 Debug - req.user.rol:', req.user.rol);
 
-    // Obtener y decodificar el nombre del servicio
-    let nombreServicio = req.params.servicio;
-    if (!nombreServicio) {
-      console.log('❌ Nombre de servicio no proporcionado');
+    // Obtener el ID del servicio
+    const servicioId = req.params.servicio;
+    if (!servicioId) {
+      console.log('❌ ID de servicio no proporcionado');
       return res.status(400).json({
-        mensaje: "Nombre de servicio requerido",
+        mensaje: "ID de servicio requerido",
         error: "El parámetro 'servicio' es obligatorio"
       });
     }
 
-    // Decodificar URL
-    nombreServicio = decodeURIComponent(nombreServicio).trim();
-    console.log('🔍 Servicio decodificado:', nombreServicio);
+    console.log('🔍 ID de servicio:', servicioId);
 
-    // Buscar el servicio
-    const servicioEncontrado = buscarServicio(nombreServicio, requiredFields);
+    // Buscar el servicio por ID en la base de datos
+    const servicioService = await import("../services/servicio.service.js");
+    let servicioEncontrado;
     
-    if (!servicioEncontrado) {
-      console.log('❌ Servicio no encontrado');
+    try {
+      const result = await servicioService.default.getServicioById(servicioId);
+      servicioEncontrado = result.data;
+      console.log('✅ Servicio encontrado:', servicioEncontrado.nombre);
+    } catch (error) {
+      console.log('❌ Servicio no encontrado:', error.message);
       return res.status(404).json({
         mensaje: "Servicio no encontrado",
-        servicio: nombreServicio,
-        serviciosDisponibles: Object.keys(requiredFields),
+        servicio: servicioId,
+        error: "El servicio solicitado no está disponible"
       });
     }
 
-    console.log('✅ Servicio encontrado:', servicioEncontrado);
-
-    // Determinar campos requeridos según el rol del usuario
-    let camposRequeridos = [...requiredFields[servicioEncontrado]];
+    // Campos requeridos básicos para todos los servicios
+    const camposRequeridos = [
+      "nombre_titular",
+      "apellido_titular", 
+      "tipo_titular",
+      "tipo_documento",
+      "documento",
+      "correo",
+      "telefono",
+      "nombre_marca",
+      "descripcion_servicio"
+    ];
     console.log('📋 Campos requeridos:', camposRequeridos);
-
-    // Si es cliente, agregar campos de pago como obligatorios
-    if (req.user.role === "cliente") {
-      camposRequeridos.push("metodo_pago", "monto_pago");
-      console.log('💰 Campos de pago agregados para cliente');
-    }
 
     // Validar campos requeridos en el body
     const camposFaltantes = camposRequeridos.filter(
@@ -275,51 +301,16 @@ export const crearSolicitud = async (req, res) => {
 
     console.log('✅ Todos los campos requeridos están presentes');
 
-    // Buscar el servicio en la base de datos
-    let servicio = await Servicio.findOne({
-      where: {
-        nombre: {
-          [Op.like]: `%${servicioEncontrado}%`
-        }
-      }
-    });
-
-    // Si no se encuentra, intentar búsqueda exacta
-    if (!servicio) {
-      console.log('🔍 Intentando búsqueda exacta...');
-      servicio = await Servicio.findOne({
-        where: {
-          nombre: servicioEncontrado
-        }
-      });
-    }
-
-    // Si aún no se encuentra, crear el servicio
-    if (!servicio) {
-      console.log('🔧 Creando servicio en la base de datos...');
-      try {
-        servicio = await Servicio.create({
-          nombre: servicioEncontrado,
-          descripcion: `Servicio de ${servicioEncontrado}`,
-          precio_base: 100000.00, // Precio por defecto
-          estado: true
-        });
-        console.log('✅ Servicio creado:', servicio.nombre);
-      } catch (error) {
-        console.log('❌ Error al crear servicio:', error.message);
-        return res.status(500).json({
-          mensaje: "Error al crear servicio en la base de datos",
-          error: error.message,
-        });
-      }
-    } else {
-      console.log('✅ Servicio encontrado en BD:', servicio.nombre);
-    }
-
+    // Usar el servicio que ya encontramos por ID
+    const servicio = {
+      id_servicio: parseInt(servicioId),
+      nombre: servicioEncontrado.nombre
+    };
+    
     console.log('✅ Servicio ID:', servicio.id_servicio);
 
     // Crear o encontrar el cliente primero
-    const userId = req.user.id || req.user.id_usuario || 1;
+    const userId = req.user.id_usuario || 1;
     console.log('🔍 Debug - Usando userId:', userId);
     
     console.log('👤 Verificando/creando cliente...');
@@ -535,13 +526,18 @@ export const listarSolicitudes = async (req, res) => {
   try {
     let solicitudes;
 
-    if (req.user.role === "cliente") {
-      solicitudes = await solicitudesService.listarSolicitudesPorUsuario(req.user.id);
+    if (req.user.rol === "cliente") {
+      solicitudes = await solicitudesService.listarSolicitudesPorUsuario(req.user.id_usuario);
     } else {
       solicitudes = await solicitudesService.listarSolicitudes();
     }
 
-    res.json(solicitudes);
+    // Transformar a formato frontend
+    const solicitudesFormateadas = solicitudes.map(solicitud => 
+      transformarSolicitudAFrontend(solicitud)
+    );
+
+    res.json(solicitudesFormateadas);
   } catch (error) {
     console.error("Error al listar solicitudes:", error);
     res.status(500).json({ mensaje: "Error interno del servidor." });
@@ -570,7 +566,7 @@ export const verDetalleSolicitud = async (req, res) => {
     const { id } = req.params;
     const solicitud = await solicitudesService.verDetalleSolicitud(id);
 
-    if (req.user.role === "cliente" && solicitud.usuario_id !== req.user.id) {
+    if (req.user.rol === "cliente" && solicitud.usuario_id !== req.user.id_usuario) {
       return res
         .status(403)
         .json({ mensaje: "No tienes permisos para ver esta solicitud." });
@@ -616,3 +612,5 @@ export const editarSolicitud = async (req, res) => {
     }
   }
 };
+
+

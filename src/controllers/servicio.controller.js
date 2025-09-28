@@ -13,20 +13,8 @@ export const getAllServicios = async (req, res) => {
   try {
     const result = await servicioService.getAllServicios();
     
-    res.status(200).json({
-      success: true,
-      message: SUCCESS_MESSAGES.SERVICES_FOUND,
-      data: {
-        servicios: result,
-        total: Array.isArray(result) ? result.length : 0
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        filters: {
-          available: "Use query parameters para filtrar por nombre, precio, estado, etc."
-        }
-      }
-    });
+    // El servicio devuelve { success, data, message }, necesitamos solo los datos
+    res.status(200).json(result.data);
   } catch (error) {
     console.error("Error al obtener servicios:", error);
     res.status(500).json({
@@ -46,41 +34,33 @@ export const getAllServicios = async (req, res) => {
  */
 export const getServicioById = async (req, res) => {
   try {
-    const { idServicio } = req.params;
+    const { id } = req.params;
 
-    if (!idServicio || isNaN(Number(idServicio))) {
+    if (!id || isNaN(Number(id))) {
       return res.status(400).json({
         success: false,
         error: {
-          message: VALIDATION_MESSAGES.SERVICE.INVALID_SERVICE_ID,
-          code: ERROR_CODES.INVALID_ID,
-          details: { field: "idServicio", value: idServicio },
+          message: "ID de servicio inválido",
+          code: "INVALID_ID",
+          details: { field: "id", value: id },
           timestamp: new Date().toISOString()
         }
       });
     }
 
-    const result = await servicioService.getServicioById(idServicio);
+    const result = await servicioService.getServicioById(id);
     
-    res.status(200).json({
-      success: true,
-      message: SUCCESS_MESSAGES.SERVICE_FOUND,
-      data: {
-        servicio: result
-      },
-      meta: {
-        timestamp: new Date().toISOString()
-      }
-    });
+    // El servicio devuelve { success, data, message }, necesitamos solo los datos
+    res.status(200).json(result.data);
   } catch (error) {
     console.error("Error al obtener servicio:", error);
-    if (error.name === "NotFoundError") {
+    if (error.message.includes("no encontrado")) {
       return res.status(404).json({
         success: false,
         error: {
-          message: VALIDATION_MESSAGES.SERVICE.SERVICE_NOT_FOUND,
-          code: ERROR_CODES.SERVICE_NOT_FOUND,
-          details: { id: idServicio },
+          message: "Servicio no encontrado",
+          code: "SERVICE_NOT_FOUND",
+          details: { id: req.params.id },
           timestamp: new Date().toISOString()
         }
       });
@@ -88,8 +68,8 @@ export const getServicioById = async (req, res) => {
     res.status(500).json({
       success: false,
       error: {
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-        code: ERROR_CODES.INTERNAL_ERROR,
+        message: "Error interno del servidor",
+        code: "INTERNAL_ERROR",
         details: process.env.NODE_ENV === "development" ? error.message : "Error al obtener servicio",
         timestamp: new Date().toISOString()
       }
@@ -102,20 +82,44 @@ export const getServicioById = async (req, res) => {
  */
 export const getDetalleServicio = async (req, res) => {
   try {
-    const { idServicio } = req.params;
+    const { id } = req.params;
 
-    if (!idServicio || isNaN(Number(idServicio))) {
-      return fail(res, "El ID proporcionado no es válido", 400);
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "ID de servicio inválido",
+          code: "INVALID_ID",
+          details: { field: "id", value: id },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
-    const result = await servicioService.getDetalleServicio(idServicio);
-    return ok(res, result);
+    const result = await servicioService.getDetalleServicio(id);
+    res.status(200).json(result.data);
   } catch (error) {
     console.error("Error al obtener detalle de servicio:", error);
-    if (error.name === "NotFoundError") {
-      return fail(res, error.message, 404);
+    if (error.message.includes("no encontrado")) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Servicio no encontrado",
+          code: "SERVICE_NOT_FOUND",
+          details: { id: req.params.id },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
-    return fail(res, "Error interno del servidor");
+    res.status(500).json({
+      success: false,
+      error: {
+        message: "Error interno del servidor",
+        code: "INTERNAL_ERROR",
+        details: process.env.NODE_ENV === "development" ? error.message : "Error al obtener detalle de servicio",
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 };
 
@@ -172,17 +176,30 @@ export const obtenerProcesos = async (req, res) => {
     const { idServicio } = req.params;
 
     if (!idServicio || isNaN(Number(idServicio))) {
-      return fail(res, "El ID proporcionado no es válido", 400);
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "ID de servicio inválido",
+          code: "INVALID_ID",
+          details: { field: "idServicio", value: idServicio },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
     const result = await servicioService.obtenerProcesos(idServicio);
-    return ok(res, result);
+    res.status(200).json(result.data);
   } catch (error) {
     console.error("Error al obtener procesos:", error);
-    if (error.name === "NotFoundError") {
-      return fail(res, error.message, 404);
-    }
-    return fail(res, "Error interno del servidor");
+    res.status(500).json({
+      success: false,
+      error: {
+        message: "Error interno del servidor",
+        code: "INTERNAL_ERROR",
+        details: process.env.NODE_ENV === "development" ? error.message : "Error al obtener procesos",
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 };
 
@@ -195,23 +212,44 @@ export const actualizarProcesos = async (req, res) => {
     const { procesos } = req.body;
 
     if (!idServicio || isNaN(Number(idServicio))) {
-      return fail(res, "El ID proporcionado no es válido", 400);
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "ID de servicio inválido",
+          code: "INVALID_ID",
+          details: { field: "idServicio", value: idServicio },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
     if (!Array.isArray(procesos) || procesos.length === 0) {
-      return fail(res, "Debe proporcionar una lista de procesos válida", 400);
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Debe proporcionar una lista de procesos válida",
+          code: "INVALID_DATA",
+          details: { field: "procesos", value: procesos },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
     const result = await servicioService.actualizarProcesos(
       idServicio,
       procesos
     );
-    return ok(res, result);
+    res.status(200).json(result.data);
   } catch (error) {
     console.error("Error al actualizar procesos:", error);
-    if (error.name === "NotFoundError") {
-      return fail(res, error.message, 404);
-    }
-    return fail(res, "Error interno del servidor");
+    res.status(500).json({
+      success: false,
+      error: {
+        message: "Error interno del servidor",
+        code: "INTERNAL_ERROR",
+        details: process.env.NODE_ENV === "development" ? error.message : "Error al actualizar procesos",
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 };
 

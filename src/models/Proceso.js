@@ -9,10 +9,17 @@ const Proceso = sequelize.define(
       primaryKey: true,
       autoIncrement: true,
     },
+    servicio_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'servicios',
+        key: 'id_servicio'
+      }
+    },
     nombre: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
       validate: {
         notEmpty: true,
         is: {
@@ -25,10 +32,20 @@ const Proceso = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    order_number: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    status_key: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
   },
   {
     tableName: "procesos",
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   }
 );
 

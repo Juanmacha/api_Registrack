@@ -190,6 +190,11 @@ CREATE TABLE IF NOT EXISTS servicios (
     id_servicio INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     descripcion TEXT,
+    descripcion_corta TEXT,
+    visible_en_landing BOOLEAN DEFAULT true,
+    landing_data JSON,
+    info_page_data JSON,
+    route_path VARCHAR(255),
     precio_base DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     estado BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -197,20 +202,29 @@ CREATE TABLE IF NOT EXISTS servicios (
     
     INDEX idx_servicios_nombre (nombre),
     INDEX idx_servicios_estado (estado),
-    INDEX idx_servicios_precio (precio_base)
+    INDEX idx_servicios_precio (precio_base),
+    INDEX idx_servicios_visible (visible_en_landing)
 );
 
 -- =============================================
--- TABLA: procesos
+-- TABLA: procesos (process_states)
 -- =============================================
 CREATE TABLE IF NOT EXISTS procesos (
     id_proceso INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
+    servicio_id INT NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
     descripcion TEXT,
+    order_number INT NOT NULL,
+    status_key VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    INDEX idx_procesos_nombre (nombre)
+    FOREIGN KEY (servicio_id) REFERENCES servicios(id_servicio) ON DELETE CASCADE,
+    
+    INDEX idx_procesos_servicio (servicio_id),
+    INDEX idx_procesos_nombre (nombre),
+    INDEX idx_procesos_order (order_number),
+    INDEX idx_procesos_status (status_key)
 );
 
 -- =============================================
@@ -577,6 +591,86 @@ CREATE INDEX idx_pagos_orden_estado ON pagos(id_orden_servicio, estado);
 CREATE INDEX idx_citas_fecha_estado ON citas(fecha, estado);
 CREATE INDEX idx_seguimientos_orden_fecha ON seguimientos(id_orden_servicio, fecha_registro);
 CREATE INDEX idx_detalles_orden_estado ON detalles_ordenes_servicio(id_orden_servicio, estado);
+
+-- =============================================
+-- DATOS INICIALES PARA SERVICIOS Y PROCESOS
+-- =============================================
+
+-- Insertar 7 servicios con datos completos para frontend
+INSERT INTO servicios (id_servicio, nombre, descripcion, descripcion_corta, visible_en_landing, landing_data, info_page_data, route_path, precio_base, estado) VALUES
+(1, 'Búsqueda de Antecedentes', 'Verifica la disponibilidad de tu marca antes de iniciar el registro.', 'Verificar disponibilidad de marca comercial', true, 
+ '{"titulo": "Búsqueda de Antecedentes", "resumen": "Verificamos la disponibilidad de tu marca comercial en la base de datos de la SIC", "imagen": ""}',
+ '{"descripcion": "Este servicio permite verificar si una marca comercial ya está registrada o en proceso de registro."}',
+ '/pages/busqueda', 150000.00, true),
+
+(2, 'Certificación de Marca', 'Acompañamiento completo en el proceso de certificación de tu marca.', 'Certificar marca comercial ante la SIC', true,
+ '{"titulo": "Certificación de Marca", "resumen": "Proceso completo de certificación de marca comercial", "imagen": ""}',
+ '{"descripcion": "Servicio completo para certificar tu marca comercial ante la Superintendencia de Industria y Comercio."}',
+ '/pages/certificacion', 1848000.00, true),
+
+(3, 'Renovación de Marca', 'Renueva tu marca y mantén tu protección legal vigente.', 'Renovar certificado de marca comercial', true,
+ '{"titulo": "Renovación de Marca", "resumen": "Renueva tu certificado de marca comercial", "imagen": ""}',
+ '{"descripcion": "Proceso de renovación de certificados de marca comercial existentes."}',
+ '/pages/renovacion', 1352000.00, true),
+
+(4, 'Presentación de Oposición', 'Defiende tus derechos de marca presentando una oposición.', 'Oponerse a registro de marca', true,
+ '{"titulo": "Presentación de Oposición", "resumen": "Oponte al registro de marcas que afecten tus derechos", "imagen": ""}',
+ '{"descripcion": "Servicio para presentar oposiciones a registros de marca que puedan afectar tus derechos."}',
+ '/pages/oposicion', 1400000.00, true),
+
+(5, 'Cesión de Marca', 'Gestiona la transferencia de derechos de tu marca de forma segura.', 'Ceder derechos de marca comercial', true,
+ '{"titulo": "Cesión de Marca", "resumen": "Cede los derechos de tu marca comercial", "imagen": ""}',
+ '{"descripcion": "Proceso para ceder los derechos de una marca comercial registrada."}',
+ '/pages/cesion', 865000.00, true),
+
+(6, 'Ampliación de Alcance', 'Extiende la protección de tu marca a nuevas clases o categorías.', 'Ampliar cobertura de marca', true,
+ '{"titulo": "Ampliación de Alcance", "resumen": "Amplía la cobertura de tu marca comercial", "imagen": ""}',
+ '{"descripcion": "Servicio para ampliar la cobertura o clases de una marca comercial existente."}',
+ '/pages/ampliacion', 750000.00, true),
+
+(7, 'Respuesta a Oposición', 'Responde a oposiciones presentadas contra tu marca.', 'Responder a oposiciones de marca', true,
+ '{"titulo": "Respuesta a Oposición", "resumen": "Responde a oposiciones presentadas contra tu marca", "imagen": ""}',
+ '{"descripcion": "Servicio para responder a oposiciones presentadas contra tu marca comercial."}',
+ '/pages/respuesta-oposicion', 1200000.00, true);
+
+-- Insertar estados de proceso para cada servicio
+INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key) VALUES
+-- Búsqueda de Antecedentes
+(1, 'Solicitud Recibida', 'Solicitud de búsqueda recibida y en revisión', 1, 'recibida'),
+(1, 'Búsqueda en Proceso', 'Realizando búsqueda en base de datos de la SIC', 2, 'en_proceso'),
+(1, 'Informe Generado', 'Informe de búsqueda completado y disponible', 3, 'informe'),
+
+-- Certificación de Marca
+(2, 'Solicitud Recibida', 'Solicitud de certificación recibida', 1, 'recibida'),
+(2, 'Revisión de Documentos', 'Revisando documentación requerida', 2, 'revision'),
+(2, 'Publicación', 'Publicación en gaceta oficial', 3, 'publicacion'),
+(2, 'Certificado Emitido', 'Certificado de marca emitido', 4, 'certificado'),
+
+-- Renovación de Marca
+(3, 'Solicitud Recibida', 'Solicitud de renovación recibida', 1, 'recibida'),
+(3, 'Verificación', 'Verificando vigencia y documentación', 2, 'verificacion'),
+(3, 'Renovación Aprobada', 'Renovación aprobada y certificado actualizado', 3, 'renovacion'),
+
+-- Presentación de Oposición
+(4, 'Oposición Presentada', 'Oposición presentada ante la autoridad', 1, 'presentada'),
+(4, 'En Revisión', 'Oposición en proceso de revisión', 2, 'revision'),
+(4, 'Resolución', 'Resolución emitida sobre la oposición', 3, 'resolucion'),
+
+-- Cesión de Marca
+(5, 'Solicitud Recibida', 'Solicitud de cesión recibida', 1, 'recibida'),
+(5, 'Verificación de Derechos', 'Verificando derechos de cesión', 2, 'verificacion'),
+(5, 'Cesión Aprobada', 'Cesión aprobada y registrada', 3, 'cesion'),
+
+-- Ampliación de Alcance
+(6, 'Solicitud Recibida', 'Solicitud de ampliación recibida', 1, 'recibida'),
+(6, 'Análisis de Viabilidad', 'Analizando viabilidad de ampliación', 2, 'analisis'),
+(6, 'Ampliación Aprobada', 'Ampliación aprobada y registrada', 3, 'ampliacion'),
+
+-- Respuesta a Oposición
+(7, 'Oposición Recibida', 'Oposición recibida y en análisis', 1, 'recibida'),
+(7, 'Preparación de Respuesta', 'Preparando respuesta a la oposición', 2, 'preparacion'),
+(7, 'Respuesta Presentada', 'Respuesta presentada ante la autoridad', 3, 'presentada'),
+(7, 'Resolución Final', 'Resolución final sobre la oposición', 4, 'resolucion');
 
 -- =============================================
 -- COMENTARIOS FINALES

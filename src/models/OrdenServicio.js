@@ -1,6 +1,5 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
-import Servicio from "./Servicio.js";
 
 const OrdenServicio = sequelize.define(
   "OrdenServicio",
@@ -27,6 +26,10 @@ const OrdenServicio = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    // id_empleado_asignado: {
+    //   type: DataTypes.INTEGER,
+    //   allowNull: true,
+    // },
     fecha_creacion: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

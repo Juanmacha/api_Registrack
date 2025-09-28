@@ -1,5 +1,4 @@
-import OrdenServicio from "../models/OrdenServicio.js";
-import Servicio from "../models/Servicio.js";
+import { OrdenServicio, Servicio, Cliente, User } from "../models/associations.js";
 import { Op } from "sequelize";
 import { SolicitudesRepository } from "../repositories/solicitudes.repository.js";
 
@@ -13,7 +12,25 @@ export class SolicitudesService {
     try {
       const ordenes = await OrdenServicio.findAll({
         include: [
-          { model: Servicio, as: "servicio" } // 'as' debe coincidir con la relación definida
+          { 
+            model: Servicio, 
+            as: "servicio",
+            attributes: ["id_servicio", "nombre", "descripcion"]
+          },
+          {
+            model: Cliente,
+            as: "cliente",
+            include: [{
+              model: User,
+              as: "Usuario",
+              attributes: ["id_usuario", "nombre", "apellido", "correo"]
+            }]
+          },
+          // {
+          //   model: User,
+          //   as: "empleado_asignado",
+          //   attributes: ["id_usuario", "nombre", "apellido"]
+          // }
         ]
       });
       return ordenes;
@@ -26,13 +43,6 @@ export class SolicitudesService {
   async listarSolicitudesPorUsuario(idUsuario) {
     try {
       const ordenes = await OrdenServicio.findAll({
-        attributes: [
-          "id_orden_servicio",
-          "fecha_creacion",
-          "estado",
-          "pais",
-          "ciudad",
-        ],
         where: {
           id_cliente: idUsuario,
         },
@@ -40,8 +50,22 @@ export class SolicitudesService {
           {
             model: Servicio,
             as: "servicio",
-            attributes: ["nombre", "descripcion"],
+            attributes: ["id_servicio", "nombre", "descripcion"],
           },
+          {
+            model: Cliente,
+            as: "cliente",
+            include: [{
+              model: User,
+              as: "Usuario",
+              attributes: ["id_usuario", "nombre", "apellido", "correo"]
+            }]
+          },
+          // {
+          //   model: User,
+          //   as: "empleado_asignado",
+          //   attributes: ["id_usuario", "nombre", "apellido"]
+          // }
         ],
         order: [["fecha_creacion", "DESC"]],
       });
