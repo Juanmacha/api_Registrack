@@ -143,126 +143,194 @@ export const buscarServiciosPorNombre = async (req, res) => {
 };
 
 /**
- * Actualizar servicio (datos de landing page)
+ * Actualizar servicio (datos de landing page) - CON LOGS DETALLADOS
  */
 export const actualizarServicio = async (req, res) => {
   try {
+    console.log('🔧 [Backend] ===== INICIANDO ACTUALIZACIÓN DE SERVICIO =====');
+    console.log('🔧 [Backend] ID del servicio:', req.params.id);
+    console.log('🔧 [Backend] Datos recibidos:', JSON.stringify(req.body, null, 2));
+    console.log('🔧 [Backend] Headers recibidos:', req.headers);
+    
     const { id } = req.params;
-    const { landing_data, info_page_data, visible_en_landing } = req.body;
-
-    console.log(`🔧 [ServicioController] Actualizando servicio ${id}...`, req.body);
-
-    if (!id || isNaN(Number(id))) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "ID de servicio inválido",
-          code: "INVALID_ID",
-          details: { field: "id", value: id },
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Validar tipos de datos
-    if (landing_data !== undefined && typeof landing_data !== 'object') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "landing_data debe ser un objeto",
-          code: "VALIDATION_ERROR",
-          details: { field: "landing_data", value: landing_data },
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    if (info_page_data !== undefined && typeof info_page_data !== 'object') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "info_page_data debe ser un objeto",
-          code: "VALIDATION_ERROR",
-          details: { field: "info_page_data", value: info_page_data },
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    if (visible_en_landing !== undefined && typeof visible_en_landing !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "visible_en_landing debe ser un booleano",
-          code: "VALIDATION_ERROR",
-          details: { field: "visible_en_landing", value: visible_en_landing },
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Preparar datos para actualización
-    const datosActualizacion = {};
+    const updateData = req.body;
     
-    if (landing_data !== undefined) {
-      datosActualizacion.landing_data = landing_data;
+    // Validar que el ID sea válido
+    if (!id || isNaN(id)) {
+      console.log('❌ [Backend] ID inválido');
+      return res.status(400).json({ 
+        success: false,
+        error: { message: 'ID de servicio inválido' }
+      });
     }
     
-    if (info_page_data !== undefined) {
-      datosActualizacion.info_page_data = info_page_data;
-    }
-    
-    if (visible_en_landing !== undefined) {
-      datosActualizacion.visible_en_landing = visible_en_landing;
-    }
-
-    // Verificar que hay al menos un campo para actualizar
-    if (Object.keys(datosActualizacion).length === 0) {
-      return res.status(400).json({
+    // Validar que hay datos para actualizar
+    if (!updateData || Object.keys(updateData).length === 0) {
+      console.log('❌ [Backend] No hay datos para actualizar');
+      return res.status(400).json({ 
         success: false,
-        error: {
-          message: "Debe proporcionar al menos un campo para actualizar",
-          code: "NO_DATA_TO_UPDATE",
-          details: { 
-            available_fields: ["landing_data", "info_page_data", "visible_en_landing"] 
-          },
-          timestamp: new Date().toISOString()
-        }
+        error: { message: 'No hay datos para actualizar' }
       });
     }
-
-    const result = await servicioService.actualizarServicio(id, datosActualizacion);
     
-    console.log('✅ [ServicioController] Servicio actualizado exitosamente');
-
+    console.log('🔧 [Backend] Buscando servicio en la base de datos...');
+    
+    // Buscar el servicio directamente con Sequelize
+    const Servicio = (await import('../models/Servicio.js')).default;
+    const servicio = await Servicio.findByPk(id);
+    
+    if (!servicio) {
+      console.log('❌ [Backend] Servicio no encontrado');
+      return res.status(404).json({ 
+        success: false,
+        error: { message: 'Servicio no encontrado' }
+      });
+    }
+    
+    console.log('✅ [Backend] Servicio encontrado:', {
+      id: servicio.id_servicio,
+      nombre: servicio.nombre,
+      visible_en_landing: servicio.visible_en_landing,
+      tiene_landing_data: !!servicio.landing_data,
+      tiene_info_page_data: !!servicio.info_page_data
+    });
+    
+    // Validar campos específicos
+    console.log('🔧 [Backend] Validando campos...');
+    
+    if (updateData.landing_data) {
+      console.log('🔧 [Backend] Validando landing_data:', typeof updateData.landing_data);
+      if (typeof updateData.landing_data !== 'object') {
+        console.log('❌ [Backend] landing_data debe ser un objeto');
+        return res.status(400).json({ 
+          success: false,
+          error: { message: 'landing_data debe ser un objeto' }
+        });
+      }
+    }
+    
+    if (updateData.info_page_data) {
+      console.log('🔧 [Backend] Validando info_page_data:', typeof updateData.info_page_data);
+      if (typeof updateData.info_page_data !== 'object') {
+        console.log('❌ [Backend] info_page_data debe ser un objeto');
+        return res.status(400).json({ 
+          success: false,
+          error: { message: 'info_page_data debe ser un objeto' }
+        });
+      }
+    }
+    
+    if (updateData.visible_en_landing !== undefined) {
+      console.log('🔧 [Backend] Validando visible_en_landing:', typeof updateData.visible_en_landing);
+      if (typeof updateData.visible_en_landing !== 'boolean') {
+        console.log('❌ [Backend] visible_en_landing debe ser un boolean');
+        return res.status(400).json({ 
+          success: false,
+          error: { message: 'visible_en_landing debe ser un boolean' }
+        });
+      }
+    }
+    
+    console.log('🔧 [Backend] Intentando actualizar en la base de datos...');
+    console.log('🔧 [Backend] Datos a actualizar:', JSON.stringify(updateData, null, 2));
+    
+    // Intentar actualizar directamente
+    const servicioActualizado = await servicio.update(updateData);
+    
+    console.log('✅ [Backend] Actualización exitosa');
+    console.log('✅ [Backend] Servicio actualizado:', {
+      id: servicioActualizado.id_servicio,
+      nombre: servicioActualizado.nombre,
+      visible_en_landing: servicioActualizado.visible_en_landing,
+      landing_data: servicioActualizado.landing_data,
+      info_page_data: servicioActualizado.info_page_data
+    });
+    
+    // Obtener el servicio actualizado con sus procesos para la respuesta
+    const Proceso = (await import('../models/Proceso.js')).default;
+    const servicioCompleto = await Servicio.findByPk(id, {
+      include: [{
+        model: Proceso,
+        as: 'process_states',
+        order: [['order_number', 'ASC']]
+      }]
+    });
+    
+    // Transformar a formato frontend
+    const servicioFormateado = {
+      id: servicioCompleto.id_servicio.toString(),
+      nombre: servicioCompleto.nombre,
+      descripcion_corta: servicioCompleto.descripcion_corta,
+      visible_en_landing: servicioCompleto.visible_en_landing,
+      landing_data: servicioCompleto.landing_data || {},
+      info_page_data: servicioCompleto.info_page_data || {},
+      route_path: servicioCompleto.route_path,
+      process_states: servicioCompleto.process_states?.map(proceso => ({
+        id: proceso.id_proceso.toString(),
+        name: proceso.nombre,
+        order: proceso.order_number,
+        status_key: proceso.status_key
+      })) || []
+    };
+    
+    console.log('✅ [Backend] Respuesta formateada:', JSON.stringify(servicioFormateado, null, 2));
+    
     res.status(200).json({
       success: true,
       message: "Servicio actualizado exitosamente",
-      data: result.data
+      data: servicioFormateado
     });
-
-  } catch (error) {
-    console.error('❌ [ServicioController] Error actualizando servicio:', error);
     
-    if (error.message.includes("no encontrado")) {
-      return res.status(404).json({
+  } catch (error) {
+    console.error('❌ [Backend] ===== ERROR EN ACTUALIZACIÓN =====');
+    console.error('❌ [Backend] Error específico:', error.message);
+    console.error('❌ [Backend] Stack trace completo:', error.stack);
+    console.error('❌ [Backend] Nombre del error:', error.name);
+    console.error('❌ [Backend] Código del error:', error.code);
+    console.error('❌ [Backend] Error original:', error.original);
+    
+    // Determinar el tipo de error
+    if (error.name === 'SequelizeValidationError') {
+      console.log('❌ [Backend] Error de validación de Sequelize');
+      return res.status(400).json({ 
         success: false,
-        error: {
-          message: "Servicio no encontrado",
-          code: "SERVICE_NOT_FOUND",
-          details: { id: req.params.id },
-          timestamp: new Date().toISOString()
+        error: { 
+          message: 'Error de validación: ' + error.message,
+          details: error.errors
         }
       });
     }
     
-    res.status(500).json({
+    if (error.name === 'SequelizeDatabaseError') {
+      console.log('❌ [Backend] Error de base de datos');
+      return res.status(500).json({ 
+        success: false,
+        error: { 
+          message: 'Error de base de datos: ' + error.message,
+          code: error.original?.code,
+          details: error.original
+        }
+      });
+    }
+    
+    if (error.name === 'SequelizeConnectionError') {
+      console.log('❌ [Backend] Error de conexión a la base de datos');
+      return res.status(500).json({ 
+        success: false,
+        error: { 
+          message: 'Error de conexión a la base de datos: ' + error.message
+        }
+      });
+    }
+    
+    // Error genérico
+    res.status(500).json({ 
       success: false,
       error: {
-        message: "Error interno del servidor al actualizar servicio",
-        code: "INTERNAL_ERROR",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        timestamp: new Date().toISOString()
+        message: 'Error interno del servidor al actualizar servicio',
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString(),
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       }
     });
   }
