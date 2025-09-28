@@ -5359,6 +5359,9 @@ curl -X PUT "http://localhost:3000/api/servicios/1" \
 - Error 500 al intentar actualizar servicios
 - Logs insuficientes para diagnosticar el problema
 - Manejo de errores genérico
+- **Error 400: "No hay datos para actualizar"** - No detectaba cambios reales
+- **Process_states se reemplazaban** - En lugar de agregar/actualizar
+- **🚨 CRÍTICO: Procesos existentes se eliminaban** - Al agregar un proceso nuevo
 
 #### **✅ Solución Implementada:**
 - **Eliminación de capa de servicio problemática** - Ahora usa Sequelize directamente
@@ -5366,6 +5369,9 @@ curl -X PUT "http://localhost:3000/api/servicios/1" \
 - **Manejo de errores específico** - Por tipo de error (Sequelize, validación, etc.)
 - **Respuesta completa y formateada** - Incluye `process_states` y datos del frontend
 - **Validaciones robustas** - Con logs de debugging
+- **🔧 Lógica de comparación mejorada** - Detecta cambios reales en todos los campos
+- **🔧 Gestión inteligente de process_states** - Agrega, actualiza y elimina según corresponda
+- **🔧 Lógica de eliminación corregida** - NO elimina procesos existentes al agregar nuevos
 
 ### **📊 Métricas de Implementación:**
 - **Archivos modificados:** 3
@@ -5383,11 +5389,116 @@ curl -X PUT "http://localhost:3000/api/servicios/1" \
 - ✅ **Documentación completa** - Guía de uso y pruebas
 - ✅ **Probado y verificado** - Funcionando correctamente en producción
 
+### **🔧 Gestión Inteligente de Process States:**
+
+#### **Comportamiento Anterior (❌ Incorrecto):**
+- **Reemplazaba** todos los procesos existentes
+- **Eliminaba** procesos no enviados en la actualización
+- **Perdía** datos de procesos existentes
+- **🚨 CRÍTICO:** Al agregar un proceso nuevo, eliminaba TODOS los existentes
+
+#### **Comportamiento Actual (✅ Correcto):**
+- **Agrega** nuevos procesos (sin ID o con ID temporal)
+- **Actualiza** procesos existentes (con ID válido)
+- **Elimina** solo procesos que no están en la lista enviada (SOLO si se envían IDs específicos)
+- **Mantiene** procesos existentes que no se modifican
+- **🔧 Lógica inteligente:** Si solo envías procesos nuevos (sin ID), NO elimina los existentes
+
+#### **Ejemplos de Uso:**
+
+**Agregar un nuevo proceso (MANTIENE los existentes):**
+```json
+{
+  "process_states": [
+    {
+      "name": "Nuevo Estado",
+      "order": 4,
+      "status_key": "nuevo_estado"
+    }
+  ]
+}
+```
+**Resultado:** Se agrega el nuevo proceso, los existentes se mantienen intactos.
+
+### **🐛 Corrección de Bug Crítico - Eliminación de Procesos:**
+
+#### **❌ Problema Identificado:**
+Cuando se enviaba un proceso nuevo (sin ID), el sistema eliminaba TODOS los procesos existentes del servicio.
+
+#### **🔍 Causa del Problema:**
+```javascript
+// Lógica anterior (INCORRECTA)
+const idsEnviados = updateData.process_states
+  .filter(p => p.id && !isNaN(parseInt(p.id)))
+  .map(p => parseInt(p.id));
+
+// Si no había IDs (proceso nuevo), idsEnviados = []
+// Esto causaba que se eliminaran TODOS los procesos existentes
+```
+
+#### **✅ Solución Implementada:**
+```javascript
+// Lógica corregida (CORRECTA)
+if (idsEnviados.length > 0) {
+  // Solo eliminar si se enviaron IDs específicos
+  procesosParaEliminar.push(...procesosExistentes
+    .filter(p => !idsEnviados.includes(p.id_proceso))
+    .map(p => p.id_proceso)
+  );
+} else {
+  // Si solo se envían procesos nuevos, NO eliminar nada
+  console.log('Solo se enviaron procesos nuevos, NO se eliminarán procesos existentes');
+}
+```
+
+#### **🎯 Resultado:**
+- ✅ **Procesos nuevos se agregan** sin afectar los existentes
+- ✅ **Procesos existentes se mantienen** intactos
+- ✅ **Eliminación controlada** solo cuando se envían IDs específicos
+
+**Actualizar un proceso existente:**
+```json
+{
+  "process_states": [
+    {
+      "id": "1",
+      "name": "Estado Modificado",
+      "order": 1,
+      "status_key": "estado_modificado"
+    }
+  ]
+}
+```
+
+**Eliminar un proceso:**
+```json
+{
+  "process_states": [
+    {
+      "id": "1",
+      "name": "Estado 1",
+      "order": 1,
+      "status_key": "estado_1"
+    }
+    // El proceso con ID 2 se eliminará automáticamente
+  ]
+}
+```
+
 ### **🚀 Próximos Pasos:**
 - El endpoint está listo para uso en producción
 - Los logs detallados facilitan el mantenimiento
 - La documentación está actualizada y completa
+- **Gestión inteligente de procesos** - Agrega, actualiza y elimina según corresponda
+- **Bug crítico corregido** - Los procesos existentes ya no se eliminan al agregar nuevos
+
+### **📋 Resumen de la Corrección:**
+- **Fecha:** 28 de Septiembre de 2025
+- **Problema:** Al agregar un proceso nuevo, se eliminaban todos los procesos existentes
+- **Causa:** Lógica de eliminación demasiado agresiva
+- **Solución:** Validación condicional para eliminar solo cuando se envían IDs específicos
+- **Estado:** ✅ **CORREGIDO Y FUNCIONANDO**
 
 ---
 
-**Versión actual**: 2.9 - Endpoint PUT Servicios Funcionando Correctamente ✅
+**Versión actual**: 2.10 - Bug Crítico de Eliminación de Procesos Corregido ✅
