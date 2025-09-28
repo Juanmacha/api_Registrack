@@ -36,7 +36,7 @@ router.get("/:id/detalle", getDetalleServicio);
 router.put(
   "/:id",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  roleMiddleware(["administrador", "empleado"]),
   actualizarServicio
 );
 router.patch(

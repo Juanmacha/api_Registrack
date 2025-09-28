@@ -147,24 +147,124 @@ export const buscarServiciosPorNombre = async (req, res) => {
  */
 export const actualizarServicio = async (req, res) => {
   try {
-    const { idServicio } = req.params;
-    const datosActualizados = req.body;
+    const { id } = req.params;
+    const { landing_data, info_page_data, visible_en_landing } = req.body;
 
-    if (!idServicio || isNaN(Number(idServicio))) {
-      return fail(res, "El ID proporcionado no es válido", 400);
+    console.log(`🔧 [ServicioController] Actualizando servicio ${id}...`, req.body);
+
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "ID de servicio inválido",
+          code: "INVALID_ID",
+          details: { field: "id", value: id },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
-    const result = await servicioService.actualizarServicio(
-      idServicio,
-      datosActualizados
-    );
-    return ok(res, result);
+    // Validar tipos de datos
+    if (landing_data !== undefined && typeof landing_data !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "landing_data debe ser un objeto",
+          code: "VALIDATION_ERROR",
+          details: { field: "landing_data", value: landing_data },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (info_page_data !== undefined && typeof info_page_data !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "info_page_data debe ser un objeto",
+          code: "VALIDATION_ERROR",
+          details: { field: "info_page_data", value: info_page_data },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (visible_en_landing !== undefined && typeof visible_en_landing !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "visible_en_landing debe ser un booleano",
+          code: "VALIDATION_ERROR",
+          details: { field: "visible_en_landing", value: visible_en_landing },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Preparar datos para actualización
+    const datosActualizacion = {};
+    
+    if (landing_data !== undefined) {
+      datosActualizacion.landing_data = landing_data;
+    }
+    
+    if (info_page_data !== undefined) {
+      datosActualizacion.info_page_data = info_page_data;
+    }
+    
+    if (visible_en_landing !== undefined) {
+      datosActualizacion.visible_en_landing = visible_en_landing;
+    }
+
+    // Verificar que hay al menos un campo para actualizar
+    if (Object.keys(datosActualizacion).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Debe proporcionar al menos un campo para actualizar",
+          code: "NO_DATA_TO_UPDATE",
+          details: { 
+            available_fields: ["landing_data", "info_page_data", "visible_en_landing"] 
+          },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const result = await servicioService.actualizarServicio(id, datosActualizacion);
+    
+    console.log('✅ [ServicioController] Servicio actualizado exitosamente');
+
+    res.status(200).json({
+      success: true,
+      message: "Servicio actualizado exitosamente",
+      data: result.data
+    });
+
   } catch (error) {
-    console.error("Error al actualizar servicio:", error);
-    if (error.name === "NotFoundError") {
-      return fail(res, error.message, 404);
+    console.error('❌ [ServicioController] Error actualizando servicio:', error);
+    
+    if (error.message.includes("no encontrado")) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Servicio no encontrado",
+          code: "SERVICE_NOT_FOUND",
+          details: { id: req.params.id },
+          timestamp: new Date().toISOString()
+        }
+      });
     }
-    return fail(res, "Error interno del servidor");
+    
+    res.status(500).json({
+      success: false,
+      error: {
+        message: "Error interno del servidor al actualizar servicio",
+        code: "INTERNAL_ERROR",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 };
 
