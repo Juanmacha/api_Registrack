@@ -1,5 +1,6 @@
 import { SolicitudesService } from "../services/solicitudes.service.js";
-import { OrdenServicio, Servicio, Cliente, User } from "../models/associations.js";
+import { OrdenServicio, Servicio, Cliente } from "../models/associations.js";
+import User from "../models/user.js";
 import Empresa from "../models/Empresa.js";
 import EmpresaCliente from "../models/EmpresaCliente.js";
 import { Op } from "sequelize";

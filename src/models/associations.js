@@ -1,7 +1,6 @@
 import OrdenServicio from "./OrdenServicio.js";
 import Servicio from "./Servicio.js";
 import Cliente from "./Cliente.js";
-import User from "./User.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -35,4 +34,4 @@ Cliente.hasMany(OrdenServicio, {
 //   as: 'ordenes_asignadas'
 // });
 
-export { OrdenServicio, Servicio, Cliente, User };
+export { OrdenServicio, Servicio, Cliente };
