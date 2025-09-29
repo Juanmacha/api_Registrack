@@ -218,36 +218,60 @@ export const actualizarServicio = async (req, res) => {
     let hayCambios = false;
     
     // Verificar cambios en visible_en_landing
+    console.log('🔍 [Backend] ===== VERIFICANDO VISIBLE_EN_LANDING =====');
+    console.log('🔍 [Backend] updateData.visible_en_landing:', updateData.visible_en_landing, '(tipo:', typeof updateData.visible_en_landing, ')');
+    console.log('🔍 [Backend] servicio.visible_en_landing:', servicio.visible_en_landing, '(tipo:', typeof servicio.visible_en_landing, ')');
+    console.log('🔍 [Backend] ¿Es undefined?', updateData.visible_en_landing === undefined);
+    console.log('🔍 [Backend] ¿Son diferentes?', updateData.visible_en_landing !== servicio.visible_en_landing);
+    
     if (updateData.visible_en_landing !== undefined && updateData.visible_en_landing !== servicio.visible_en_landing) {
       hayCambios = true;
       console.log('✅ [Backend] Cambios detectados en visible_en_landing:', {
         actual: servicio.visible_en_landing,
         nuevo: updateData.visible_en_landing
       });
+    } else {
+      console.log('❌ [Backend] NO se detectaron cambios en visible_en_landing');
     }
     
     // Verificar cambios en landing_data
+    console.log('🔍 [Backend] ===== VERIFICANDO LANDING_DATA =====');
+    console.log('🔍 [Backend] updateData.landing_data existe?', !!updateData.landing_data);
     if (updateData.landing_data) {
       const landingDataActual = JSON.stringify(servicio.landing_data || {});
       const landingDataNuevo = JSON.stringify(updateData.landing_data);
+      console.log('🔍 [Backend] - Actual JSON:', landingDataActual);
+      console.log('🔍 [Backend] - Nuevo JSON:', landingDataNuevo);
+      console.log('🔍 [Backend] - ¿Son diferentes?', landingDataActual !== landingDataNuevo);
+      
       if (landingDataActual !== landingDataNuevo) {
         hayCambios = true;
         console.log('✅ [Backend] Cambios detectados en landing_data');
-        console.log('🔍 [Backend] - Actual:', landingDataActual);
-        console.log('🔍 [Backend] - Nuevo:', landingDataNuevo);
+      } else {
+        console.log('❌ [Backend] NO se detectaron cambios en landing_data');
       }
+    } else {
+      console.log('❌ [Backend] No se envió landing_data');
     }
     
     // Verificar cambios en info_page_data
+    console.log('🔍 [Backend] ===== VERIFICANDO INFO_PAGE_DATA =====');
+    console.log('🔍 [Backend] updateData.info_page_data existe?', !!updateData.info_page_data);
     if (updateData.info_page_data) {
       const infoPageActual = JSON.stringify(servicio.info_page_data || {});
       const infoPageNuevo = JSON.stringify(updateData.info_page_data);
+      console.log('🔍 [Backend] - Actual JSON:', infoPageActual);
+      console.log('🔍 [Backend] - Nuevo JSON:', infoPageNuevo);
+      console.log('🔍 [Backend] - ¿Son diferentes?', infoPageActual !== infoPageNuevo);
+      
       if (infoPageActual !== infoPageNuevo) {
         hayCambios = true;
         console.log('✅ [Backend] Cambios detectados en info_page_data');
-        console.log('🔍 [Backend] - Actual:', infoPageActual);
-        console.log('🔍 [Backend] - Nuevo:', infoPageNuevo);
+      } else {
+        console.log('❌ [Backend] NO se detectaron cambios en info_page_data');
       }
+    } else {
+      console.log('❌ [Backend] No se envió info_page_data');
     }
     
     // Verificar cambios en process_states (si se envía)
@@ -284,7 +308,10 @@ export const actualizarServicio = async (req, res) => {
       }
     }
     
+    console.log('🔍 [Backend] ===== RESUMEN DE CAMBIOS =====');
     console.log('🔍 [Backend] ¿Hay cambios detectados?', hayCambios);
+    console.log('🔍 [Backend] Campos enviados:', Object.keys(updateData));
+    console.log('🔍 [Backend] Campos verificados: visible_en_landing, landing_data, info_page_data, process_states');
     
     if (!hayCambios) {
       console.log('❌ [Backend] No se detectaron cambios reales en los datos');

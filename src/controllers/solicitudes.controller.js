@@ -307,7 +307,7 @@ export const crearSolicitud = async (req, res) => {
       id_servicio: parseInt(servicioId),
       nombre: servicioEncontrado.nombre
     };
-    
+
     console.log('✅ Servicio ID:', servicio.id_servicio);
 
     // Crear o encontrar el cliente primero
@@ -454,7 +454,7 @@ export const crearSolicitud = async (req, res) => {
           id_empresa: empresa.id_empresa
         });
         console.log('✅ Asociación cliente-empresa creada');
-      } else {
+    } else {
         console.log('✅ Asociación cliente-empresa ya existe');
       }
     }
@@ -485,10 +485,10 @@ export const crearSolicitud = async (req, res) => {
       success: true,
       mensaje: "Solicitud creada exitosamente",
       data: {
-        orden_id: nuevaOrden.id_orden_servicio,
-        servicio: servicioEncontrado,
-        estado: "Pendiente",
-        fecha_solicitud: nuevaOrden.fecha_solicitud,
+      orden_id: nuevaOrden.id_orden_servicio,
+      servicio: servicioEncontrado,
+      estado: "Pendiente",
+      fecha_solicitud: nuevaOrden.fecha_solicitud,
         cliente: {
           id_cliente: cliente.id_cliente,
           marca: cliente.marca,

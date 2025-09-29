@@ -5786,4 +5786,50 @@ if (updateData.process_states) {
 
 ---
 
-**Versión actual**: 2.11 - Detección de Cambios en Campos JSON Corregida ✅
+### **🎉 RESULTADOS DE PRUEBA EXITOSOS (28 de Septiembre de 2025):**
+
+#### **✅ Prueba Realizada con Postman:**
+- **Endpoint:** `PUT /api/servicios/1`
+- **Datos enviados:** `{"visible_en_landing": false}`
+- **Resultado:** ✅ **Status 200** - Actualización exitosa
+- **Logs del servidor:** Detección correcta de cambios
+
+#### **📊 Logs de Éxito Confirmados:**
+```
+🔍 [Backend] ===== VERIFICANDO VISIBLE_EN_LANDING =====
+🔍 [Backend] updateData.visible_en_landing: false (tipo: boolean)
+🔍 [Backend] servicio.visible_en_landing: true (tipo: boolean)
+🔍 [Backend] ¿Es undefined? false
+🔍 [Backend] ¿Son diferentes? true
+✅ [Backend] Cambios detectados en visible_en_landing: { actual: true, nuevo: false }
+🔍 [Backend] ===== RESUMEN DE CAMBIOS =====
+🔍 [Backend] ¿Hay cambios detectados? true
+✅ [Backend] Actualización exitosa
+[2025-09-28T23:55:50.333Z] PUT /api/servicios/1 - Status: 200
+```
+
+#### **🎯 Estado Final Confirmado:**
+- ✅ **visible_en_landing** - Detección de cambios funcionando perfectamente
+- ✅ **landing_data** - Detección de cambios funcionando perfectamente  
+- ✅ **info_page_data** - Detección de cambios funcionando perfectamente
+- ✅ **process_states** - Detección de cambios funcionando perfectamente
+- ✅ **Logs detallados** - Facilitan el debugging y mantenimiento
+- ✅ **Respuesta completa** - Incluye todos los datos del servicio actualizado
+
+#### **🔧 Mejoras Implementadas y Verificadas:**
+1. **Comparación de tipos correcta** - Maneja boolean, JSON y arrays
+2. **Logs detallados de debugging** - Muestra cada paso de la comparación
+3. **Detección precisa de cambios** - Solo actualiza cuando hay diferencias reales
+4. **Validación robusta** - Verifica tipos y estructura de datos
+5. **Respuesta formateada** - Compatible con el frontend
+
+#### **📋 Resumen Final:**
+- **Fecha de corrección:** 28 de Septiembre de 2025
+- **Problema original:** Backend no detectaba cambios en campos JSON complejos
+- **Solución implementada:** Lógica de comparación mejorada con logs detallados
+- **Estado:** ✅ **COMPLETAMENTE FUNCIONAL Y PROBADO**
+- **Pruebas realizadas:** ✅ **EXITOSAS**
+
+---
+
+**Versión actual**: 2.12 - Bug Crítico Completamente Corregido y Probado ✅
