@@ -143,202 +143,166 @@ export const buscarServiciosPorNombre = async (req, res) => {
 };
 
 /**
- * Actualizar servicio (datos de landing page) - VERSIÓN CORREGIDA CON BUG FIX
+ * Actualizar servicio (datos de landing page) - VERSIÓN CON DEBUGGING CRÍTICO
  */
 export const actualizarServicio = async (req, res) => {
   try {
+    console.log('🔧 [Backend] ===== INICIO UPDATE SERVICIO =====');
+    console.log('🔧 [Backend] Request params:', req.params);
+    console.log('🔧 [Backend] Request body:', req.body);
+    console.log('🔧 [Backend] Request headers:', req.headers);
+    
     const { id } = req.params;
     const updateData = req.body;
     
-    console.log('🔧 [ServicioController] Actualizando servicio:', id);
-    console.log('🔍 [ServicioController] Datos recibidos:', JSON.stringify(updateData, null, 2));
+    console.log('🔧 [Backend] ID del servicio:', id);
+    console.log('🔧 [Backend] Datos de actualización:', updateData);
     
-    // Obtener servicio actual
-    const Servicio = (await import('../models/Servicio.js')).default;
-    const Proceso = (await import('../models/Proceso.js')).default;
-    
-    const servicioActual = await Servicio.findByPk(id, {
-      include: [
-        {
-          model: Proceso,
-          as: 'procesos',
-          order: [['order_number', 'ASC']]
-        }
-      ]
-    });
-    
-    if (!servicioActual) {
-      return res.status(404).json({
+    // Verificar que el ID sea válido
+    if (!id || isNaN(id)) {
+      console.log('❌ [Backend] ID inválido:', id);
+      return res.status(400).json({
         success: false,
-        error: { message: "Servicio no encontrado" }
+        error: { message: "ID de servicio inválido" }
       });
     }
     
-    console.log('🔍 [ServicioController] Servicio actual:', {
-      id: servicioActual.id_servicio,
-      visible_en_landing: servicioActual.visible_en_landing,
-      landing_data: servicioActual.landing_data,
-      info_page_data: servicioActual.info_page_data,
-      process_states_count: servicioActual.procesos ? servicioActual.procesos.length : 0
-    });
-    
-    // ✅ LÓGICA DE DETECCIÓN DE CAMBIOS CORREGIDA
-    let hasChanges = false;
-    const changesDetected = [];
-    
-    for (const key of Object.keys(updateData)) {
-      const currentValue = servicioActual[key];
-      const newValue = updateData[key];
-      
-      console.log(`🔍 [ServicioController] Comparando campo ${key}:`);
-      console.log('  - Valor actual:', currentValue);
-      console.log('  - Valor nuevo:', newValue);
-      
-      let isDifferent = false;
-      
-      // Manejo especial para campos boolean
-      if (key === 'visible_en_landing') {
-        const currentBool = Boolean(currentValue);
-        const newBool = Boolean(newValue);
-        isDifferent = currentBool !== newBool;
-        console.log(`  - Boolean diferente: ${isDifferent} (${currentBool} vs ${newBool})`);
-      }
-      
-      // Manejo especial para campos JSON
-      else if (key === 'info_page_data' || key === 'landing_data') {
-        const currentJson = JSON.stringify(currentValue || {});
-        const newJson = JSON.stringify(newValue || {});
-        isDifferent = currentJson !== newJson;
-        console.log(`  - JSON diferente: ${isDifferent}`);
-        console.log(`  - JSON actual: ${currentJson}`);
-        console.log(`  - JSON nuevo: ${newJson}`);
-      }
-      
-      // Manejo especial para process_states
-      else if (key === 'process_states') {
-        const currentProcesses = JSON.stringify(servicioActual.procesos || []);
-        const newProcesses = JSON.stringify(newValue || []);
-        isDifferent = currentProcesses !== newProcesses;
-        console.log(`  - Process states diferente: ${isDifferent}`);
-        console.log(`  - Procesos actuales: ${currentProcesses}`);
-        console.log(`  - Procesos nuevos: ${newProcesses}`);
-      }
-      
-      // Comparación normal para campos simples
-      else {
-        isDifferent = currentValue !== newValue;
-        console.log(`  - Campo simple diferente: ${isDifferent}`);
-      }
-      
-      if (isDifferent) {
-        hasChanges = true;
-        changesDetected.push(key);
-      }
-    }
-    
-    console.log('🔍 [ServicioController] ¿Hay cambios?', hasChanges);
-    console.log('🔍 [ServicioController] Campos con cambios:', changesDetected);
-    
-    if (!hasChanges) {
-      console.log('⚠️ [ServicioController] No se detectaron cambios');
+    // Verificar que hay datos para actualizar
+    if (!updateData || Object.keys(updateData).length === 0) {
+      console.log('❌ [Backend] No hay datos para actualizar');
       return res.status(400).json({
         success: false,
         error: { message: "No hay datos para actualizar" }
       });
     }
     
-    console.log('✅ [ServicioController] Cambios detectados, procediendo con actualización');
+    console.log('🔧 [Backend] Importando modelos...');
     
-    // Preparar datos para actualización
-    const datosParaActualizar = {};
+    // Importar modelos
+    const Servicio = (await import('../models/Servicio.js')).default;
+    const Proceso = (await import('../models/Proceso.js')).default;
     
-    // Manejar campos simples con conversión de tipos
-    if (updateData.visible_en_landing !== undefined) {
-      datosParaActualizar.visible_en_landing = Boolean(updateData.visible_en_landing);
-      console.log('🔧 [ServicioController] Actualizando visible_en_landing:', datosParaActualizar.visible_en_landing);
-    }
+    console.log('✅ [Backend] Modelos importados correctamente');
+    console.log('🔧 [Backend] Obteniendo servicio de la base de datos...');
     
-    if (updateData.landing_data) {
-      datosParaActualizar.landing_data = updateData.landing_data;
-      console.log('🔧 [ServicioController] Actualizando landing_data:', JSON.stringify(updateData.landing_data, null, 2));
-    }
+    // Obtener servicio actual
+    const servicioActual = await Servicio.findByPk(id);
     
-    if (updateData.info_page_data) {
-      datosParaActualizar.info_page_data = updateData.info_page_data;
-      console.log('🔧 [ServicioController] Actualizando info_page_data:', JSON.stringify(updateData.info_page_data, null, 2));
-    }
-    
-    console.log('🔍 [ServicioController] Datos para actualizar:', JSON.stringify(datosParaActualizar, null, 2));
-    
-    // Actualizar servicio
-    await servicioActual.update(datosParaActualizar);
-    console.log('✅ [ServicioController] Servicio actualizado en base de datos');
-    
-    // Manejar process_states si está presente
-    if (updateData.process_states) {
-      console.log('🔧 [ServicioController] Actualizando process_states');
-      
-      // Eliminar procesos existentes
-      await Proceso.destroy({
-        where: { servicio_id: id }
+    if (!servicioActual) {
+      console.log('❌ [Backend] Servicio no encontrado:', id);
+      return res.status(404).json({
+        success: false,
+        error: { message: "Servicio no encontrado" }
       });
-      console.log('🗑️ [ServicioController] Procesos existentes eliminados');
+    }
+    
+    console.log('✅ [Backend] Servicio encontrado:', {
+      id: servicioActual.id_servicio,
+      nombre: servicioActual.nombre,
+      visible_en_landing: servicioActual.visible_en_landing
+    });
+    
+    // Verificar cambios
+    let hayCambios = false;
+    const cambiosDetectados = [];
+    
+    console.log('🔧 [Backend] Verificando cambios...');
+    
+    for (const key of Object.keys(updateData)) {
+      const valorActual = servicioActual[key];
+      const valorNuevo = updateData[key];
       
-      // Crear nuevos procesos
-      for (let i = 0; i < updateData.process_states.length; i++) {
-        const proceso = updateData.process_states[i];
-        await Proceso.create({
-          servicio_id: id,
-          nombre: proceso.name || proceso.nombre,
-          order_number: proceso.order || i + 1,
-          status_key: proceso.status_key || `estado_${i + 1}`
-        });
-        console.log(`➕ [ServicioController] Proceso ${i + 1} creado:`, proceso.name || proceso.nombre);
+      console.log(`🔍 [Backend] Campo ${key}:`);
+      console.log(`  - Actual:`, valorActual);
+      console.log(`  - Nuevo:`, valorNuevo);
+      
+      let esDiferente = false;
+      
+      if (key === 'visible_en_landing') {
+        esDiferente = Boolean(valorActual) !== Boolean(valorNuevo);
+        console.log(`  - Boolean diferente: ${esDiferente} (${Boolean(valorActual)} vs ${Boolean(valorNuevo)})`);
+      } else if (key === 'landing_data' || key === 'info_page_data') {
+        const actualJson = JSON.stringify(valorActual || {});
+        const nuevoJson = JSON.stringify(valorNuevo || {});
+        esDiferente = actualJson !== nuevoJson;
+        console.log(`  - JSON diferente: ${esDiferente}`);
+        console.log(`  - JSON actual: ${actualJson}`);
+        console.log(`  - JSON nuevo: ${nuevoJson}`);
+      } else {
+        esDiferente = valorActual !== valorNuevo;
+        console.log(`  - Campo simple diferente: ${esDiferente}`);
+      }
+      
+      if (esDiferente) {
+        hayCambios = true;
+        cambiosDetectados.push(key);
+        console.log(`✅ [Backend] Cambio detectado en ${key}`);
+      } else {
+        console.log(`ℹ️ [Backend] Sin cambios en ${key}`);
       }
     }
     
+    console.log('🔍 [Backend] ¿Hay cambios?', hayCambios);
+    console.log('🔍 [Backend] Campos con cambios:', cambiosDetectados);
+    
+    if (!hayCambios) {
+      console.log('⚠️ [Backend] No hay cambios reales');
+      return res.status(400).json({
+        success: false,
+        error: { message: "No hay datos para actualizar" }
+      });
+    }
+    
+    console.log('🔧 [Backend] Actualizando servicio en base de datos...');
+    
+    // Actualizar servicio
+    await servicioActual.update(updateData);
+    
+    console.log('✅ [Backend] Servicio actualizado en base de datos');
+    
     // Obtener servicio actualizado
-    const servicioActualizado = await Servicio.findByPk(id, {
-      include: [
-        {
-          model: Proceso,
-          as: 'procesos',
-          order: [['order_number', 'ASC']]
-        }
-      ]
+    const servicioActualizado = await Servicio.findByPk(id);
+    
+    console.log('✅ [Backend] Servicio actualizado obtenido:', {
+      id: servicioActualizado.id_servicio,
+      visible_en_landing: servicioActualizado.visible_en_landing
     });
     
-    // Transformar a formato frontend
-    const servicioFormateado = {
-      id: servicioActualizado.id_servicio.toString(),
-      nombre: servicioActualizado.nombre,
-      descripcion_corta: servicioActualizado.descripcion_corta,
-      visible_en_landing: servicioActualizado.visible_en_landing,
-      landing_data: servicioActualizado.landing_data || {},
-      info_page_data: servicioActualizado.info_page_data || {},
-      route_path: servicioActualizado.route_path || `/pages/${servicioActualizado.nombre.toLowerCase().replace(/\s+/g, '-')}`,
-      process_states: servicioActualizado.procesos.map(proceso => ({
-        id: proceso.id_proceso.toString(),
-        name: proceso.nombre,
-        order: proceso.order_number,
-        status_key: proceso.status_key
-      }))
-    };
-    
-    console.log('✅ [ServicioController] Servicio actualizado exitosamente');
-    console.log('📤 [ServicioController] Enviando respuesta:', JSON.stringify(servicioFormateado, null, 2));
-    
-    res.json({
+    // Formatear respuesta
+    const respuesta = {
       success: true,
       message: "Servicio actualizado exitosamente",
-      data: servicioFormateado
-    });
+      data: {
+        id: servicioActualizado.id_servicio.toString(),
+        nombre: servicioActualizado.nombre,
+        descripcion_corta: servicioActualizado.descripcion_corta,
+        visible_en_landing: servicioActualizado.visible_en_landing,
+        landing_data: servicioActualizado.landing_data || {},
+        info_page_data: servicioActualizado.info_page_data || {},
+        route_path: servicioActualizado.route_path || `/pages/${servicioActualizado.nombre.toLowerCase().replace(/\s+/g, '-')}`,
+        process_states: []
+      }
+    };
+    
+    console.log('✅ [Backend] Respuesta preparada:', respuesta);
+    console.log('🔧 [Backend] ===== FIN UPDATE SERVICIO =====');
+    
+    res.json(respuesta);
     
   } catch (error) {
-    console.error('❌ [ServicioController] Error actualizando servicio:', error);
+    console.error('❌ [Backend] ERROR CRÍTICO en updateServicio:', error);
+    console.error('❌ [Backend] Stack trace:', error.stack);
+    console.error('❌ [Backend] Error name:', error.name);
+    console.error('❌ [Backend] Error message:', error.message);
+    console.error('❌ [Backend] Error code:', error.code);
+    
     res.status(500).json({
       success: false,
-      error: { message: "Error interno del servidor" }
+      error: { 
+        message: "Error interno del servidor",
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }
     });
   }
 };

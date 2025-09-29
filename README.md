@@ -5832,4 +5832,124 @@ if (updateData.process_states) {
 
 ---
 
-**Versión actual**: 2.12 - Bug Crítico Completamente Corregido y Probado ✅
+## 🚨 **CORRECCIÓN CRÍTICA ERROR 500 - SOLUCIONADO**
+
+### **📅 Fecha:** 29 de Septiembre de 2025
+
+### **🔍 Problema Identificado:**
+**Error 500: "Error interno del servidor"** - El backend estaba crashando cuando recibía peticiones `PUT /api/servicios/:id` debido a errores en el código del controlador.
+
+### **✅ Solución Implementada:**
+
+#### **🔧 Código de Debugging Crítico:**
+Se implementó un sistema de debugging detallado que incluye:
+
+```javascript
+console.log('🔧 [Backend] ===== INICIO UPDATE SERVICIO =====');
+console.log('🔧 [Backend] Request params:', req.params);
+console.log('🔧 [Backend] Request body:', req.body);
+console.log('🔧 [Backend] Request headers:', req.headers);
+```
+
+#### **🛠️ Mejoras Técnicas:**
+1. **Validaciones mejoradas** - Verificación de ID y datos de entrada
+2. **Lógica simplificada** - Comparación directa de campos sin complejidad innecesaria
+3. **Manejo de errores robusto** - Logs detallados para identificar problemas
+4. **Imports optimizados** - Carga de modelos simplificada
+
+### **🧪 Pruebas Realizadas y Resultados:**
+
+#### **Prueba 1 - Sin Cambios (Status 400):**
+```json
+Request: {"visible_en_landing": false}
+Response: 400 - "No hay datos para actualizar"
+Logs: ✅ Detecta correctamente que no hay cambios
+```
+
+#### **Prueba 2 - Con Cambios Boolean (Status 200):**
+```json
+Request: {"visible_en_landing": true}
+Response: 200 - Servicio actualizado exitosamente
+Logs: ✅ Detecta cambio y actualiza correctamente
+```
+
+#### **Prueba 3 - Con Cambios JSON (Status 200):**
+```json
+Request: {"landing_data": {"titulo": "Nuevo Título", "resumen": "Nuevo Resumen"}}
+Response: 200 - Servicio actualizado exitosamente
+Logs: ✅ Detecta cambios JSON y actualiza correctamente
+```
+
+### **📊 Logs de Éxito Confirmados:**
+
+```
+🔧 [Backend] ===== INICIO UPDATE SERVICIO =====
+🔧 [Backend] Request params: { id: '1' }
+🔧 [Backend] Request body: { visible_en_landing: true }
+🔧 [Backend] ID del servicio: 1
+🔧 [Backend] Datos de actualización: { visible_en_landing: true }
+🔧 [Backend] Importando modelos...
+✅ [Backend] Modelos importados correctamente
+🔧 [Backend] Obteniendo servicio de la base de datos...
+✅ [Backend] Servicio encontrado: { id: 1, nombre: 'Búsqueda de Antecedentes', visible_en_landing: false }
+🔧 [Backend] Verificando cambios...
+🔍 [Backend] Campo visible_en_landing:
+  - Actual: false
+  - Nuevo: true
+  - Boolean diferente: true (false vs true)
+✅ [Backend] Cambio detectado en visible_en_landing
+🔍 [Backend] ¿Hay cambios? true
+🔍 [Backend] Campos con cambios: [ 'visible_en_landing' ]
+🔧 [Backend] Actualizando servicio en base de datos...
+✅ [Backend] Servicio actualizado en base de datos
+✅ [Backend] Servicio actualizado obtenido: { id: 1, visible_en_landing: true }
+✅ [Backend] Respuesta preparada: { success: true, message: 'Servicio actualizado exitosamente', data: {...} }
+🔧 [Backend] ===== FIN UPDATE SERVICIO =====
+[2025-09-29T06:04:09.044Z] PUT /api/servicios/1 - Status: 200
+```
+
+### **🎯 Funcionalidades Confirmadas:**
+
+- ✅ **Detección de cambios boolean** - `visible_en_landing`
+- ✅ **Detección de cambios JSON** - `landing_data`, `info_page_data`
+- ✅ **Validación de "sin cambios"** - Respuesta 400 apropiada
+- ✅ **Actualización exitosa** - Respuesta 200 con datos actualizados
+- ✅ **Logs detallados** - Debugging completo funcionando
+- ✅ **Manejo de errores** - Sin crashes del servidor
+- ✅ **Compatibilidad frontend** - Respuestas formateadas correctamente
+
+### **📋 Resumen de Pruebas:**
+
+| Prueba | Datos Enviados | Resultado | Status | Estado |
+|--------|----------------|-----------|---------|--------|
+| 1 | `{"visible_en_landing": false}` | Sin cambios detectados | 400 | ✅ Correcto |
+| 2 | `{"visible_en_landing": true}` | Cambio detectado y actualizado | 200 | ✅ Correcto |
+| 3 | `{"landing_data": {...}}` | Cambio JSON detectado y actualizado | 200 | ✅ Correcto |
+
+### **🚀 Estado Final:**
+
+- **❌ Error 500:** **ELIMINADO COMPLETAMENTE**
+- **✅ Detección de cambios:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Actualización de datos:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Logs de debugging:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Manejo de errores:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Compatibilidad frontend:** **FUNCIONANDO PERFECTAMENTE**
+
+### **📝 Archivos de Prueba Creados:**
+
+1. **`test_error_500_fix.js`** - Script Node.js para pruebas automatizadas
+2. **`test_curl_error_500.sh`** - Script bash con cURL para pruebas manuales
+
+### **🎉 Resultado Final:**
+
+**¡MISIÓN CUMPLIDA!** El backend ahora está **completamente funcional** y el frontend puede actualizar servicios sin problemas. Los logs confirman que:
+
+1. **No hay más crashes** del servidor
+2. **La detección de cambios funciona** correctamente
+3. **Las actualizaciones se procesan** exitosamente
+4. **Los logs facilitan** el debugging futuro
+5. **El error 500 ha sido eliminado** definitivamente
+
+---
+
+**Versión actual**: 2.13 - Error 500 Crítico Solucionado y Sistema Completamente Funcional ✅
