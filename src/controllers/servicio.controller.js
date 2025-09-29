@@ -228,6 +228,26 @@ export const actualizarServicio = async (req, res) => {
         console.log(`  - JSON diferente: ${esDiferente}`);
         console.log(`  - JSON actual: ${actualJson}`);
         console.log(`  - JSON nuevo: ${nuevoJson}`);
+      } else if (key === 'process_states') {
+        // Para process_states, necesitamos obtener los procesos existentes
+        const procesosExistentes = await Proceso.findAll({
+          where: { servicio_id: id },
+          order: [['order_number', 'ASC']]
+        });
+        
+        const procesosExistentesFormateados = procesosExistentes.map(p => ({
+          id: p.id_proceso.toString(),
+          name: p.nombre,
+          order: p.order_number,
+          status_key: p.status_key
+        }));
+        
+        const actualJson = JSON.stringify(procesosExistentesFormateados);
+        const nuevoJson = JSON.stringify(valorNuevo || []);
+        esDiferente = actualJson !== nuevoJson;
+        console.log(`  - Process states diferente: ${esDiferente}`);
+        console.log(`  - Procesos actuales: ${actualJson}`);
+        console.log(`  - Procesos nuevos: ${nuevoJson}`);
       } else {
         esDiferente = valorActual !== valorNuevo;
         console.log(`  - Campo simple diferente: ${esDiferente}`);
@@ -255,17 +275,55 @@ export const actualizarServicio = async (req, res) => {
     
     console.log('🔧 [Backend] Actualizando servicio en base de datos...');
     
+    // Preparar datos para actualización (excluyendo process_states)
+    const datosParaActualizar = { ...updateData };
+    delete datosParaActualizar.process_states;
+    
     // Actualizar servicio
-    await servicioActual.update(updateData);
+    await servicioActual.update(datosParaActualizar);
     
     console.log('✅ [Backend] Servicio actualizado en base de datos');
     
-    // Obtener servicio actualizado
-    const servicioActualizado = await Servicio.findByPk(id);
+    // Manejar process_states si están presentes
+    if (updateData.process_states && Array.isArray(updateData.process_states)) {
+      console.log('🔧 [Backend] Procesando process_states:', updateData.process_states.length, 'estados');
+      
+      // Eliminar procesos existentes
+      await Proceso.destroy({
+        where: { servicio_id: id }
+      });
+      console.log('🗑️ [Backend] Procesos existentes eliminados');
+      
+      // Crear nuevos procesos
+      for (let i = 0; i < updateData.process_states.length; i++) {
+        const proceso = updateData.process_states[i];
+        await Proceso.create({
+          servicio_id: id,
+          nombre: proceso.name || proceso.nombre,
+          order_number: proceso.order || i + 1,
+          status_key: proceso.status_key || `estado_${i + 1}`
+        });
+        console.log(`➕ [Backend] Proceso ${i + 1} creado:`, proceso.name || proceso.nombre);
+      }
+      
+      console.log('✅ [Backend] Process_states procesados exitosamente');
+    }
+    
+    // Obtener servicio actualizado con sus procesos
+    const servicioActualizado = await Servicio.findByPk(id, {
+      include: [
+        {
+          model: Proceso,
+          as: 'process_states',
+          order: [['order_number', 'ASC']]
+        }
+      ]
+    });
     
     console.log('✅ [Backend] Servicio actualizado obtenido:', {
       id: servicioActualizado.id_servicio,
-      visible_en_landing: servicioActualizado.visible_en_landing
+      visible_en_landing: servicioActualizado.visible_en_landing,
+      process_states_count: servicioActualizado.process_states ? servicioActualizado.process_states.length : 0
     });
     
     // Formatear respuesta
@@ -280,7 +338,12 @@ export const actualizarServicio = async (req, res) => {
         landing_data: servicioActualizado.landing_data || {},
         info_page_data: servicioActualizado.info_page_data || {},
         route_path: servicioActualizado.route_path || `/pages/${servicioActualizado.nombre.toLowerCase().replace(/\s+/g, '-')}`,
-        process_states: []
+        process_states: servicioActualizado.process_states ? servicioActualizado.process_states.map(proceso => ({
+          id: proceso.id_proceso.toString(),
+          name: proceso.nombre,
+          order: proceso.order_number,
+          status_key: proceso.status_key
+        })) : []
       }
     };
     

@@ -5952,4 +5952,269 @@ Logs: ✅ Detecta cambios JSON y actualiza correctamente
 
 ---
 
-**Versión actual**: 2.13 - Error 500 Crítico Solucionado y Sistema Completamente Funcional ✅
+## 🚨 **CORRECCIÓN CRÍTICA PROCESS_STATES - SOLUCIONADO**
+
+### **📅 Fecha:** 29 de Septiembre de 2025
+
+### **🔍 Problema Identificado:**
+**Backend no guardaba `process_states`** - El endpoint `PUT /api/servicios/:id` recibía correctamente los `process_states` del frontend pero **NO los guardaba** en la base de datos, devolviendo siempre un array vacío `[]` en la respuesta.
+
+### **📊 Evidencia del Problema:**
+
+#### **Frontend enviaba correctamente:**
+```json
+{
+  "process_states": [
+    {
+      "id": "55",
+      "name": "Solicitud Inicial",
+      "order": 1,
+      "status_key": "solicitud_inicial"
+    },
+    // ... más estados ...
+  ]
+}
+```
+
+#### **Backend respondía incorrectamente:**
+```json
+{
+  "success": true,
+  "message": "Servicio actualizado exitosamente",
+  "data": {
+    "process_states": []  ← ¡VACÍO! Debería tener los estados enviados
+  }
+}
+```
+
+### **🎯 Causa Raíz Identificada:**
+
+1. **❌ Campo hardcodeado:** El código devolvía `process_states: []` fijo
+2. **❌ Lógica incorrecta:** Intentaba guardar `process_states` como campo JSON
+3. **❌ Modelo mal entendido:** El modelo `Servicio` usa relación `hasMany` con `Proceso`, no un campo JSON
+
+### **✅ Solución Implementada:**
+
+#### **🔧 Lógica de Guardado Corregida:**
+```javascript
+// Manejar process_states si están presentes
+if (updateData.process_states && Array.isArray(updateData.process_states)) {
+  console.log('🔧 [Backend] Procesando process_states:', updateData.process_states.length, 'estados');
+  
+  // Eliminar procesos existentes
+  await Proceso.destroy({
+    where: { servicio_id: id }
+  });
+  console.log('🗑️ [Backend] Procesos existentes eliminados');
+  
+  // Crear nuevos procesos
+  for (let i = 0; i < updateData.process_states.length; i++) {
+    const proceso = updateData.process_states[i];
+    await Proceso.create({
+      servicio_id: id,
+      nombre: proceso.name || proceso.nombre,
+      order_number: proceso.order || i + 1,
+      status_key: proceso.status_key || `estado_${i + 1}`
+    });
+    console.log(`➕ [Backend] Proceso ${i + 1} creado:`, proceso.name || proceso.nombre);
+  }
+  
+  console.log('✅ [Backend] Process_states procesados exitosamente');
+}
+```
+
+#### **🔧 Respuesta Corregida:**
+```javascript
+// Obtener servicio actualizado con sus procesos
+const servicioActualizado = await Servicio.findByPk(id, {
+  include: [
+    {
+      model: Proceso,
+      as: 'process_states',
+      order: [['order_number', 'ASC']]
+    }
+  ]
+});
+
+// Formatear respuesta con process_states reales
+process_states: servicioActualizado.process_states ? servicioActualizado.process_states.map(proceso => ({
+  id: proceso.id_proceso.toString(),
+  name: proceso.nombre,
+  order: proceso.order_number,
+  status_key: proceso.status_key
+})) : []
+```
+
+#### **🔧 Detección de Cambios Mejorada:**
+```javascript
+else if (key === 'process_states') {
+  // Para process_states, necesitamos obtener los procesos existentes
+  const procesosExistentes = await Proceso.findAll({
+    where: { servicio_id: id },
+    order: [['order_number', 'ASC']]
+  });
+  
+  const procesosExistentesFormateados = procesosExistentes.map(p => ({
+    id: p.id_proceso.toString(),
+    name: p.nombre,
+    order: p.order_number,
+    status_key: p.status_key
+  }));
+  
+  const actualJson = JSON.stringify(procesosExistentesFormateados);
+  const nuevoJson = JSON.stringify(valorNuevo || []);
+  esDiferente = actualJson !== nuevoJson;
+  console.log(`  - Process states diferente: ${esDiferente}`);
+  console.log(`  - Procesos actuales: ${actualJson}`);
+  console.log(`  - Procesos nuevos: ${nuevoJson}`);
+}
+```
+
+### **🧪 Pruebas Realizadas y Resultados:**
+
+#### **Prueba con Postman - Datos Enviados:**
+```json
+{
+  "visible_en_landing": true,
+  "landing_data": {
+    "titulo": "Test Process States",
+    "resumen": "Prueba de corrección"
+  },
+  "process_states": [
+    {
+      "id": "test1",
+      "name": "Solicitud Inicial",
+      "order": 1,
+      "status_key": "solicitud_inicial"
+    },
+    {
+      "id": "test2",
+      "name": "Verificación de Documentos",
+      "order": 2,
+      "status_key": "verificacion_documentos"
+    },
+    {
+      "id": "test3",
+      "name": "Aprobación Final",
+      "order": 3,
+      "status_key": "aprobacion_final"
+    }
+  ]
+}
+```
+
+#### **Logs de Éxito Confirmados:**
+```
+🔧 [Backend] ===== INICIO UPDATE SERVICIO =====
+🔧 [Backend] Request body: {
+  visible_en_landing: true,
+  landing_data: { titulo: 'Test Process States', resumen: 'Prueba de corrección' },
+  process_states: [
+    { id: 'test1', name: 'Solicitud Inicial', order: 1, status_key: 'solicitud_inicial' },
+    { id: 'test2', name: 'Verificación de Documentos', order: 2, status_key: 'verificacion_documentos' },
+    { id: 'test3', name: 'Aprobación Final', order: 3, status_key: 'aprobacion_final' }
+  ]
+}
+🔧 [Backend] Verificando cambios...
+🔍 [Backend] Campo process_states:
+  - Process states diferente: true
+  - Procesos actuales: [{"id":"55","name":"Solicitud Inicial",...},...] (6 procesos existentes)
+  - Procesos nuevos: [{"id":"test1","name":"Solicitud Inicial",...},...] (3 procesos nuevos)
+✅ [Backend] Cambio detectado en process_states
+🔧 [Backend] Procesando process_states: 3 estados
+🗑️ [Backend] Procesos existentes eliminados
+➕ [Backend] Proceso 1 creado: Solicitud Inicial
+➕ [Backend] Proceso 2 creado: Verificación de Documentos
+➕ [Backend] Proceso 3 creado: Aprobación Final
+✅ [Backend] Process_states procesados exitosamente
+✅ [Backend] Servicio actualizado obtenido: { id: 1, visible_en_landing: true, process_states_count: 3 }
+[2025-09-29T14:20:12.164Z] PUT /api/servicios/1 - Status: 200
+```
+
+#### **Respuesta Exitosa Confirmada:**
+```json
+{
+  "success": true,
+  "message": "Servicio actualizado exitosamente",
+  "data": {
+    "id": "1",
+    "nombre": "Búsqueda de Antecedentes",
+    "visible_en_landing": true,
+    "landing_data": {
+      "titulo": "Test Process States",
+      "resumen": "Prueba de corrección"
+    },
+    "process_states": [
+      {
+        "id": "61",
+        "name": "Solicitud Inicial",
+        "order": 1,
+        "status_key": "solicitud_inicial"
+      },
+      {
+        "id": "62",
+        "name": "Verificación de Documentos",
+        "order": 2,
+        "status_key": "verificacion_documentos"
+      },
+      {
+        "id": "63",
+        "name": "Aprobación Final",
+        "order": 3,
+        "status_key": "aprobacion_final"
+      }
+    ]
+  }
+}
+```
+
+### **🎯 Funcionalidades Confirmadas:**
+
+- ✅ **Detección de cambios en process_states** - Funciona perfectamente
+- ✅ **Eliminación de procesos existentes** - Se ejecuta correctamente
+- ✅ **Creación de nuevos procesos** - Se crean con IDs únicos automáticos
+- ✅ **Mapeo correcto de datos** - `name`, `order`, `status_key` se mapean correctamente
+- ✅ **Respuesta formateada** - Los `process_states` se devuelven en el formato correcto
+- ✅ **Status 200** - Petición exitosa
+- ✅ **Logs detallados** - Debugging completo funcionando
+
+### **📊 Comparación Antes vs Después:**
+
+| Aspecto | Antes (❌) | Después (✅) |
+|---------|------------|--------------|
+| **process_states en respuesta** | `[]` (vacío) | `[{...}, {...}, {...}]` (estados reales) |
+| **Detección de cambios** | No funcionaba | Funciona perfectamente |
+| **Guardado en BD** | No se guardaba | Se guarda en tabla `procesos` |
+| **Eliminación de existentes** | No se hacía | Se elimina correctamente |
+| **Creación de nuevos** | No se creaban | Se crean con IDs únicos |
+| **Relación con Servicio** | Mal implementada | Usa `hasMany` correctamente |
+
+### **📝 Archivos de Prueba Creados:**
+
+1. **`test_process_states_fix.js`** - Script Node.js para pruebas automatizadas
+2. **`test_curl_process_states.sh`** - Script bash con cURL para pruebas manuales
+
+### **🚀 Estado Final:**
+
+- **❌ Process_states vacíos:** **ELIMINADO COMPLETAMENTE**
+- **✅ Guardado en base de datos:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Detección de cambios:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Respuesta formateada:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Relación con Procesos:** **FUNCIONANDO PERFECTAMENTE**
+- **✅ Compatibilidad frontend:** **FUNCIONANDO PERFECTAMENTE**
+
+### **🎉 Resultado Final:**
+
+**¡MISIÓN CUMPLIDA!** El backend ahora guarda y devuelve correctamente los `process_states`:
+
+1. **✅ Recibe correctamente** los `process_states` del frontend
+2. **✅ Los procesa y guarda** en la tabla `procesos` de la base de datos
+3. **✅ Los devuelve** en la respuesta formateada con IDs únicos
+4. **✅ La detección de cambios** funciona perfectamente
+5. **✅ El frontend puede gestionar** estados de proceso sin problemas
+
+**El sistema está ahora completamente funcional para la gestión de `process_states`!** 🚀✨
+
+---
+
+**Versión actual**: 2.14 - Process States Crítico Solucionado y Sistema Completamente Funcional ✅
