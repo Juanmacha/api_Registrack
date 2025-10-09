@@ -20,7 +20,7 @@ const DetalleOrdenServicio = sequelize.define(
       allowNull: false,
     },
     estado: {
-      type: DataTypes.ENUM("Pendiente", "En Proceso", "Finalizado", "Anulado"),
+      type: DataTypes.STRING(100), // Cambiar a STRING para permitir nombres de process_states
       allowNull: false,
       defaultValue: "Pendiente",
     },

@@ -6,6 +6,10 @@ import {
   anularSolicitud,
   crearSolicitud,
   editarSolicitud,
+  obtenerEstadosDisponibles,
+  obtenerEstadoActual,
+  asignarEmpleado,
+  verEmpleadoAsignado,
 } from "../controllers/solicitudes.controller.js";
 import {
   validateSearch,
@@ -84,6 +88,51 @@ router.put(
   validateId,
   validateEdicionSolicitud,
   editarSolicitud
+);
+
+// 🚀 NUEVAS RUTAS: Para manejo de estados
+router.get(
+  "/:id/estados-disponibles",
+  roleMiddleware(["administrador", "empleado"]),
+  validateId,
+  obtenerEstadosDisponibles
+);
+
+router.get(
+  "/:id/estado-actual",
+  roleMiddleware(["administrador", "empleado"]),
+  validateId,
+  obtenerEstadoActual
+);
+
+// 🚀 RUTAS PARA CLIENTES: Para consultar sus propias solicitudes
+router.get(
+  "/mis/:id/estados-disponibles",
+  roleMiddleware(["cliente"]),
+  validateId,
+  obtenerEstadosDisponibles
+);
+
+router.get(
+  "/mis/:id/estado-actual",
+  roleMiddleware(["cliente"]),
+  validateId,
+  obtenerEstadoActual
+);
+
+// 🚀 RUTAS PARA ASIGNACIÓN DE EMPLEADOS
+router.put(
+  "/asignar-empleado/:id",
+  roleMiddleware(["administrador", "empleado"]),
+  validateId,
+  asignarEmpleado
+);
+
+router.get(
+  "/mis/:id/empleado-asignado",
+  roleMiddleware(["cliente"]),
+  validateId,
+  verEmpleadoAsignado
 );
 
 export default router;

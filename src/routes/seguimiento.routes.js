@@ -6,6 +6,7 @@ import {
   actualizarSeguimiento,
   eliminarSeguimiento,
   buscarPorTitulo,
+  obtenerEstadosDisponibles,
 } from "../controllers/seguimiento.controller.js";
 
 // Middlewares de seguridad
@@ -60,6 +61,14 @@ router.get(
   authMiddleware,
   roleMiddleware(["administrador", "empleado"]),
   buscarPorTitulo
+);
+
+// 🚀 NUEVA RUTA: Obtener estados disponibles para una solicitud
+router.get(
+  "/:idOrdenServicio/estados-disponibles",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado"]),
+  obtenerEstadosDisponibles
 );
 
 export default router;

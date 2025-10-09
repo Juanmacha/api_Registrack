@@ -26,10 +26,14 @@ const OrdenServicio = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    // id_empleado_asignado: {
-    //   type: DataTypes.INTEGER,
-    //   allowNull: true,
-    // },
+    id_empleado_asignado: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'usuarios',
+        key: 'id_usuario'
+      }
+    },
     fecha_creacion: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

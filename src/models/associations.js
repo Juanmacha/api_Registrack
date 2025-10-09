@@ -1,6 +1,7 @@
 import OrdenServicio from "./OrdenServicio.js";
 import Servicio from "./Servicio.js";
 import Cliente from "./Cliente.js";
+import User from "./user.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -13,10 +14,21 @@ OrdenServicio.belongsTo(Cliente, {
   as: 'cliente'
 });
 
-// OrdenServicio.belongsTo(User, {
-//   foreignKey: 'id_empleado_asignado',
-//   as: 'empleado_asignado'
-// });
+OrdenServicio.belongsTo(User, {
+  foreignKey: 'id_empleado_asignado',
+  as: 'empleado_asignado'
+});
+
+// Relación Cliente -> User
+Cliente.belongsTo(User, {
+  foreignKey: 'id_usuario',
+  as: 'usuario'
+});
+
+User.hasOne(Cliente, {
+  foreignKey: 'id_usuario',
+  as: 'cliente'
+});
 
 // Relaciones inversas
 Servicio.hasMany(OrdenServicio, {
@@ -29,9 +41,9 @@ Cliente.hasMany(OrdenServicio, {
   as: 'ordenes'
 });
 
-// User.hasMany(OrdenServicio, {
-//   foreignKey: 'id_empleado_asignado',
-//   as: 'ordenes_asignadas'
-// });
+User.hasMany(OrdenServicio, {
+  foreignKey: 'id_empleado_asignado',
+  as: 'ordenes_asignadas'
+});
 
-export { OrdenServicio, Servicio, Cliente };
+export { OrdenServicio, Servicio, Cliente, User };

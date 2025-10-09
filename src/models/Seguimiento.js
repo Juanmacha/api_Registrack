@@ -35,6 +35,15 @@ const Seguimiento = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    // 🚀 NUEVOS CAMPOS: Para manejo de estados
+    nuevo_estado: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    estado_anterior: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
   },
   {
     tableName: "seguimientos",

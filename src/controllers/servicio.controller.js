@@ -161,7 +161,7 @@ export const actualizarServicio = async (req, res) => {
     // Verificar que el ID sea válido
     if (!id || isNaN(id)) {
       console.log('❌ [Backend] ID inválido:', id);
-      return res.status(400).json({
+      return res.status(400).json({ 
         success: false,
         error: { message: "ID de servicio inválido" }
       });
@@ -170,7 +170,7 @@ export const actualizarServicio = async (req, res) => {
     // Verificar que hay datos para actualizar
     if (!updateData || Object.keys(updateData).length === 0) {
       console.log('❌ [Backend] No hay datos para actualizar');
-      return res.status(400).json({
+      return res.status(400).json({ 
         success: false,
         error: { message: "No hay datos para actualizar" }
       });
@@ -190,7 +190,7 @@ export const actualizarServicio = async (req, res) => {
     
     if (!servicioActual) {
       console.log('❌ [Backend] Servicio no encontrado:', id);
-      return res.status(404).json({
+      return res.status(404).json({ 
         success: false,
         error: { message: "Servicio no encontrado" }
       });
@@ -230,18 +230,18 @@ export const actualizarServicio = async (req, res) => {
         console.log(`  - JSON nuevo: ${nuevoJson}`);
       } else if (key === 'process_states') {
         // Para process_states, necesitamos obtener los procesos existentes
-        const procesosExistentes = await Proceso.findAll({
-          where: { servicio_id: id },
-          order: [['order_number', 'ASC']]
-        });
-        
-        const procesosExistentesFormateados = procesosExistentes.map(p => ({
-          id: p.id_proceso.toString(),
-          name: p.nombre,
-          order: p.order_number,
-          status_key: p.status_key
-        }));
-        
+      const procesosExistentes = await Proceso.findAll({
+        where: { servicio_id: id },
+        order: [['order_number', 'ASC']]
+      });
+      
+      const procesosExistentesFormateados = procesosExistentes.map(p => ({
+        id: p.id_proceso.toString(),
+        name: p.nombre,
+        order: p.order_number,
+        status_key: p.status_key
+      }));
+      
         const actualJson = JSON.stringify(procesosExistentesFormateados);
         const nuevoJson = JSON.stringify(valorNuevo || []);
         esDiferente = actualJson !== nuevoJson;
@@ -313,9 +313,9 @@ export const actualizarServicio = async (req, res) => {
     const servicioActualizado = await Servicio.findByPk(id, {
       include: [
         {
-          model: Proceso,
-          as: 'process_states',
-          order: [['order_number', 'ASC']]
+        model: Proceso,
+        as: 'process_states',
+        order: [['order_number', 'ASC']]
         }
       ]
     });
@@ -339,10 +339,10 @@ export const actualizarServicio = async (req, res) => {
         info_page_data: servicioActualizado.info_page_data || {},
         route_path: servicioActualizado.route_path || `/pages/${servicioActualizado.nombre.toLowerCase().replace(/\s+/g, '-')}`,
         process_states: servicioActualizado.process_states ? servicioActualizado.process_states.map(proceso => ({
-          id: proceso.id_proceso.toString(),
-          name: proceso.nombre,
-          order: proceso.order_number,
-          status_key: proceso.status_key
+        id: proceso.id_proceso.toString(),
+        name: proceso.nombre,
+        order: proceso.order_number,
+        status_key: proceso.status_key
         })) : []
       }
     };
@@ -359,9 +359,9 @@ export const actualizarServicio = async (req, res) => {
     console.error('❌ [Backend] Error message:', error.message);
     console.error('❌ [Backend] Error code:', error.code);
     
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      error: { 
+      error: {
         message: "Error interno del servidor",
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined

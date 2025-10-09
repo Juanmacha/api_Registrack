@@ -3,6 +3,10 @@ import { OrdenServicio, Servicio, Cliente } from "../models/associations.js";
 import User from "../models/user.js";
 import Empresa from "../models/Empresa.js";
 import EmpresaCliente from "../models/EmpresaCliente.js";
+import DetalleOrdenServicio from "../models/DetalleOrdenServicio.js";
+import Proceso from "../models/Proceso.js";
+import { sendNuevaSolicitudCliente, sendAsignacionCliente, sendNuevaAsignacionEmpleado, sendReasignacionEmpleado } from "../services/email.service.js";
+import Empleado from "../models/Empleado.js";
 import { Op } from "sequelize";
 
 const solicitudesService = new SolicitudesService();
@@ -272,19 +276,9 @@ export const crearSolicitud = async (req, res) => {
       });
     }
 
-    // Campos requeridos básicos para todos los servicios
-    const camposRequeridos = [
-      "nombre_titular",
-      "apellido_titular", 
-      "tipo_titular",
-      "tipo_documento",
-      "documento",
-      "correo",
-      "telefono",
-      "nombre_marca",
-      "descripcion_servicio"
-    ];
-    console.log('📋 Campos requeridos:', camposRequeridos);
+    // Obtener campos requeridos específicos para el servicio
+    const camposRequeridos = requiredFields[servicioEncontrado.nombre] || [];
+    console.log('📋 Campos requeridos para', servicioEncontrado.nombre, ':', camposRequeridos);
 
     // Validar campos requeridos en el body
     const camposFaltantes = camposRequeridos.filter(
@@ -317,7 +311,10 @@ export const crearSolicitud = async (req, res) => {
     console.log('👤 Verificando/creando cliente...');
     let cliente = await Cliente.findOne({
       where: { id_usuario: userId },
-      include: [{ model: Empresa, through: { attributes: [] } }]
+      include: [
+        { model: Empresa, through: { attributes: [] } },
+        { model: User, as: 'Usuario' }
+      ]
     });
 
     if (!cliente) {
@@ -395,8 +392,17 @@ export const crearSolicitud = async (req, res) => {
     // Si no existe empresa, crear una nueva con datos del formulario
     if (!empresa) {
       console.log('🔧 Creando empresa con datos del formulario...');
+      
+      // Generar NIT único si no se proporciona
+      let nitEmpresa = req.body.nit;
+      if (!nitEmpresa) {
+        // Generar NIT único basado en timestamp
+        nitEmpresa = parseInt(Date.now().toString().slice(-10));
+        console.log('🔧 NIT generado automáticamente:', nitEmpresa);
+      }
+      
       const empresaData = {
-        nit: req.body.nit || 9001234561,
+        nit: nitEmpresa,
         nombre: req.body.razon_social || req.body.nombre_empresa || 'Empresa del Cliente',
         tipo_empresa: req.body.tipo_empresa || 'SAS'
       };
@@ -426,6 +432,25 @@ export const crearSolicitud = async (req, res) => {
       } catch (error) {
         console.error('❌ Error al crear empresa:', error);
         if (error.name === 'SequelizeUniqueConstraintError') {
+          // Si el NIT generado también existe, generar uno nuevo
+          if (error.errors && error.errors.some(e => e.path === 'nit')) {
+            console.log('🔄 NIT duplicado, generando uno nuevo...');
+            empresaData.nit = parseInt(Date.now().toString().slice(-10)) + Math.floor(Math.random() * 1000);
+            console.log('🔧 Nuevo NIT generado:', empresaData.nit);
+            
+            try {
+              empresa = await Empresa.create(empresaData);
+              console.log('✅ Empresa creada con nuevo NIT:', empresa.id_empresa);
+            } catch (secondError) {
+              console.error('❌ Error al crear empresa con nuevo NIT:', secondError);
+              return res.status(500).json({
+                success: false,
+                mensaje: "Error al crear empresa. Intente nuevamente.",
+                error: "Error interno al generar NIT único",
+                timestamp: new Date().toISOString()
+              });
+            }
+          } else {
           return res.status(400).json({
             success: false,
             mensaje: "Ya existe una empresa con este NIT",
@@ -433,7 +458,9 @@ export const crearSolicitud = async (req, res) => {
             timestamp: new Date().toISOString()
           });
         }
+        } else {
         throw error;
+        }
       }
     } else {
       console.log('✅ Empresa existente con ID:', empresa.id_empresa, 'Nombre:', empresa.nombre);
@@ -478,7 +505,100 @@ export const crearSolicitud = async (req, res) => {
     const nuevaOrden = await OrdenServicio.create(ordenData);
     console.log('✅ Orden creada:', nuevaOrden.id_orden_servicio);
 
+    // 🚀 NUEVA FUNCIONALIDAD: Asignar primer estado del servicio
+    console.log('🔄 Asignando primer estado del servicio...');
+    console.log('🔍 Debug - Servicio ID:', servicio.id_servicio);
+    console.log('🔍 Debug - Orden ID:', nuevaOrden.id_orden_servicio);
+    
+    try {
+      // Obtener los process_states del servicio ordenados por order_number
+      const procesos = await Proceso.findAll({
+        where: { servicio_id: servicio.id_servicio },
+        order: [['order_number', 'ASC']]
+      });
+      
+      console.log('🔍 Debug - Procesos encontrados:', procesos.length);
+      procesos.forEach((p, index) => {
+        console.log(`   ${index + 1}. ${p.nombre} (order: ${p.order_number})`);
+      });
+      
+      if (procesos.length > 0) {
+        const primerProceso = procesos[0];
+        console.log('✅ Primer proceso encontrado:', primerProceso.nombre);
+        
+        // Crear registro en DetalleOrdenServicio con el primer proceso
+        const detalleOrden = await DetalleOrdenServicio.create({
+          id_orden_servicio: nuevaOrden.id_orden_servicio,
+          id_servicio: servicio.id_servicio,
+          estado: primerProceso.nombre, // Usar directamente el nombre del proceso
+          fecha_estado: new Date()
+        });
+        
+        console.log('✅ Proceso inicial asignado:', detalleOrden.estado);
+        console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
+        
+        // Actualizar el estado de la orden principal
+        await nuevaOrden.update({ estado: primerProceso.nombre });
+        console.log('✅ Estado de orden actualizado:', primerProceso.nombre);
+        
+      } else {
+        console.log('⚠️ No se encontraron procesos para el servicio, usando estado por defecto');
+        
+        // Si no hay procesos, usar estado por defecto
+        const detalleOrden = await DetalleOrdenServicio.create({
+          id_orden_servicio: nuevaOrden.id_orden_servicio,
+          id_servicio: servicio.id_servicio,
+          estado: "Pendiente",
+          fecha_estado: new Date()
+        });
+        
+        console.log('✅ Estado por defecto asignado: Pendiente');
+        console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error al asignar estado inicial:', error);
+      console.error('❌ Error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      // No fallar la creación de la solicitud por este error
+      console.log('⚠️ Continuando sin asignar estado inicial');
+    }
+
     // Cliente ya fue creado/encontrado arriba
+
+    // 🚀 NUEVA FUNCIONALIDAD: Enviar email al cliente
+    try {
+      // Usar la información del usuario que ya tenemos en cliente.Usuario
+      console.log('🔍 Debug - Cliente tiene Usuario:', !!cliente.Usuario);
+      if (cliente.Usuario) {
+        console.log('🔍 Debug - Usuario correo:', cliente.Usuario.correo);
+        console.log('🔍 Debug - Usuario nombre:', cliente.Usuario.nombre);
+        console.log('🔍 Debug - Usuario apellido:', cliente.Usuario.apellido);
+      }
+      
+      if (cliente.Usuario && cliente.Usuario.correo) {
+        console.log('📧 Enviando email a:', cliente.Usuario.correo);
+        await sendNuevaSolicitudCliente(
+          cliente.Usuario.correo,
+          `${cliente.Usuario.nombre} ${cliente.Usuario.apellido}`,
+          {
+            orden_id: nuevaOrden.id_orden_servicio,
+            servicio_nombre: servicio.nombre,
+            empleado_nombre: 'Pendiente de asignación',
+            estado_actual: nuevaOrden.estado,
+            fecha_creacion: nuevaOrden.fecha_creacion
+          }
+        );
+        console.log('✅ Email enviado al cliente:', cliente.Usuario.correo);
+      } else {
+        console.log('⚠️ No se pudo obtener información del usuario para enviar email');
+        console.log('⚠️ Cliente tiene Usuario:', !!cliente.Usuario);
+        console.log('⚠️ Usuario tiene correo:', cliente.Usuario ? !!cliente.Usuario.correo : false);
+      }
+    } catch (emailError) {
+      console.error('❌ Error al enviar email al cliente:', emailError);
+      // No fallar la operación por error de email
+    }
 
     console.log('🎉 Solicitud creada exitosamente');
     return res.status(201).json({
@@ -487,7 +607,7 @@ export const crearSolicitud = async (req, res) => {
       data: {
       orden_id: nuevaOrden.id_orden_servicio,
       servicio: servicioEncontrado,
-      estado: "Pendiente",
+      estado: nuevaOrden.estado, // Usar el estado actualizado (nombre del proceso)
       fecha_solicitud: nuevaOrden.fecha_solicitud,
         cliente: {
           id_cliente: cliente.id_cliente,
@@ -611,6 +731,285 @@ export const editarSolicitud = async (req, res) => {
     } else {
       res.status(500).json({ mensaje: "Error interno del servidor." });
     }
+  }
+};
+
+// 🚀 NUEVOS ENDPOINTS: Para manejo de estados
+
+// Obtener estados disponibles de un servicio
+export const obtenerEstadosDisponibles = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Obtener la orden de servicio con el servicio asociado
+    const ordenServicio = await OrdenServicio.findByPk(id, {
+      include: [{
+        model: Servicio,
+        as: 'servicio',
+        include: [{
+          model: Proceso,
+          as: 'process_states',
+          order: [['order_number', 'ASC']]
+        }]
+      }]
+    });
+    
+    if (!ordenServicio) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Solicitud no encontrada"
+      });
+    }
+    
+    // Obtener el estado actual de la solicitud
+    const estadoActual = await DetalleOrdenServicio.findOne({
+      where: { id_orden_servicio: id },
+      order: [['fecha_estado', 'DESC']]
+    });
+    
+    console.log('🔍 Debug - Orden ID:', id);
+    console.log('🔍 Debug - Estado actual encontrado:', estadoActual ? estadoActual.estado : 'No encontrado');
+    console.log('🔍 Debug - Fecha estado:', estadoActual ? estadoActual.fecha_estado : 'N/A');
+    
+    res.json({
+      success: true,
+      data: {
+        solicitud_id: id,
+        servicio: ordenServicio.servicio.nombre,
+        estado_actual: estadoActual ? estadoActual.estado : 'Sin estado',
+        estados_disponibles: ordenServicio.servicio.process_states.map(proceso => ({
+          id: proceso.id_proceso,
+          nombre: proceso.nombre,
+          descripcion: proceso.descripcion,
+          order_number: proceso.order_number,
+          status_key: proceso.status_key
+        }))
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error al obtener estados disponibles:", error);
+    res.status(500).json({
+      success: false,
+      mensaje: "Error interno del servidor"
+    });
+  }
+};
+
+// Obtener estado actual de una solicitud
+export const obtenerEstadoActual = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Obtener el estado actual de la solicitud
+    const estadoActual = await DetalleOrdenServicio.findOne({
+      where: { id_orden_servicio: id },
+      order: [['fecha_estado', 'DESC']],
+      include: [{
+        model: Servicio,
+        as: 'servicio'
+      }]
+    });
+    
+    if (!estadoActual) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "No se encontró estado para esta solicitud"
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        solicitud_id: id,
+        estado_actual: estadoActual.estado,
+        fecha_estado: estadoActual.fecha_estado,
+        servicio: estadoActual.servicio.nombre
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error al obtener estado actual:", error);
+    res.status(500).json({
+      success: false,
+      mensaje: "Error interno del servidor"
+    });
+  }
+};
+
+// 🚀 NUEVAS FUNCIONES: Asignación de empleados
+
+// Asignar empleado a solicitud
+export const asignarEmpleado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { id_empleado } = req.body;
+
+    // Validar que el empleado existe y está activo
+    const empleado = await Empleado.findByPk(id_empleado, {
+      include: [{ model: User, as: 'usuario' }]
+    });
+
+    if (!empleado || !empleado.usuario || !empleado.usuario.estado) {
+      return res.status(400).json({
+        success: false,
+        mensaje: "Empleado no encontrado o inactivo"
+      });
+    }
+
+    // Obtener la solicitud
+    const solicitud = await OrdenServicio.findByPk(id, {
+      include: [
+        { model: Servicio, as: 'servicio' },
+        { 
+          model: Cliente, 
+          as: 'cliente',
+          include: [
+            { model: User, as: 'usuario' }
+          ]
+        },
+        { model: User, as: 'empleado_asignado' }
+      ]
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Solicitud no encontrada"
+      });
+    }
+
+    // Verificar si ya tiene empleado asignado
+    const empleadoAnterior = solicitud.empleado_asignado;
+
+    // Actualizar empleado asignado
+    await solicitud.update({ id_empleado_asignado: id_empleado });
+
+    // Enviar emails
+    try {
+      const clienteCorreo = solicitud.cliente.usuario?.correo || solicitud.cliente.correo;
+      const clienteNombre = `${solicitud.cliente.usuario?.nombre || solicitud.cliente.nombre} ${solicitud.cliente.usuario?.apellido || solicitud.cliente.apellido}`;
+      
+      // Email al cliente sobre la asignación (solo si tiene correo válido)
+      if (clienteCorreo && clienteCorreo !== 'undefined') {
+        await sendAsignacionCliente(
+          clienteCorreo,
+          clienteNombre,
+          {
+            orden_id: solicitud.id_orden_servicio,
+            servicio_nombre: solicitud.servicio.nombre,
+            empleado_nombre: `${empleado.usuario.nombre} ${empleado.usuario.apellido}`,
+            empleado_correo: empleado.usuario.correo,
+            estado_actual: solicitud.estado
+          }
+        );
+      } else {
+        console.log('⚠️ No se envió email al cliente: correo no válido o undefined');
+      }
+
+      // Email al empleado sobre la nueva asignación
+      await sendNuevaAsignacionEmpleado(
+        empleado.usuario.correo,
+        `${empleado.usuario.nombre} ${empleado.usuario.apellido}`,
+        {
+          orden_id: solicitud.id_orden_servicio,
+          servicio_nombre: solicitud.servicio.nombre,
+          cliente_nombre: clienteNombre,
+          cliente_correo: clienteCorreo,
+          estado_actual: solicitud.estado
+        }
+      );
+
+      // Si había un empleado anterior, notificarle sobre el cambio
+      if (empleadoAnterior && empleadoAnterior.id_usuario !== id_empleado) {
+        await sendReasignacionEmpleado(
+          empleadoAnterior.correo,
+          `${empleadoAnterior.nombre} ${empleadoAnterior.apellido}`,
+          {
+            orden_id: solicitud.id_orden_servicio,
+            servicio_nombre: solicitud.servicio.nombre,
+            nuevo_empleado: `${empleado.usuario.nombre} ${empleado.usuario.apellido}`
+          }
+        );
+      }
+
+    } catch (emailError) {
+      console.error('Error al enviar emails:', emailError);
+      // No fallar la operación por error de email
+    }
+
+    res.json({
+      success: true,
+      mensaje: "Empleado asignado exitosamente",
+      data: {
+        solicitud_id: id,
+        empleado_asignado: {
+          id_empleado: empleado.id_empleado,
+          nombre: `${empleado.usuario.nombre} ${empleado.usuario.apellido}`,
+          correo: empleado.usuario.correo
+        },
+        empleado_anterior: empleadoAnterior ? {
+          nombre: `${empleadoAnterior.nombre} ${empleadoAnterior.apellido}`,
+          correo: empleadoAnterior.correo
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al asignar empleado:", error);
+    res.status(500).json({
+      success: false,
+      mensaje: "Error interno del servidor"
+    });
+  }
+};
+
+// Ver empleado asignado (para clientes)
+export const verEmpleadoAsignado = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const solicitud = await OrdenServicio.findByPk(id, {
+      include: [
+        { model: User, as: 'empleado_asignado' },
+        { model: Servicio, as: 'servicio' }
+      ]
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Solicitud no encontrada"
+      });
+    }
+
+    // Verificar que el cliente solo vea sus propias solicitudes
+    if (req.user.rol === "cliente" && solicitud.id_cliente !== req.user.id_usuario) {
+      return res.status(403).json({
+        success: false,
+        mensaje: "No tienes permisos para ver esta solicitud"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        solicitud_id: id,
+        servicio: solicitud.servicio.nombre,
+        empleado_asignado: solicitud.empleado_asignado ? {
+          id_empleado: solicitud.empleado_asignado.id_usuario,
+          nombre: `${solicitud.empleado_asignado.nombre} ${solicitud.empleado_asignado.apellido}`,
+          correo: solicitud.empleado_asignado.correo
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al obtener empleado asignado:", error);
+    res.status(500).json({
+      success: false,
+      mensaje: "Error interno del servidor"
+    });
   }
 };
 
