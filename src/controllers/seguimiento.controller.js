@@ -158,7 +158,7 @@ export const crearSeguimiento = async (req, res) => {
     } else {
       // Crear seguimiento normal sin cambio de estado
       const resultado = await seguimientoService.crearSeguimiento(seguimientoData);
-      res.status(201).json(resultado);
+    res.status(201).json(resultado);
     }
     
   } catch (error) {

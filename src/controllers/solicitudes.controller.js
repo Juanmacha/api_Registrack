@@ -71,95 +71,116 @@ const validarDatosCliente = (clienteData) => {
 
 // Configuración de campos requeridos por servicio
 const requiredFields = {
-  "Búsqueda de antecedentes": [
-    "nombre_solicitante",
-    "documento_solicitante",
-    "correo_electronico",
+  "Búsqueda de Antecedentes": [
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
     "telefono",
-    "marca_a_buscar",
-    "clase_niza",
-    "descripcion_adicional",
+    "correo",
+    "pais",
+    "nombre_a_buscar",
+    "tipo_producto_servicio",
+    "logotipo",
   ],
-  "Certificación de marca": [
-    "tipo_titular",
+  "Registro de Marca (Certificación de marca)": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
+    "numero_nit_cedula",
     "nombre_marca",
-    "clase_niza",
-    "descripcion_marca",
-    "logo",
-    "nombre_completo_titular",
-    "documento_identidad_titular",
-    "direccion_titular",
-    "ciudad_titular",
-    "pais_titular",
-    "correo_titular",
-    "telefono_titular",
+    "tipo_producto_servicio",
+    "certificado_camara_comercio",
+    "logotipo",
+    "poder_autorizacion",
+    "tipo_entidad",
     "razon_social",
-    "nit",
+    "nit_empresa",
     "representante_legal",
-    "documento_representante_legal",
-    "nombre_representante",
-    "documento_representante",
-    "poder",
+    "direccion_domicilio",
   ],
-  "Renovación de marca": [
-    "tipo_titular",
-    "numero_registro_marca",
-    "nombre_marca",
-    "clase_niza",
-    "nombre_razon_social",
-    "documento_nit",
+  "Renovación de Marca": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
     "direccion",
-    "ciudad",
-    "pais",
-    "correo",
     "telefono",
-    "nombre_representante",
-    "documento_representante",
-    "poder",
-    "logo_marca",
-  ],
-  "Cesión de derechos": [
-    "titular_actual",
-    "documento_nit_titular_actual",
-    "nuevo_titular",
-    "documento_nit_nuevo_titular",
-    "direccion_nuevo_titular",
-    "correo_nuevo_titular",
-    "telefono_nuevo_titular",
-    "numero_registro_marca",
-    "clase_niza",
+    "correo",
+    "pais",
     "nombre_marca",
+    "numero_expediente_marca",
+    "poder_autorizacion",
+    "tipo_entidad",
+    "razon_social",
+    "nit_empresa",
+    "representante_legal",
+    "certificado_renovacion",
+    "logotipo",
+  ],
+  "Cesión de Marca": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
+    "nombre_marca",
+    "numero_expediente_marca",
     "documento_cesion",
+    "poder_autorizacion",
+    "nombre_razon_social_cesionario",
+    "nit_cesionario",
+    "representante_legal_cesionario",
+    "tipo_documento_cesionario",
+    "numero_documento_cesionario",
+    "correo_cesionario",
+    "telefono_cesionario",
+    "direccion_cesionario",
   ],
-  "Oposición de marca": [
-    "nombre_opositor",
-    "documento_nit_opositor",
+  "Presentación de Oposición": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
     "direccion",
-    "ciudad",
-    "pais",
-    "correo",
     "telefono",
-    "marca_en_conflicto",
-    "numero_solicitud_opuesta",
-    "clase_niza",
-    "argumentos_oposicion",
-    "soportes",
-  ],
-  "Respuesta a oposición": [
-    "nombre_titular_que_responde",
-    "documento_nit_titular",
-    "direccion",
-    "ciudad",
-    "pais",
     "correo",
-    "telefono",
-    "numero_solicitud_registro",
-    "clase_niza",
+    "pais",
+    "nit_empresa",
+    "nombre_marca",
+    "marca_a_oponerse",
+    "poder_autorizacion",
+    "tipo_entidad",
+    "razon_social",
+    "representante_legal",
     "argumentos_respuesta",
-    "soportes",
+    "documentos_oposicion",
   ],
-  "Ampliación de cobertura": [
-    "titular",
+  "Respuesta de Oposición": [
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
+    "nit_empresa",
+    "nombre_marca",
+    "numero_expediente_marca",
+    "marca_opositora",
+    "poder_autorizacion",
+    "razon_social",
+    "representante_legal",
+  ],
+  "Ampliación de Alcance": [
     "documento_nit_titular",
     "direccion",
     "ciudad",
@@ -170,7 +191,7 @@ const requiredFields = {
     "nombre_marca",
     "clase_niza_actual",
     "nuevas_clases_niza",
-    "descripcion_ampliacion",
+    "descripcion_nuevos_productos_servicios",
     "soportes",
   ],
 };
@@ -296,6 +317,34 @@ export const crearSolicitud = async (req, res) => {
 
     console.log('✅ Todos los campos requeridos están presentes');
 
+    // 🚀 NUEVA LÓGICA: Manejo inteligente según el rol del usuario
+    let clienteId, empresaId;
+    
+    if (req.user.rol === 'cliente') {
+      // Para clientes: usar automáticamente su ID, no pedir id_cliente/id_empresa
+      clienteId = req.user.id_usuario;
+      empresaId = req.body.id_empresa; // Opcional para clientes
+      console.log('👤 Cliente autenticado - Usando ID automático:', clienteId);
+    } else if (req.user.rol === 'administrador' || req.user.rol === 'empleado') {
+      // Para administradores/empleados: requerir id_cliente/id_empresa
+      if (!req.body.id_cliente) {
+        return res.status(400).json({
+          success: false,
+          mensaje: "Para administradores/empleados se requiere id_cliente",
+          timestamp: new Date().toISOString()
+        });
+      }
+      clienteId = req.body.id_cliente;
+      empresaId = req.body.id_empresa;
+      console.log('👨‍💼 Administrador/Empleado - Usando IDs proporcionados:', { clienteId, empresaId });
+    } else {
+      return res.status(403).json({
+        success: false,
+        mensaje: "Rol no autorizado para crear solicitudes",
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Usar el servicio que ya encontramos por ID
     const servicio = {
       id_servicio: parseInt(servicioId),
@@ -305,12 +354,11 @@ export const crearSolicitud = async (req, res) => {
     console.log('✅ Servicio ID:', servicio.id_servicio);
 
     // Crear o encontrar el cliente primero
-    const userId = req.user.id_usuario || 1;
-    console.log('🔍 Debug - Usando userId:', userId);
+    console.log('🔍 Debug - Usando clienteId:', clienteId);
     
     console.log('👤 Verificando/creando cliente...');
     let cliente = await Cliente.findOne({
-      where: { id_usuario: userId },
+      where: { id_usuario: clienteId },
       include: [
         { model: Empresa, through: { attributes: [] } },
         { model: User, as: 'Usuario' }
@@ -320,7 +368,7 @@ export const crearSolicitud = async (req, res) => {
     if (!cliente) {
       console.log('🔧 Creando cliente...');
       cliente = await Cliente.create({
-        id_usuario: userId,
+        id_usuario: clienteId,
         marca: req.body.nombre_marca || 'Pendiente',
         tipo_persona: req.body.tipo_titular === 'Persona Natural' ? 'Natural' : 'Jurídica',
         estado: true,
@@ -373,8 +421,14 @@ export const crearSolicitud = async (req, res) => {
     console.log('🏢 Verificando/creando empresa...');
     let empresa = null;
     
-    // Buscar empresa por NIT si se proporciona
-    if (req.body.nit) {
+    // Si se proporciona empresaId, buscar por ID primero
+    if (empresaId) {
+      empresa = await Empresa.findByPk(empresaId);
+      console.log('🔍 Empresa encontrada por ID:', empresa ? empresa.nombre : 'No encontrada');
+    }
+    
+    // Buscar empresa por NIT si se proporciona y no se encontró por ID
+    if (!empresa && req.body.nit) {
       empresa = await Empresa.findOne({
         where: { nit: req.body.nit }
       });
@@ -396,8 +450,10 @@ export const crearSolicitud = async (req, res) => {
       // Generar NIT único si no se proporciona
       let nitEmpresa = req.body.nit;
       if (!nitEmpresa) {
-        // Generar NIT único basado en timestamp
-        nitEmpresa = parseInt(Date.now().toString().slice(-10));
+        // Generar NIT único de exactamente 10 dígitos
+        const timestamp = Date.now().toString();
+        const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        nitEmpresa = parseInt((timestamp.slice(-7) + randomPart).padStart(10, '0'));
         console.log('🔧 NIT generado automáticamente:', nitEmpresa);
       }
       
@@ -435,7 +491,10 @@ export const crearSolicitud = async (req, res) => {
           // Si el NIT generado también existe, generar uno nuevo
           if (error.errors && error.errors.some(e => e.path === 'nit')) {
             console.log('🔄 NIT duplicado, generando uno nuevo...');
-            empresaData.nit = parseInt(Date.now().toString().slice(-10)) + Math.floor(Math.random() * 1000);
+            // Generar NIT único de exactamente 10 dígitos
+            const timestamp = Date.now().toString();
+            const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            empresaData.nit = parseInt((timestamp.slice(-7) + randomPart).padStart(10, '0'));
             console.log('🔧 Nuevo NIT generado:', empresaData.nit);
             
             try {

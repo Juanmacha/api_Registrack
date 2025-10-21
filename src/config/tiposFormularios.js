@@ -5,91 +5,133 @@
 
 export const CAMPOS_OBLIGATORIOS_POR_SERVICIO = {
   // 1. Búsqueda de antecedentes
-  "busqueda-antecedentes": [
-    "nombre_solicitante",
-    "documento_solicitante",
-    "correo_electronico",
+  "Búsqueda de Antecedentes": [
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
     "telefono",
-    "marca_buscar",
-    "clase_niza",
-    "descripcion_adicional",
+    "correo",
+    "pais",
+    "nombre_a_buscar",
+    "tipo_producto_servicio",
+    "logotipo",
   ],
 
-  // 2. Certificación de marca - CAMPOS BASE + CONDICIONALES
-  "certificacion-marca": [
-    "tipo_titular",
+  // 2. Registro de Marca (Certificación de marca)
+  "Registro de Marca (Certificación de marca)": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
+    "numero_nit_cedula",
     "nombre_marca",
-    "clase_niza",
-    "descripcion_marca",
-    "logo",
+    "tipo_producto_servicio",
+    "certificado_camara_comercio",
+    "logotipo",
+    "poder_autorizacion",
+    // Campos para persona jurídica
+    "tipo_entidad",
+    "razon_social",
+    "nit_empresa",
+    "representante_legal",
+    "direccion_domicilio",
   ],
 
   // 3. Renovación de marca
-  "renovacion-marca": [
-    "tipo_titular",
-    "numero_registro_marca",
+  "Renovación de Marca": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
     "nombre_marca",
-    "clase_niza",
-    "titular_nombre_razon_social",
-    "titular_documento_nit",
-    "titular_direccion",
-    "titular_ciudad",
-    "titular_pais",
-    "titular_correo",
-    "titular_telefono",
-    "actua_como_representante",
-    "nombre_representante",
-    "documento_representante",
-    "poder",
-    "logo_marca",
+    "numero_expediente_marca",
+    "poder_autorizacion",
+    // Campos para persona jurídica
+    "tipo_entidad",
+    "razon_social",
+    "nit_empresa",
+    "representante_legal",
+    "certificado_renovacion",
+    "logotipo",
   ],
 
-  // 4. Cesión de derechos
-  "cesion-derechos": [
-    "documento_nit_titular_actual",
-    "documento_nit_nuevo_titular",
-    "direccion_nuevo_titular",
-    "correo_nuevo_titular",
-    "telefono_nuevo_titular",
-    "numero_registro_marca",
-    "clase_niza",
+  // 4. Cesión de Marca
+  "Cesión de Marca": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
     "nombre_marca",
+    "numero_expediente_marca",
     "documento_cesion",
+    "poder_autorizacion",
+    // Datos del cesionario
+    "nombre_razon_social_cesionario",
+    "nit_cesionario",
+    "representante_legal_cesionario",
+    "tipo_documento_cesionario",
+    "numero_documento_cesionario",
+    "correo_cesionario",
+    "telefono_cesionario",
+    "direccion_cesionario",
   ],
 
-  // 5. Oposición
-  oposicion: [
-    "nombre_opositor",
-    "documento_nit_opositor",
+  // 5. Presentación de Oposición
+  "Presentación de Oposición": [
+    "tipo_solicitante",
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
     "direccion",
-    "ciudad",
-    "pais",
-    "correo",
     "telefono",
-    "marca_conflicto",
-    "numero_solicitud_opuesta",
-    "clase_niza",
-    "argumentos_oposicion",
-    "soportes",
-  ],
-
-  // 6. Respuesta a oposición
-  "respuesta-oposicion": [
-    "nombre_titular_responde",
-    "documento_nit_titular",
-    "direccion",
-    "ciudad",
-    "pais",
     "correo",
-    "telefono",
-    "numero_solicitud_registro_oposicion",
-    "clase_niza",
+    "pais",
+    "nit_empresa",
+    "nombre_marca",
+    "marca_a_oponerse",
+    "poder_autorizacion",
+    // Campos para persona jurídica
+    "tipo_entidad",
+    "razon_social",
+    "representante_legal",
     "argumentos_respuesta",
-    "soportes",
+    "documentos_oposicion",
   ],
 
-  // 7. Ampliación de cobertura
-  "ampliacion-cobertura": [
+  // 6. Respuesta de Oposición
+  "Respuesta de Oposición": [
+    "nombres_apellidos",
+    "tipo_documento",
+    "numero_documento",
+    "direccion",
+    "telefono",
+    "correo",
+    "pais",
+    "nit_empresa",
+    "nombre_marca",
+    "numero_expediente_marca",
+    "marca_opositora",
+    "poder_autorizacion",
+    // Campos para persona jurídica
+    "razon_social",
+    "representante_legal",
+  ],
+
+  // 7. Ampliación de Alcance (mantener campos actuales)
+  "Ampliación de Alcance": [
     "documento_nit_titular",
     "direccion",
     "ciudad",
@@ -115,7 +157,7 @@ export function obtenerCamposObligatorios(nombreServicio) {
 }
 
 /**
- * Valida campos obligatorios con lógica condicional para certificación
+ * Valida campos obligatorios con lógica condicional
  * @param {string} nombreServicio - Nombre del servicio
  * @param {Object} datos - Datos del formulario
  * @returns {Object} Resultado de validación
@@ -125,78 +167,98 @@ export function validarCamposObligatorios(nombreServicio, datos) {
   const camposFaltantes = [];
   const errores = [];
 
-  // Para certificación, validar campos condicionales
-  if (nombreServicio === "certificacion-marca") {
-    // Validar campos base
+  // Validación básica para todos los servicios
     for (const campo of camposBase) {
       if (!datos[campo] || datos[campo].toString().trim() === "") {
         camposFaltantes.push(campo);
-        errores.push(`El campo '${campo}' es requerido`);
-      }
+      errores.push(
+        `El campo '${campo}' es requerido para el servicio '${nombreServicio}'`
+      );
     }
+  }
 
-    // Validar campos según tipo de titular
-    const tipoTitular = datos.tipo_titular;
-
-    if (tipoTitular === "natural") {
-      const camposNatural = [
-        "titular_persona_natural_nombre",
-        "titular_persona_natural_documento",
-        "titular_persona_natural_direccion",
-        "titular_persona_natural_ciudad",
-        "titular_persona_natural_pais",
-        "titular_persona_natural_correo",
-        "titular_persona_natural_telefono",
-      ];
-
+  // Validaciones específicas por servicio
+  if (nombreServicio === "Registro de Marca (Certificación de marca)") {
+    const tipoSolicitante = datos.tipo_solicitante;
+    
+    if (tipoSolicitante === "Natural") {
+      // Validar campos específicos para persona natural
+      const camposNatural = ["nombres_apellidos", "numero_documento"];
       for (const campo of camposNatural) {
         if (!datos[campo] || datos[campo].toString().trim() === "") {
           camposFaltantes.push(campo);
           errores.push(`El campo '${campo}' es requerido para persona natural`);
         }
       }
-    } else if (tipoTitular === "juridica") {
-      const camposJuridica = [
-        "titular_persona_juridica_razon_social",
-        "titular_persona_juridica_nit",
-      ];
-
+    } else if (tipoSolicitante === "Jurídica") {
+      // Validar campos específicos para persona jurídica
+      const camposJuridica = ["razon_social", "nit_empresa", "representante_legal"];
       for (const campo of camposJuridica) {
         if (!datos[campo] || datos[campo].toString().trim() === "") {
           camposFaltantes.push(campo);
-          errores.push(
-            `El campo '${campo}' es requerido para persona jurídica`
-          );
-        }
-      }
-
-      // Si actúa como representante, validar campos adicionales
-      if (datos.actua_como_representante === true) {
-        const camposRepresentante = [
-          "representante_legal_documento",
-          "nombre_representante",
-          "documento_representante",
-          "poder",
-        ];
-
-        for (const campo of camposRepresentante) {
-          if (!datos[campo] || datos[campo].toString().trim() === "") {
-            camposFaltantes.push(campo);
-            errores.push(
-              `El campo '${campo}' es requerido cuando actúa como representante`
-            );
-          }
+          errores.push(`El campo '${campo}' es requerido para persona jurídica`);
         }
       }
     }
-  } else {
-    // Para otros servicios, validación normal
-    for (const campo of camposBase) {
+  }
+
+  if (nombreServicio === "Renovación de Marca") {
+    const tipoSolicitante = datos.tipo_solicitante;
+    
+    if (tipoSolicitante === "Natural") {
+      const camposNatural = ["nombres_apellidos", "numero_documento"];
+      for (const campo of camposNatural) {
+        if (!datos[campo] || datos[campo].toString().trim() === "") {
+          camposFaltantes.push(campo);
+          errores.push(`El campo '${campo}' es requerido para persona natural`);
+        }
+      }
+    } else if (tipoSolicitante === "Jurídica") {
+      const camposJuridica = ["razon_social", "nit_empresa", "representante_legal"];
+      for (const campo of camposJuridica) {
+          if (!datos[campo] || datos[campo].toString().trim() === "") {
+            camposFaltantes.push(campo);
+          errores.push(`El campo '${campo}' es requerido para persona jurídica`);
+        }
+      }
+    }
+  }
+
+  if (nombreServicio === "Cesión de Marca") {
+    // Validar datos del cesionario
+    const camposCesionario = [
+      "nombre_razon_social_cesionario",
+      "nit_cesionario",
+      "correo_cesionario",
+      "telefono_cesionario"
+    ];
+    
+    for (const campo of camposCesionario) {
       if (!datos[campo] || datos[campo].toString().trim() === "") {
         camposFaltantes.push(campo);
-        errores.push(
-          `El campo '${campo}' es requerido para el servicio '${nombreServicio}'`
-        );
+        errores.push(`El campo '${campo}' es requerido para el cesionario`);
+      }
+    }
+  }
+
+  if (nombreServicio === "Presentación de Oposición") {
+    const tipoSolicitante = datos.tipo_solicitante;
+    
+    if (tipoSolicitante === "Natural") {
+      const camposNatural = ["nombres_apellidos", "numero_documento"];
+      for (const campo of camposNatural) {
+        if (!datos[campo] || datos[campo].toString().trim() === "") {
+          camposFaltantes.push(campo);
+          errores.push(`El campo '${campo}' es requerido para persona natural`);
+        }
+      }
+    } else if (tipoSolicitante === "Jurídica") {
+      const camposJuridica = ["razon_social", "nit_empresa", "representante_legal"];
+      for (const campo of camposJuridica) {
+      if (!datos[campo] || datos[campo].toString().trim() === "") {
+        camposFaltantes.push(campo);
+          errores.push(`El campo '${campo}' es requerido para persona jurídica`);
+        }
       }
     }
   }
