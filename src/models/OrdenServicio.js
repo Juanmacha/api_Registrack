@@ -109,6 +109,26 @@ const OrdenServicio = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // Campos de auditoría para anulaciones
+    anulado_por: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'usuarios',
+        key: 'id_usuario'
+      },
+      comment: 'ID del usuario que anuló la solicitud'
+    },
+    fecha_anulacion: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Fecha y hora de anulación'
+    },
+    motivo_anulacion: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Motivo de la anulación'
+    },
   },
   {
     tableName: "ordenes_de_servicios",

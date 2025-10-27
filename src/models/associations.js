@@ -19,6 +19,12 @@ OrdenServicio.belongsTo(User, {
   as: 'empleado_asignado'
 });
 
+// Relación para usuario que anuló la solicitud
+OrdenServicio.belongsTo(User, {
+  foreignKey: 'anulado_por',
+  as: 'usuario_anulo'
+});
+
 // Relación Cliente -> User
 Cliente.belongsTo(User, {
   foreignKey: 'id_usuario',

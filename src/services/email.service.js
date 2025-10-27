@@ -368,3 +368,312 @@ export const sendCambioEstadoCliente = async (clienteEmail, clienteNombre, solic
     throw error;
   }
 };
+
+// ---------------------------
+// EMAIL: ANULACIÓN DE SOLICITUD (CLIENTE)
+// ---------------------------
+export const sendAnulacionSolicitudCliente = async (clienteEmail, clienteNombre, solicitudData) => {
+  const mailOptions = {
+    from: `"Registrack - Notificaciones" <${process.env.EMAIL_USER}>`,
+    to: clienteEmail,
+    subject: `❌ Solicitud Anulada - Orden #${solicitudData.orden_id}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .content { 
+            padding: 30px; 
+          }
+          .info-box { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-left: 4px solid #dc3545;
+            border-radius: 4px;
+          }
+          .info-box h3 {
+            margin-top: 0;
+            color: #dc3545;
+            font-size: 16px;
+          }
+          .info-box p {
+            margin: 8px 0;
+            color: #555;
+          }
+          .info-box strong {
+            color: #333;
+          }
+          .alert-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+          }
+          .alert-box p {
+            margin: 0;
+            color: #856404;
+          }
+          .footer { 
+            text-align: center; 
+            padding: 20px; 
+            background: #f8f9fa;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #dee2e6;
+          }
+          .footer p {
+            margin: 5px 0;
+          }
+          .divider {
+            height: 1px;
+            background: #dee2e6;
+            margin: 20px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>❌ Solicitud Anulada</h1>
+          </div>
+          
+          <div class="content">
+            <p style="font-size: 16px;">Estimado/a <strong>${clienteNombre}</strong>,</p>
+            
+            <p>Le informamos que su solicitud ha sido <strong style="color: #dc3545;">anulada</strong> por nuestro equipo administrativo.</p>
+            
+            <div class="info-box">
+              <h3>📋 Detalles de la Solicitud</h3>
+              <p><strong>Orden ID:</strong> #${solicitudData.orden_id}</p>
+              <p><strong>Expediente:</strong> ${solicitudData.numero_expediente || 'Pendiente de asignación'}</p>
+              <p><strong>Servicio:</strong> ${solicitudData.servicio_nombre}</p>
+              <p><strong>Fecha de Anulación:</strong> ${new Date(solicitudData.fecha_anulacion).toLocaleString('es-CO', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</p>
+            </div>
+            
+            <div class="info-box">
+              <h3>📝 Motivo de la Anulación</h3>
+              <p style="font-style: italic; color: #555;">${solicitudData.motivo_anulacion}</p>
+            </div>
+
+            <div class="alert-box">
+              <p><strong>⚠️ Importante:</strong> Esta solicitud ha sido cancelada y no se continuará con el proceso. Si tiene alguna pregunta o desea iniciar una nueva solicitud, no dude en contactarnos.</p>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <p style="margin-top: 20px;">Si considera que esta anulación es un error o necesita más información, puede:</p>
+            <ul style="color: #555;">
+              <li>Responder a este correo</li>
+              <li>Contactar con nuestro equipo de soporte</li>
+              <li>Visitar nuestra plataforma para más detalles</li>
+            </ul>
+            
+            <p style="margin-top: 30px;"><strong>Atentamente,</strong><br>
+            <span style="color: #dc3545; font-weight: 600;">Equipo de Registrack</span></p>
+          </div>
+          
+          <div class="footer">
+            <p>📧 Este es un correo automático, por favor no responder directamente.</p>
+            <p style="margin-top: 10px;">&copy; ${new Date().getFullYear()} Registrack - Todos los derechos reservados</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Email de anulación enviado a cliente: ${clienteEmail}`);
+    
+    // Opcional: Registrar notificación en BD
+    const Notificacion = (await import('../models/Notificacion.js')).default;
+    await Notificacion.create({
+      id_orden_servicio: solicitudData.orden_id,
+      tipo_notificacion: 'anulacion_solicitud',
+      destinatario_email: clienteEmail,
+      asunto: mailOptions.subject,
+      contenido: mailOptions.html,
+      estado_envio: 'enviado'
+    }).catch(err => console.error('Error al registrar notificación:', err));
+    
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de anulación a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAIL: ANULACIÓN DE SOLICITUD (EMPLEADO)
+// ---------------------------
+export const sendAnulacionSolicitudEmpleado = async (empleadoEmail, empleadoNombre, solicitudData) => {
+  const mailOptions = {
+    from: `"Registrack - Notificaciones" <${process.env.EMAIL_USER}>`,
+    to: empleadoEmail,
+    subject: `⚠️ Solicitud Anulada - Orden #${solicitudData.orden_id}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); 
+            color: #000; 
+            padding: 30px 20px; 
+            text-align: center; 
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .content { 
+            padding: 30px; 
+          }
+          .info-box { 
+            background: #fff8e1; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+          }
+          .info-box h3 {
+            margin-top: 0;
+            color: #ff9800;
+            font-size: 16px;
+          }
+          .info-box p {
+            margin: 8px 0;
+            color: #555;
+          }
+          .info-box strong {
+            color: #333;
+          }
+          .alert-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+          }
+          .alert-box p {
+            margin: 0;
+            color: #1565c0;
+          }
+          .footer { 
+            text-align: center; 
+            padding: 20px; 
+            background: #f8f9fa;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #dee2e6;
+          }
+          .footer p {
+            margin: 5px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚠️ Solicitud Anulada</h1>
+          </div>
+          
+          <div class="content">
+            <p style="font-size: 16px;">Hola <strong>${empleadoNombre}</strong>,</p>
+            
+            <p>Te informamos que una solicitud que tenías asignada ha sido <strong style="color: #ff9800;">anulada</strong> por el equipo administrativo.</p>
+            
+            <div class="info-box">
+              <h3>📋 Detalles de la Solicitud</h3>
+              <p><strong>Orden ID:</strong> #${solicitudData.orden_id}</p>
+              <p><strong>Servicio:</strong> ${solicitudData.servicio_nombre}</p>
+            </div>
+            
+            <div class="info-box">
+              <h3>📝 Motivo de Anulación</h3>
+              <p style="font-style: italic;">${solicitudData.motivo_anulacion}</p>
+            </div>
+
+            <div class="alert-box">
+              <p><strong>ℹ️ Acción Requerida:</strong> Ya no necesitas continuar trabajando en esta solicitud. Puedes enfocar tus esfuerzos en otras solicitudes pendientes.</p>
+            </div>
+            
+            <p style="margin-top: 30px;">Si tienes alguna duda sobre esta anulación, puedes contactar con el equipo administrativo.</p>
+            
+            <p style="margin-top: 30px;"><strong>Saludos,</strong><br>
+            <span style="color: #ff9800; font-weight: 600;">Sistema Registrack</span></p>
+          </div>
+          
+          <div class="footer">
+            <p>📧 Notificación automática del sistema</p>
+            <p style="margin-top: 10px;">&copy; ${new Date().getFullYear()} Registrack</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Email de anulación enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de anulación a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};

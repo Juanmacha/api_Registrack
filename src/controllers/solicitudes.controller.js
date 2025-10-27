@@ -545,16 +545,32 @@ export const crearSolicitud = async (req, res) => {
       }
     }
 
+    // 🚀 MAPEAR CAMPOS DEL FORMULARIO A COLUMNAS DE LA BD
     const ordenData = {
-      id_cliente: cliente.id_cliente, // Usar el ID del cliente creado/encontrado
-      id_servicio: servicio.id_servicio, // Usar el ID correcto del servicio
-      id_empresa: empresa.id_empresa, // Usar el ID de la empresa creada/encontrada
+      id_cliente: cliente.id_cliente,
+      id_servicio: servicio.id_servicio,
+      id_empresa: empresa.id_empresa,
       total_estimado: servicio.precio_base || 100000.00,
-      pais: req.body.pais_titular || req.body.pais || "Colombia",
-      ciudad: req.body.ciudad_titular || req.body.ciudad || "Bogotá",
+      pais: req.body.pais_titular || req.body.pais || req.body.pais_residencia || "Colombia",
+      ciudad: req.body.ciudad_titular || req.body.ciudad || req.body.ciudad_residencia || "Bogotá",
       codigo_postal: req.body.codigo_postal || "110111",
       estado: "Pendiente",
-      datos_solicitud: JSON.stringify(req.body), // Convertir a JSON string
+      
+      // *** MAPEO DE CAMPOS DEL FORMULARIO ***
+      tipodepersona: req.body.tipo_solicitante || req.body.tipo_persona,
+      tipodedocumento: req.body.tipo_documento,
+      numerodedocumento: req.body.numero_documento,
+      nombrecompleto: req.body.nombres_apellidos || req.body.nombre_completo || req.body.nombre_representante,
+      correoelectronico: req.body.correo || req.body.correo_electronico,
+      telefono: req.body.telefono,
+      direccion: req.body.direccion || req.body.direccion_domicilio,
+      tipodeentidadrazonsocial: req.body.tipo_entidad || req.body.tipo_entidad_razon_social,
+      nombredelaempresa: req.body.nombre_empresa || req.body.razon_social,
+      nit: req.body.nit_empresa || req.body.nit,
+      poderdelrepresentanteautorizado: req.body.poder_representante_autorizado || req.body.poder_autorizacion,
+      poderparaelregistrodelamarca: req.body.poder_registro_marca,
+      
+      datos_solicitud: JSON.stringify(req.body),
       fecha_solicitud: new Date(),
     };
     
@@ -766,15 +782,95 @@ export const verDetalleSolicitud = async (req, res) => {
 export const anularSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const solicitud = await solicitudesService.anularSolicitud(id);
-    res.json(solicitud);
-  } catch (error) {
-    console.error("Error al anular solicitud:", error);
-    if (error.message.includes("Solicitud no encontrada")) {
-      res.status(404).json({ mensaje: error.message });
-    } else {
-      res.status(500).json({ mensaje: "Error interno del servidor." });
+    const { motivo } = req.body;
+
+    // Validar que se envió motivo
+    if (!motivo || motivo.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        mensaje: "El motivo de anulación es obligatorio",
+        detalles: "Debe proporcionar un motivo claro de por qué se anula la solicitud (mínimo 10 caracteres)",
+        timestamp: new Date().toISOString()
+      });
     }
+
+    // Validar longitud del motivo
+    if (motivo.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        mensaje: "El motivo debe tener al menos 10 caracteres",
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (motivo.trim().length > 500) {
+      return res.status(400).json({
+        success: false,
+        mensaje: "El motivo no puede exceder 500 caracteres",
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Preparar datos de anulación
+    const datosAnulacion = {
+      usuario_id: req.user.id_usuario,
+      motivo: motivo.trim()
+    };
+
+    console.log('🚫 Anulando solicitud:', { 
+      id, 
+      usuario: `${req.user.nombre} ${req.user.apellido}`,
+      rol: req.user.rol,
+      motivo: datosAnulacion.motivo.substring(0, 50) + '...'
+    });
+
+    // Anular solicitud
+    const resultado = await solicitudesService.anularSolicitud(id, datosAnulacion);
+    
+    res.json(resultado);
+    
+  } catch (error) {
+    console.error("❌ Error al anular solicitud:", error.message);
+    
+    if (error.message.includes("no encontrada")) {
+      return res.status(404).json({ 
+        success: false,
+        mensaje: "Solicitud no encontrada",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (error.message.includes("ya está anulada")) {
+      return res.status(400).json({ 
+        success: false,
+        mensaje: "La solicitud ya está anulada",
+        detalles: "No se puede anular una solicitud que ya ha sido anulada previamente",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (error.message.includes("finalizada")) {
+      return res.status(400).json({ 
+        success: false,
+        mensaje: "No se puede anular una solicitud finalizada",
+        detalles: "Las solicitudes finalizadas no pueden ser anuladas",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (error.message.includes("motivo")) {
+      return res.status(400).json({ 
+        success: false,
+        mensaje: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      mensaje: "Error interno del servidor al anular la solicitud",
+      timestamp: new Date().toISOString()
+    });
   }
 };
 

@@ -5,10 +5,10 @@ import ExcelJS from "exceljs";
 
 export const getAllEmpleados = async (req, res) => {
   try {
-    // Obtener usuarios con rol administrador (id_rol = 1) o empleado (id_rol = 2)
+    // Obtener usuarios con rol administrador (id_rol = 2) o empleado (id_rol = 3)
     const usuarios = await User.findAll({
       where: {
-        id_rol: [1, 2] // 1 = administrador, 2 = empleado
+        id_rol: [2, 3] // 2 = administrador, 3 = empleado
       },
       include: [
         {
@@ -178,7 +178,7 @@ export const createEmpleado = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
-    if (![1, 2].includes(usuario.id_rol)) {
+    if (![2, 3].includes(usuario.id_rol)) {
       return res.status(400).json({ message: "El usuario debe tener rol administrador o empleado." });
     }
 
@@ -415,10 +415,10 @@ export const deleteEmpleado = async (req, res) => {
 // Nuevo: Reporte en Excel de empleados
 export const descargarReporteEmpleados = async (req, res) => {
   try {
-    // Obtener usuarios con rol administrador (id_rol = 1) o empleado (id_rol = 2)
+    // Obtener usuarios con rol administrador (id_rol = 2) o empleado (id_rol = 3)
     const usuarios = await User.findAll({
       where: {
-        id_rol: [1, 2] // 1 = administrador, 2 = empleado
+        id_rol: [2, 3] // 2 = administrador, 3 = empleado
       },
       include: [
         {

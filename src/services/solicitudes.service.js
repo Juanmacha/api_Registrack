@@ -218,15 +218,89 @@ export class SolicitudesService {
     }
   }
 
-  // Anular solicitud
-  async anularSolicitud(id) {
+  // Anular solicitud con auditoría completa (MEJORADO)
+  async anularSolicitud(id, datosAnulacion) {
     try {
-      const solicitud = await this.repository.updateEstado(id, "Anulado");
-      if (!solicitud) {
-        throw new Error("Solicitud no encontrada.");
+      console.log('🚫 Iniciando anulación de solicitud:', { id, usuario: datosAnulacion.usuario_id });
+      
+      // 1. Validar motivo
+      if (!datosAnulacion.motivo || datosAnulacion.motivo.trim() === '') {
+        throw new Error('El motivo de anulación es obligatorio');
       }
-      return { mensaje: `La solicitud ${id} ha sido anulada correctamente.` };
+
+      if (datosAnulacion.motivo.trim().length < 10) {
+        throw new Error('El motivo debe tener al menos 10 caracteres');
+      }
+
+      if (datosAnulacion.motivo.trim().length > 500) {
+        throw new Error('El motivo no puede exceder 500 caracteres');
+      }
+
+      // 2. Anular en repositorio (con transacción)
+      const solicitud = await this.repository.anularSolicitud(id, datosAnulacion);
+
+      console.log('✅ Solicitud anulada exitosamente en repositorio');
+
+      // 3. Preparar respuesta
+      const resultado = {
+        success: true,
+        mensaje: `La solicitud ${id} ha sido anulada correctamente.`,
+        data: {
+          id_orden_servicio: solicitud.id_orden_servicio,
+          numero_expediente: solicitud.numero_expediente,
+          estado: solicitud.estado,
+          fecha_anulacion: solicitud.fecha_anulacion,
+          motivo: solicitud.motivo_anulacion,
+          anulado_por: solicitud.anulado_por
+        }
+      };
+
+      // 4. Enviar notificación al cliente (sin bloquear el flujo)
+      if (solicitud.cliente && solicitud.cliente.Usuario && solicitud.cliente.Usuario.correo) {
+        try {
+          const { sendAnulacionSolicitudCliente } = await import('./email.service.js');
+          await sendAnulacionSolicitudCliente(
+            solicitud.cliente.Usuario.correo,
+            `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
+            {
+              orden_id: solicitud.id_orden_servicio,
+              numero_expediente: solicitud.numero_expediente,
+              servicio_nombre: solicitud.servicio.nombre,
+              motivo_anulacion: datosAnulacion.motivo,
+              fecha_anulacion: solicitud.fecha_anulacion
+            }
+          );
+          console.log('✅ Email de anulación enviado al cliente');
+        } catch (emailError) {
+          console.error('❌ Error al enviar email al cliente:', emailError.message);
+          // No detener el proceso si falla el email
+        }
+      }
+
+      // 5. Si tenía empleado asignado, notificarle también
+      if (solicitud.empleado_asignado && solicitud.empleado_asignado.correo) {
+        try {
+          const { sendAnulacionSolicitudEmpleado } = await import('./email.service.js');
+          await sendAnulacionSolicitudEmpleado(
+            solicitud.empleado_asignado.correo,
+            `${solicitud.empleado_asignado.nombre} ${solicitud.empleado_asignado.apellido}`,
+            {
+              orden_id: solicitud.id_orden_servicio,
+              servicio_nombre: solicitud.servicio.nombre,
+              motivo_anulacion: datosAnulacion.motivo
+            }
+          );
+          console.log('✅ Email de anulación enviado al empleado');
+        } catch (emailError) {
+          console.error('❌ Error al enviar email al empleado:', emailError.message);
+          // No detener el proceso si falla el email
+        }
+      }
+
+      return resultado;
+      
     } catch (error) {
+      console.error('❌ Error en anularSolicitud service:', error.message);
       throw new Error("Error al anular la solicitud: " + error.message);
     }
   }
