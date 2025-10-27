@@ -5,7 +5,7 @@ import Servicio from "../models/Servicio.js";
 import Cliente from "../models/Cliente.js";
 import User from "../models/user.js";
 import DetalleOrdenServicio from "../models/DetalleOrdenServicio.js";
-import Seguimiento from "../models/seguimiento.js";
+import Seguimiento from "../models/Seguimiento.js";
 
 export class SolicitudesRepository {
   async findAll() {
