@@ -1,7 +1,5 @@
 import { SolicitudesService } from "../services/solicitudes.service.js";
-import { OrdenServicio, Servicio, Cliente } from "../models/associations.js";
-import User from "../models/user.js";
-import Empresa from "../models/Empresa.js";
+import { OrdenServicio, Servicio, Cliente, User, Empresa } from "../models/associations.js";
 import EmpresaCliente from "../models/EmpresaCliente.js";
 import DetalleOrdenServicio from "../models/DetalleOrdenServicio.js";
 import Proceso from "../models/Proceso.js";
@@ -11,25 +9,100 @@ import { Op } from "sequelize";
 
 const solicitudesService = new SolicitudesService();
 
-// Función para transformar solicitud a formato frontend
+// Función para transformar solicitud a formato frontend con TODOS los campos necesarios
 const transformarSolicitudAFrontend = (ordenServicio) => {
+  const sol = ordenServicio;
+  
+  // Extraer nombre del titular de múltiples fuentes
+  const titular = sol.nombrecompleto || 
+                 sol.nombre_completo ||
+                 (sol.cliente?.usuario ? 
+                   `${sol.cliente.usuario.nombre} ${sol.cliente.usuario.apellido}` : 
+                   'Sin titular');
+  
+  // Extraer nombre de la marca
+  const marca = sol.nombredelamarca || 
+               sol.nombre_marca || 
+               sol.marca ||
+               sol.cliente?.marca ||
+               'Sin marca';
+  
+  // Extraer email
+  const email = sol.correoelectronico || 
+               sol.correo || 
+               sol.cliente?.usuario?.correo || 
+               '';
+  
+  // Extraer teléfono (solo está disponible en la tabla ordenes_de_servicios)
+  const telefono = sol.telefono || '';
+  
+  // Extraer encargado
+  const encargado = sol.empleado_asignado ? 
+                   `${sol.empleado_asignado.nombre} ${sol.empleado_asignado.apellido}` : 
+                   'Sin asignar';
+  
+  // Extraer información de empresa (soporte para alias en minúscula y mayúscula)
+  const empresaData = sol.empresa || sol.Empresa;
+  
+  // *** RETORNAR OBJETO CON TODOS LOS CAMPOS ***
   return {
-    id: ordenServicio.id_orden_servicio?.toString() || ordenServicio.id?.toString(),
-    expediente: ordenServicio.numero_expediente || `EXP-${ordenServicio.id_orden_servicio || ordenServicio.id}`,
-    titular: ordenServicio.cliente?.usuario ? 
-      `${ordenServicio.cliente.usuario.nombre} ${ordenServicio.cliente.usuario.apellido}` : 
-      ordenServicio.cliente?.marca || 'Sin titular',
-    marca: ordenServicio.cliente?.marca || 'Sin marca',
-    tipoSolicitud: ordenServicio.servicio?.nombre || 'Sin servicio',
-    encargado: ordenServicio.empleado_asignado?.usuario ? 
-      `${ordenServicio.empleado_asignado.usuario.nombre} ${ordenServicio.empleado_asignado.usuario.apellido}` : 
-      'Sin asignar',
-    estado: ordenServicio.estado || 'Pendiente',
-    email: ordenServicio.cliente?.usuario?.correo || '',
-    telefono: '', // Campo no disponible en la BD actual
-    comentarios: ordenServicio.comentarios || [],
-    fechaCreacion: ordenServicio.fecha_solicitud || ordenServicio.created_at,
-    fechaFin: ordenServicio.fecha_fin || null
+    // Campos básicos
+    id: sol.id_orden_servicio?.toString(),
+    expediente: sol.numero_expediente || `EXP-${sol.id_orden_servicio}`,
+    titular: titular,
+    marca: marca,
+    tipoSolicitud: sol.servicio?.nombre || 'Sin servicio',
+    encargado: encargado,
+    estado: sol.estado || 'Pendiente',
+    email: email,
+    telefono: telefono,
+    
+    // *** CAMPOS CRÍTICOS PARA EL FRONTEND ***
+    
+    // Ubicación
+    pais: sol.pais || '',
+    ciudad: sol.ciudad || '',
+    direccion: sol.direccion || '',
+    codigo_postal: sol.codigo_postal || '',
+    
+    // Documento del titular
+    tipoDocumento: sol.tipodedocumento || '',
+    numeroDocumento: sol.numerodedocumento || '',
+    tipoPersona: sol.tipodepersona || '',
+    nombreCompleto: titular,
+    
+    // Datos de empresa (si aplica)
+    tipoEntidad: sol.tipodeentidadrazonsocial || '',
+    nombreEmpresa: sol.nombredelaempresa || empresaData?.nombre || '',
+    razonSocial: sol.nombredelaempresa || empresaData?.nombre || '',
+    nit: sol.nit || empresaData?.nit || '',
+    
+    // Marca/Producto
+    nombreMarca: marca,
+    categoria: sol.clase_niza || sol.categoria || '',
+    clase_niza: sol.clase_niza || '',
+    
+    // Tipo de solicitante
+    tipoSolicitante: sol.tipo_solicitante || sol.tipodepersona || '',
+    
+    // Fechas
+    fechaCreacion: sol.fecha_creacion || sol.fecha_solicitud || sol.createdAt,
+    fechaFin: sol.fecha_finalizacion || sol.fecha_fin || null,
+    
+    // Archivos/Documentos (si existen)
+    poderRepresentante: sol.poderdelrepresentanteautorizado || null,
+    poderAutorizacion: sol.poderparaelregistrodelamarca || null,
+    certificadoCamara: sol.certificado_camara_comercio || null,
+    logotipoMarca: sol.logotipo || sol.logo || null,
+    
+    // IDs para relaciones
+    id_cliente: sol.id_cliente,
+    id_empresa: sol.id_empresa,
+    id_empleado_asignado: sol.id_empleado_asignado,
+    id_servicio: sol.id_servicio,
+    
+    // Comentarios/Seguimiento
+    comentarios: sol.comentarios || []
   };
 };
 
@@ -717,64 +790,264 @@ export const crearSolicitud = async (req, res) => {
   }
 };
 
-// Exportar las demás funciones del controlador original
+/**
+ * GET /api/gestion-solicitudes
+ * Lista todas las solicitudes con TODOS los campos necesarios para el frontend
+ */
 export const listarSolicitudes = async (req, res) => {
   try {
+    console.log('📋 [API] Listando solicitudes para rol:', req.user.rol);
+    
     let solicitudes;
 
     if (req.user.rol === "cliente") {
-      solicitudes = await solicitudesService.listarSolicitudesPorUsuario(req.user.id_usuario);
+      // Cliente: solo sus solicitudes
+      solicitudes = await OrdenServicio.findAll({
+        where: { id_cliente: req.user.id_usuario },
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            include: [{ 
+              model: User,
+              as: 'usuario',
+              attributes: ['nombre', 'apellido', 'correo']
+            }]
+          },
+          {
+            model: Servicio,
+            as: 'servicio',
+            attributes: ['id_servicio', 'nombre', 'descripcion_corta']
+          },
+          {
+            model: User,
+            as: 'empleado_asignado',
+            required: false,
+            attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+          },
+          {
+            model: Empresa,
+            as: 'empresa',
+            required: false,
+            attributes: ['id_empresa', 'nombre', 'nit', 'direccion']
+          }
+        ],
+        order: [['fecha_creacion', 'DESC']]
+      });
     } else {
-      solicitudes = await solicitudesService.listarSolicitudes();
+      // Admin/Empleado: todas las solicitudes
+      solicitudes = await OrdenServicio.findAll({
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            include: [{ 
+              model: User,
+              as: 'usuario',
+              attributes: ['nombre', 'apellido', 'correo']
+            }]
+          },
+          {
+            model: Servicio,
+            as: 'servicio',
+            attributes: ['id_servicio', 'nombre', 'descripcion_corta']
+          },
+          {
+            model: User,
+            as: 'empleado_asignado',
+            required: false,
+            attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+          },
+          {
+            model: Empresa,
+            as: 'empresa',
+            required: false,
+            attributes: ['id_empresa', 'nombre', 'nit', 'direccion']
+          }
+        ],
+        order: [['fecha_creacion', 'DESC']]
+      });
     }
 
-    // Transformar a formato frontend
-    const solicitudesFormateadas = solicitudes.map(solicitud => 
+    // Convertir a JSON para facilitar el mapeo
+    const solicitudesJSON = solicitudes.map(sol => sol.toJSON());
+
+    // Transformar a formato frontend con TODOS los campos
+    const solicitudesFormateadas = solicitudesJSON.map(solicitud => 
       transformarSolicitudAFrontend(solicitud)
     );
 
+    // Log para verificación (se puede comentar en producción)
+    console.log(`✅ [API] Solicitudes enviadas: ${solicitudesFormateadas.length}`);
+    if (solicitudesFormateadas.length > 0) {
+      console.log('✅ [API] Campos en primera solicitud:', Object.keys(solicitudesFormateadas[0]).length);
+      console.log('✅ [API] Campos incluidos:', Object.keys(solicitudesFormateadas[0]));
+    }
+
     res.json(solicitudesFormateadas);
   } catch (error) {
-    console.error("Error al listar solicitudes:", error);
-    res.status(500).json({ mensaje: "Error interno del servidor." });
+    console.error("❌ [API] Error al listar solicitudes:", error);
+    res.status(500).json({ 
+      mensaje: "Error interno del servidor.",
+      error: error.message 
+    });
   }
 };
 
+/**
+ * GET /api/gestion-solicitudes/buscar
+ * Busca solicitudes con TODOS los campos necesarios para el frontend
+ */
 export const buscarSolicitud = async (req, res) => {
   try {
     const { search } = req.query;
-    const solicitudes = await solicitudesService.buscarSolicitud(search);
-    res.json(solicitudes);
-  } catch (error) {
-    console.error("Error al buscar solicitudes:", error);
-    if (error.message.includes("El parámetro de búsqueda es requerido")) {
-      res.status(400).json({ mensaje: error.message });
-    } else if (error.message.includes("No se encontraron coincidencias")) {
-      res.status(404).json({ mensaje: error.message });
-    } else {
-      res.status(500).json({ mensaje: "Error interno del servidor." });
+    
+    if (!search || search.trim() === '') {
+      return res.status(400).json({ 
+        mensaje: "El parámetro de búsqueda es requerido" 
+      });
     }
+
+    console.log('🔍 [API] Buscando solicitudes con término:', search);
+
+    // Buscar solicitudes
+    const solicitudes = await OrdenServicio.findAll({
+      where: {
+        [Op.or]: [
+          { numero_expediente: { [Op.like]: `%${search}%` } },
+          { nombrecompleto: { [Op.like]: `%${search}%` } },
+          { correoelectronico: { [Op.like]: `%${search}%` } },
+          { estado: { [Op.like]: `%${search}%` } },
+          { nombredelaempresa: { [Op.like]: `%${search}%` } },
+          { nit: { [Op.like]: `%${search}%` } }
+        ]
+      },
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente',
+          include: [{ 
+            model: User,
+            as: 'usuario',
+            attributes: ['nombre', 'apellido', 'correo']
+          }]
+        },
+        {
+          model: Servicio,
+          as: 'servicio',
+          attributes: ['id_servicio', 'nombre', 'descripcion_corta']
+        },
+        {
+          model: User,
+          as: 'empleado_asignado',
+          required: false,
+          attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+        },
+        {
+          model: Empresa,
+          as: 'empresa',
+          required: false,
+          attributes: ['id_empresa', 'nombre', 'nit', 'direccion']
+        }
+      ],
+      order: [['fecha_creacion', 'DESC']]
+    });
+
+    if (solicitudes.length === 0) {
+      return res.status(404).json({ 
+        mensaje: "No se encontraron coincidencias para la búsqueda" 
+      });
+    }
+
+    // Convertir a JSON y transformar al formato frontend
+    const solicitudesJSON = solicitudes.map(sol => sol.toJSON());
+    const solicitudesFormateadas = solicitudesJSON.map(solicitud => 
+      transformarSolicitudAFrontend(solicitud)
+    );
+
+    console.log(`✅ [API] Se encontraron ${solicitudesFormateadas.length} solicitudes`);
+
+    res.json(solicitudesFormateadas);
+  } catch (error) {
+    console.error("❌ [API] Error al buscar solicitudes:", error);
+    res.status(500).json({ 
+      mensaje: "Error interno del servidor.",
+      error: error.message 
+    });
   }
 };
 
+/**
+ * GET /api/gestion-solicitudes/:id
+ * Obtiene una solicitud específica con TODOS los campos necesarios
+ */
 export const verDetalleSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const solicitud = await solicitudesService.verDetalleSolicitud(id);
+    
+    console.log('🔍 [API] Obteniendo detalle de solicitud ID:', id);
+    
+    // Obtener la solicitud con todas las relaciones
+    const solicitud = await OrdenServicio.findByPk(id, {
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente',
+          include: [{ 
+            model: User,
+            as: 'usuario',
+            attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+          }]
+        },
+        {
+          model: Servicio,
+          as: 'servicio',
+          attributes: ['id_servicio', 'nombre', 'descripcion_corta', 'precio_base']
+        },
+        {
+          model: User,
+          as: 'empleado_asignado',
+          required: false,
+          attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+        },
+        {
+          model: Empresa,
+          as: 'empresa',
+          required: false,
+          attributes: ['id_empresa', 'nombre', 'nit', 'direccion', 'telefono', 'email']
+        }
+      ]
+    });
 
-    if (req.user.rol === "cliente" && solicitud.usuario_id !== req.user.id_usuario) {
+    if (!solicitud) {
+      return res.status(404).json({ 
+        mensaje: "Solicitud no encontrada" 
+      });
+    }
+
+    // Verificar permisos para clientes
+    if (req.user.rol === "cliente" && solicitud.id_cliente !== req.user.id_usuario) {
       return res
         .status(403)
         .json({ mensaje: "No tienes permisos para ver esta solicitud." });
     }
 
-    res.json(solicitud);
+    // Convertir a JSON y transformar al formato frontend
+    const solicitudJSON = solicitud.toJSON();
+    const solicitudFormateada = transformarSolicitudAFrontend(solicitudJSON);
+
+    console.log('✅ [API] Detalle de solicitud enviado con', Object.keys(solicitudFormateada).length, 'campos');
+
+    res.json(solicitudFormateada);
   } catch (error) {
-    console.error("Error al ver detalle de solicitud:", error);
+    console.error("❌ [API] Error al ver detalle de solicitud:", error);
     if (error.message.includes("Solicitud no encontrada")) {
       res.status(404).json({ mensaje: error.message });
     } else {
-      res.status(500).json({ mensaje: "Error interno del servidor." });
+      res.status(500).json({ 
+        mensaje: "Error interno del servidor.",
+        error: error.message 
+      });
     }
   }
 };

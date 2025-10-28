@@ -2,6 +2,7 @@ import OrdenServicio from "./OrdenServicio.js";
 import Servicio from "./Servicio.js";
 import Cliente from "./Cliente.js";
 import User from "./user.js";
+import Empresa from "./Empresa.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -17,6 +18,12 @@ OrdenServicio.belongsTo(Cliente, {
 OrdenServicio.belongsTo(User, {
   foreignKey: 'id_empleado_asignado',
   as: 'empleado_asignado'
+});
+
+// Relación OrdenServicio -> Empresa
+OrdenServicio.belongsTo(Empresa, {
+  foreignKey: 'id_empresa',
+  as: 'empresa'
 });
 
 // Relación para usuario que anuló la solicitud
@@ -52,4 +59,9 @@ User.hasMany(OrdenServicio, {
   as: 'ordenes_asignadas'
 });
 
-export { OrdenServicio, Servicio, Cliente, User };
+Empresa.hasMany(OrdenServicio, {
+  foreignKey: 'id_empresa',
+  as: 'ordenes'
+});
+
+export { OrdenServicio, Servicio, Cliente, User, Empresa };
