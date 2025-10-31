@@ -28,4 +28,36 @@ router.get(
   PagoController.generarComprobante
 );
 
+// ✅ NUEVO: Procesar pago con mock
+router.post(
+  "/process-mock",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado", "cliente"]),
+  PagoController.procesarPagoMock
+);
+
+// ✅ NUEVO: Simular pago (testing)
+router.post(
+  "/simular",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado"]),
+  PagoController.simularPago
+);
+
+// ✅ NUEVO: Ver registrar pago manualmente
+router.post(
+  "/:id/verify-manual",
+  authMiddleware,
+  roleMiddleware(["administrador"]),
+  PagoController.verificarPagoManual
+);
+
+// ✅ NUEVO: Descargar comprobante
+router.get(
+  "/:id/comprobante/download",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado", "cliente"]),
+  PagoController.descargarComprobante
+);
+
 export default router;

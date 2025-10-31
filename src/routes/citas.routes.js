@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCitas, createCita, reprogramarCita, anularCita, descargarReporteCitas, validateCreateCita } from "../controllers/citas.controller.js";
+import { getCitas, createCita, reprogramarCita, anularCita, descargarReporteCitas, validateCreateCita, crearCitaDesdeSolicitud, obtenerCitasDeSolicitud } from "../controllers/citas.controller.js";
 
 // Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -63,5 +63,29 @@ router.put("/:id/anular",
 
 // Ruta para descargar reporte Excel de citas
 router.get("/reporte/excel", roleMiddleware(["administrador", "empleado"]), descargarReporteCitas);
+
+// ✅ NUEVAS RUTAS: Citas asociadas a solicitudes
+/**
+ * POST /api/gestion-citas/desde-solicitud/:idOrdenServicio
+ * Crear cita asociada a una solicitud de servicio
+ * Solo Admin/Empleado
+ */
+router.post(
+  "/desde-solicitud/:idOrdenServicio",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado"]),
+  crearCitaDesdeSolicitud
+);
+
+/**
+ * GET /api/gestion-citas/solicitud/:id
+ * Obtener citas asociadas a una solicitud
+ */
+router.get(
+  "/solicitud/:id",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado", "cliente"]),
+  obtenerCitasDeSolicitud
+);
 
 export default router;

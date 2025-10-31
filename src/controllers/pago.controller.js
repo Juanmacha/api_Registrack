@@ -110,4 +110,123 @@ export const PagoController = {
       res.status(500).json({ error: err.message });
     }
   },
+
+  /**
+   * ✅ NUEVO: Procesar pago con mock
+   */
+  async procesarPagoMock(req, res) {
+    try {
+      const { monto, metodo_pago, id_orden_servicio } = req.body;
+
+      if (!monto || !metodo_pago || !id_orden_servicio) {
+        return res.status(400).json({ 
+          error: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio" 
+        });
+      }
+
+      const resultado = await PagoService.procesarPagoMock({
+        monto: parseFloat(monto),
+        metodo_pago,
+        id_orden_servicio: parseInt(id_orden_servicio),
+        gateway: 'mock'
+      });
+
+      if (resultado.success) {
+        res.status(201).json({
+          success: true,
+          message: 'Pago procesado exitosamente',
+          data: resultado
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Error al procesar pago',
+          error: resultado.error
+        });
+      }
+    } catch (err) {
+      console.error('Error en procesarPagoMock:', err);
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  /**
+   * ✅ NUEVO: Simular pago (testing)
+   */
+  async simularPago(req, res) {
+    try {
+      const { monto, metodo_pago, id_orden_servicio } = req.body;
+
+      if (!monto || !metodo_pago || !id_orden_servicio) {
+        return res.status(400).json({ 
+          error: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio" 
+        });
+      }
+
+      const resultado = await PagoService.simularPago({
+        monto: parseFloat(monto),
+        metodo_pago,
+        id_orden_servicio: parseInt(id_orden_servicio)
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Pago simulado exitosamente',
+        data: resultado
+      });
+    } catch (err) {
+      console.error('Error en simularPago:', err);
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  /**
+   * ✅ NUEVO: Verificar pago manualmente (admin)
+   */
+  async verificarPagoManual(req, res) {
+    try {
+      const { id } = req.params;
+      const usuarioId = req.user?.id_usuario;
+
+      if (!usuarioId) {
+        return res.status(401).json({ error: "Usuario no autenticado" });
+      }
+
+      const pago = await PagoService.verificarPagoManual(id, usuarioId);
+
+      res.json({
+        success: true,
+        message: 'Pago verificado exitosamente',
+        data: pago
+      });
+    } catch (err) {
+      console.error('Error en verificarPagoManual:', err);
+      res.status(400).json({ error: err.message });
+    }
+  },
+
+  /**
+   * ✅ NUEVO: Descargar comprobante
+   */
+  async descargarComprobante(req, res) {
+    try {
+      const { id } = req.params;
+      const pago = await PagoService.obtenerPago(id);
+
+      if (!pago) {
+        return res.status(404).json({ message: "Pago no encontrado" });
+      }
+
+      res.json({
+        success: true,
+        message: 'Comprobante generado',
+        data: {
+          comprobante_url: pago.comprobante_url,
+          numero_comprobante: pago.numero_comprobante
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
 };

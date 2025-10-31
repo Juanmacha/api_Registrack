@@ -2,6 +2,11 @@ import SolicitudCita from "../models/solicitud_cita.js";
 import User from "../models/user.js";
 import Cita from "../models/citas.js"; // Importar Cita
 import { Op } from "sequelize";
+import {
+  sendSolicitudCitaCreada,
+  sendSolicitudCitaAprobada,
+  sendSolicitudCitaRechazada
+} from "../services/email.service.js";
 
 // Cliente: Crear una nueva solicitud de cita
 export const crearSolicitud = async (req, res) => {
@@ -22,6 +27,34 @@ export const crearSolicitud = async (req, res) => {
             descripcion,
             id_cliente
         });
+
+        // Enviar email de confirmación al cliente
+        try {
+            // Obtener datos del cliente
+            const cliente = await User.findByPk(id_cliente);
+            if (cliente && cliente.correo) {
+                console.log('📧 Enviando email de solicitud de cita creada:', cliente.correo);
+                await sendSolicitudCitaCreada(
+                    cliente.correo,
+                    `${cliente.nombre} ${cliente.apellido}`,
+                    {
+                        solicitud_id: nuevaSolicitud.id,
+                        tipo: tipo,
+                        fecha: fecha_solicitada,
+                        hora: hora_solicitada,
+                        modalidad: modalidad,
+                        descripcion: descripcion || null
+                    }
+                );
+                console.log('✅ Email enviado al cliente');
+            } else {
+                console.log('⚠️ No se pudo obtener correo del cliente');
+            }
+        } catch (emailError) {
+            console.error('❌ Error al enviar email:', emailError);
+            // No fallar la operación por error de email
+        }
+
         res.status(201).json({ message: "Solicitud de cita creada exitosamente. Queda pendiente de aprobación.", solicitud: nuevaSolicitud });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') {
@@ -76,7 +109,13 @@ export const gestionarSolicitud = async (req, res) => {
     }
 
     try {
-        const solicitud = await SolicitudCita.findByPk(id);
+        const solicitud = await SolicitudCita.findByPk(id, {
+            include: [{
+                model: User,
+                as: 'cliente',
+                attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+            }]
+        });
         if (!solicitud) {
             return res.status(404).json({ message: "Solicitud no encontrada." });
         }
@@ -122,9 +161,62 @@ export const gestionarSolicitud = async (req, res) => {
             solicitud.id_empleado_asignado = id_empleado_asignado;
             await solicitud.save();
 
+            // Enviar email de aprobación al cliente
+            try {
+                if (solicitud.cliente && solicitud.cliente.correo) {
+                    // Obtener nombre del empleado
+                    const empleado = await User.findByPk(id_empleado_asignado);
+                    const empleadoNombre = empleado ? `${empleado.nombre} ${empleado.apellido}` : null;
+
+                    console.log('📧 Enviando email de aprobación:', solicitud.cliente.correo);
+                    await sendSolicitudCitaAprobada(
+                        solicitud.cliente.correo,
+                        `${solicitud.cliente.nombre} ${solicitud.cliente.apellido}`,
+                        {
+                            cita_id: nuevaCita.id_cita,
+                            tipo: solicitud.tipo,
+                            fecha: solicitud.fecha_solicitada,
+                            hora_inicio: solicitud.hora_solicitada,
+                            hora_fin: hora_fin,
+                            modalidad: solicitud.modalidad,
+                            empleado_nombre: empleadoNombre,
+                            observacion_admin: observacion_admin || null
+                        }
+                    );
+                    console.log('✅ Email de aprobación enviado');
+                }
+            } catch (emailError) {
+                console.error('❌ Error al enviar email de aprobación:', emailError);
+                // No fallar la operación por error de email
+            }
+
             return res.json({ message: "Solicitud aprobada y cita creada exitosamente.", solicitud, cita_creada: nuevaCita });
         } else { // Si es 'Rechazada'
             await solicitud.save();
+
+            // Enviar email de rechazo al cliente
+            try {
+                if (solicitud.cliente && solicitud.cliente.correo) {
+                    console.log('📧 Enviando email de rechazo:', solicitud.cliente.correo);
+                    await sendSolicitudCitaRechazada(
+                        solicitud.cliente.correo,
+                        `${solicitud.cliente.nombre} ${solicitud.cliente.apellido}`,
+                        {
+                            solicitud_id: solicitud.id,
+                            tipo: solicitud.tipo,
+                            fecha: solicitud.fecha_solicitada,
+                            hora: solicitud.hora_solicitada,
+                            modalidad: solicitud.modalidad,
+                            observacion_admin: observacion_admin || null
+                        }
+                    );
+                    console.log('✅ Email de rechazo enviado');
+                }
+            } catch (emailError) {
+                console.error('❌ Error al enviar email de rechazo:', emailError);
+                // No fallar la operación por error de email
+            }
+
             return res.json({ message: "Solicitud rechazada exitosamente.", solicitud });
         }
 

@@ -70,6 +70,9 @@ import "./src/models/TipoArchivo.js";
 // Importar el modelo de orden_servico_Servicio (relación intermedia)
 import "./src/models/orden_servico_Servicio.js";
 
+// Importar asociaciones para definir relaciones
+import "./src/models/associations.js";
+
 console.log("✅ Modelos cargados correctamente");
 
 async function syncDatabase() {

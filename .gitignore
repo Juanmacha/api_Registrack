@@ -39,6 +39,9 @@ Thumbs.db
 *.dump
 backup_*.sql
 
+# test files
+test_*.js
+
 # misc
 .cache/
 .nyc_output/

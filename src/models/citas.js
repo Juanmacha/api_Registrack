@@ -2,7 +2,6 @@ import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 import User from "./user.js";
 
-
 const Cita = sequelize.define("Cita", {
   id_cita: {
     type: DataTypes.INTEGER,
@@ -46,6 +45,30 @@ const Cita = sequelize.define("Cita", {
   observacion: {
     type: DataTypes.STRING(200),
     allowNull: true
+  },
+  id_cliente: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'usuarios',
+      key: 'id_usuario'
+    }
+  },
+  id_empleado: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'usuarios',
+      key: 'id_usuario'
+    }
+  },
+  id_orden_servicio: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'ordenes_de_servicios',
+      key: 'id_orden_servicio'
+    }
   }
 }, {
   tableName: "citas",
@@ -63,7 +86,5 @@ Cita.belongsTo(User, {
     as: 'Empleado',
     onDelete: 'CASCADE'
 });
-
-
 
 export default Cita;

@@ -28,7 +28,6 @@ export const listarClientes = async (req, res) => {
             nombre: cliente.Usuario.nombre,
             apellido: cliente.Usuario.apellido,
             correo: cliente.Usuario.correo,
-            telefono: cliente.Usuario.telefono,
             tipo_documento: cliente.Usuario.tipo_documento,
             documento: cliente.Usuario.documento
           } : null,

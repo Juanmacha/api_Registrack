@@ -18,11 +18,15 @@ const EmpresaCliente = sequelize.define("EmpresaCliente", {
 Cliente.belongsToMany(Empresa, {
   through: EmpresaCliente,
   foreignKey: "id_cliente",
+  otherKey: "id_empresa",
+  as: 'Empresas'
 });
 
 Empresa.belongsToMany(Cliente, {
   through: EmpresaCliente,
   foreignKey: "id_empresa",
+  otherKey: "id_cliente",
+  as: 'Clientes'
 });
 
 export default EmpresaCliente;

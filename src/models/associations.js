@@ -3,6 +3,7 @@ import Servicio from "./Servicio.js";
 import Cliente from "./Cliente.js";
 import User from "./user.js";
 import Empresa from "./Empresa.js";
+import Cita from "./citas.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -35,7 +36,7 @@ OrdenServicio.belongsTo(User, {
 // Relación Cliente -> User
 Cliente.belongsTo(User, {
   foreignKey: 'id_usuario',
-  as: 'usuario'
+  as: 'Usuario'
 });
 
 User.hasOne(Cliente, {
@@ -64,4 +65,18 @@ Empresa.hasMany(OrdenServicio, {
   as: 'ordenes'
 });
 
-export { OrdenServicio, Servicio, Cliente, User, Empresa };
+// ✅ Relación OrdenServicio -> Citas
+OrdenServicio.hasMany(Cita, {
+  foreignKey: 'id_orden_servicio',
+  as: 'citas'
+});
+
+// Relación inversa Cita -> OrdenServicio
+Cita.belongsTo(OrdenServicio, {
+  foreignKey: 'id_orden_servicio',
+  as: 'ordenServicio',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE'
+});
+
+export { OrdenServicio, Servicio, Cliente, User, Empresa, Cita };

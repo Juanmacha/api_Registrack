@@ -1,5 +1,6 @@
-    -- =============================================
--- API Registrack v4 - Script SQL Completo
+-- =============================================
+-- API REGISTRACK - SCHEMA OFICIAL Y COMPLETO
+-- Versión: 7.0 (30 Octubre 2025)
 -- Base de datos MySQL con todas las entidades y relaciones
 -- =============================================
 
@@ -156,6 +157,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     marca VARCHAR(50),
     tipo_persona ENUM('Natural', 'Jurídica') NOT NULL,
     estado BOOLEAN DEFAULT TRUE,
+    origen ENUM('solicitud', 'directo', 'importado') NOT NULL DEFAULT 'directo',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -163,7 +165,8 @@ CREATE TABLE IF NOT EXISTS clientes (
     
     INDEX idx_clientes_usuario (id_usuario),
     INDEX idx_clientes_tipo_persona (tipo_persona),
-    INDEX idx_clientes_estado (estado)
+    INDEX idx_clientes_estado (estado),
+    INDEX idx_clientes_origen (origen)
 );
 
 -- =============================================
@@ -252,6 +255,7 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     id_cliente INT NOT NULL,
     id_servicio INT NOT NULL,
     id_empresa INT NOT NULL,
+    id_empleado_asignado INT NULL,
     fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
     total_estimado DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     pais VARCHAR(50) NOT NULL,
@@ -277,19 +281,71 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     poderdelrepresentanteautorizado TEXT,
     poderparaelregistrodelamarca TEXT,
     
+    -- *** FASE 1: CAMPOS CRÍTICOS ***
+    -- Campos de Marca/Producto
+    nombredelamarca VARCHAR(100),
+    clase_niza VARCHAR(50),
+    tipo_producto_servicio VARCHAR(50),
+    -- Campos de Documentos
+    logotipo TEXT,
+    -- Campos de Representantes
+    representante_legal VARCHAR(100),
+    -- *** FASE 2: CAMPOS IMPORTANTES ***
+    -- Campos de Documentos
+    certificado_camara_comercio TEXT,
+    certificado_renovacion TEXT,
+    documento_cesion TEXT,
+    documentos_oposicion TEXT,
+    soportes TEXT,
+    -- Campos de Expedientes/Referencias
+    numero_expediente_marca VARCHAR(50),
+    marca_a_oponerse VARCHAR(100),
+    marca_opositora VARCHAR(100),
+    numero_registro_existente VARCHAR(50),
+    -- Campos de auditoría para anulaciones
+    anulado_por INT NULL,
+    fecha_anulacion DATETIME NULL,
+    motivo_anulacion TEXT,
+    -- *** FASE 3: CAMPOS ESPECÍFICOS ***
+    -- Campos de Cesionario
+    nombre_razon_social_cesionario VARCHAR(100),
+    nit_cesionario VARCHAR(20),
+    tipo_documento_cesionario VARCHAR(10),
+    numero_documento_cesionario VARCHAR(20),
+    correo_cesionario VARCHAR(100),
+    telefono_cesionario VARCHAR(20),
+    direccion_cesionario TEXT,
+    representante_legal_cesionario VARCHAR(100),
+    -- Campos de Argumentos/Descripción
+    argumentos_respuesta TEXT,
+    descripcion_nuevos_productos_servicios TEXT,
+    -- Campos de Clases Niza
+    clase_niza_actual VARCHAR(50),
+    nuevas_clases_niza VARCHAR(200),
+    -- Otros campos
+    documento_nit_titular VARCHAR(20),
+    numero_nit_cedula VARCHAR(20),
+    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_servicio) REFERENCES servicios(id_servicio) ON DELETE RESTRICT ON UPDATE CASCADE,
     FOREIGN KEY (id_empresa) REFERENCES empresas(id_empresa) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (id_empleado_asignado) REFERENCES usuarios(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (anulado_por) REFERENCES usuarios(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
     
     INDEX idx_ordenes_cliente (id_cliente),
     INDEX idx_ordenes_servicio (id_servicio),
     INDEX idx_ordenes_empresa (id_empresa),
+    INDEX idx_ordenes_empleado (id_empleado_asignado),
     INDEX idx_ordenes_fecha (fecha_creacion),
     INDEX idx_ordenes_estado (estado),
-    INDEX idx_ordenes_expediente (numero_expediente)
+    INDEX idx_ordenes_expediente (numero_expediente),
+    INDEX idx_ordenes_cliente_estado (id_cliente, estado),
+    INDEX idx_ordenes_empresa_fecha (id_empresa, fecha_creacion),
+    INDEX idx_ordenes_anulado_por (anulado_por),
+    INDEX idx_ordenes_fecha_anulacion (fecha_anulacion)
 );
 
 -- =============================================
@@ -299,7 +355,7 @@ CREATE TABLE IF NOT EXISTS detalles_ordenes_servicio (
     id_detalle_orden INT AUTO_INCREMENT PRIMARY KEY,
     id_orden_servicio INT NOT NULL,
     id_servicio INT NOT NULL,
-    estado ENUM('Pendiente','En Proceso','Finalizado','Anulado') NOT NULL DEFAULT 'Pendiente',
+    estado VARCHAR(100) NOT NULL DEFAULT 'Pendiente',
     fecha_estado DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -309,7 +365,8 @@ CREATE TABLE IF NOT EXISTS detalles_ordenes_servicio (
     
     INDEX idx_detalles_orden (id_orden_servicio),
     INDEX idx_detalles_servicio (id_servicio),
-    INDEX idx_detalles_estado (estado)
+    INDEX idx_detalles_estado (estado),
+    INDEX idx_detalles_orden_estado (id_orden_servicio, estado)
 );
 
 -- =============================================
@@ -346,17 +403,21 @@ CREATE TABLE IF NOT EXISTS citas (
     observacion VARCHAR(200),
     id_cliente INT NOT NULL,
     id_empleado INT,
+    id_orden_servicio INT NULL COMMENT 'ID de la orden de servicio asociada',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     FOREIGN KEY (id_cliente) REFERENCES usuarios(id_usuario) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_empleado) REFERENCES usuarios(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (id_orden_servicio) REFERENCES ordenes_de_servicios(id_orden_servicio) ON DELETE SET NULL ON UPDATE CASCADE,
     
     INDEX idx_citas_fecha (fecha),
     INDEX idx_citas_cliente (id_cliente),
     INDEX idx_citas_empleado (id_empleado),
+    INDEX idx_citas_orden (id_orden_servicio),
     INDEX idx_citas_estado (estado),
-    INDEX idx_citas_tipo (tipo)
+    INDEX idx_citas_tipo (tipo),
+    INDEX idx_citas_fecha_estado (fecha, estado)
 );
 
 -- =============================================
@@ -396,6 +457,10 @@ CREATE TABLE IF NOT EXISTS seguimientos (
     documentos_adjuntos TEXT,
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     registrado_por INT NOT NULL,
+    nuevo_estado VARCHAR(100),
+    estado_anterior VARCHAR(100),
+    observaciones TEXT,
+    id_usuario INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -404,7 +469,8 @@ CREATE TABLE IF NOT EXISTS seguimientos (
     
     INDEX idx_seguimientos_orden (id_orden_servicio),
     INDEX idx_seguimientos_registrado_por (registrado_por),
-    INDEX idx_seguimientos_fecha (fecha_registro)
+    INDEX idx_seguimientos_fecha (fecha_registro),
+    INDEX idx_seguimientos_orden_fecha (id_orden_servicio, fecha_registro)
 );
 
 -- =============================================
@@ -420,6 +486,13 @@ CREATE TABLE IF NOT EXISTS pagos (
     referencia VARCHAR(255),
     comprobante_url VARCHAR(500),
     observaciones TEXT,
+    transaction_id VARCHAR(255) NULL COMMENT 'ID de transacción de la pasarela',
+    gateway VARCHAR(50) NULL COMMENT 'Pasarela usada (paypal, stripe, wompi, manual, mock)',
+    gateway_data JSON NULL COMMENT 'Datos adicionales de la pasarela',
+    verified_at DATETIME NULL COMMENT 'Fecha de verificación del pago',
+    verified_by INT NULL COMMENT 'Usuario que verificó el pago (manual)',
+    verification_method ENUM('gateway', 'manual', 'mock') DEFAULT 'mock' COMMENT 'Método de verificación',
+    numero_comprobante VARCHAR(50) UNIQUE NULL COMMENT 'Número único de comprobante',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -428,7 +501,12 @@ CREATE TABLE IF NOT EXISTS pagos (
     INDEX idx_pagos_orden (id_orden_servicio),
     INDEX idx_pagos_estado (estado),
     INDEX idx_pagos_fecha (fecha_pago),
-    INDEX idx_pagos_metodo (metodo_pago)
+    INDEX idx_pagos_metodo (metodo_pago),
+    INDEX idx_pagos_transaction (transaction_id),
+    INDEX idx_pagos_gateway (gateway),
+    INDEX idx_pagos_comprobante (numero_comprobante),
+    INDEX idx_pagos_verification (verification_method),
+    INDEX idx_pagos_orden_estado (id_orden_servicio, estado)
 );
 
 -- =============================================
@@ -452,6 +530,26 @@ CREATE TABLE IF NOT EXISTS archivos (
     INDEX idx_archivos_cliente (id_cliente),
     INDEX idx_archivos_orden (id_orden_servicio),
     INDEX idx_archivos_tipo (id_tipo_archivo)
+);
+
+-- =============================================
+-- TABLA: notificaciones
+-- =============================================
+CREATE TABLE IF NOT EXISTS notificaciones (
+    id_notificacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_orden_servicio INT NOT NULL,
+    tipo_notificacion ENUM('asignacion_empleado', 'nueva_solicitud', 'cambio_estado', 'anulacion_solicitud') NOT NULL,
+    destinatario_email VARCHAR(255) NOT NULL,
+    asunto VARCHAR(255) NOT NULL,
+    contenido TEXT NOT NULL,
+    fecha_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    estado_envio ENUM('pendiente', 'enviado', 'fallido') DEFAULT 'pendiente',
+    
+    FOREIGN KEY (id_orden_servicio) REFERENCES ordenes_de_servicios(id_orden_servicio) ON DELETE CASCADE ON UPDATE CASCADE,
+    
+    INDEX idx_notificaciones_orden (id_orden_servicio),
+    INDEX idx_notificaciones_tipo (tipo_notificacion),
+    INDEX idx_notificaciones_estado (estado_envio)
 );
 
 -- =============================================
@@ -497,18 +595,20 @@ SELECT
     u.apellido as cliente_apellido,
     u.correo as cliente_correo,
     emp.nombre as empresa_nombre,
-    emp.nit as empresa_nit
+    emp.nit as empresa_nit,
+    u_emp.nombre as empleado_nombre,
+    u_emp.apellido as empleado_apellido
 FROM ordenes_de_servicios os
 JOIN servicios s ON os.id_servicio = s.id_servicio
 JOIN clientes c ON os.id_cliente = c.id_cliente
 JOIN usuarios u ON c.id_usuario = u.id_usuario
-JOIN empresas emp ON os.id_empresa = emp.id_empresa;
+JOIN empresas emp ON os.id_empresa = emp.id_empresa
+LEFT JOIN usuarios u_emp ON os.id_empleado_asignado = u_emp.id_usuario;
 
 -- =============================================
 -- TRIGGERS PARA AUDITORÍA
 -- =============================================
 
--- Trigger para actualizar updated_at automáticamente
 DELIMITER $$
 
 CREATE TRIGGER tr_usuarios_updated_at
@@ -535,12 +635,12 @@ END$$
 DELIMITER ;
 
 -- =============================================
--- PROCEDIMIENTOS ALMACENADOS ÚTILES
+-- PROCEDIMIENTOS ALMACENADOS
 -- =============================================
 
--- Procedimiento para obtener estadísticas de órdenes por estado
 DELIMITER $$
 
+-- Procedimiento para obtener estadísticas de órdenes por estado
 CREATE PROCEDURE sp_estadisticas_ordenes_por_estado()
 BEGIN
     SELECT 
@@ -581,18 +681,6 @@ END$$
 DELIMITER ;
 
 -- =============================================
--- ÍNDICES ADICIONALES PARA OPTIMIZACIÓN
--- =============================================
-
--- Índices compuestos para consultas frecuentes
-CREATE INDEX idx_ordenes_cliente_estado ON ordenes_de_servicios(id_cliente, estado);
-CREATE INDEX idx_ordenes_empresa_fecha ON ordenes_de_servicios(id_empresa, fecha_creacion);
-CREATE INDEX idx_pagos_orden_estado ON pagos(id_orden_servicio, estado);
-CREATE INDEX idx_citas_fecha_estado ON citas(fecha, estado);
-CREATE INDEX idx_seguimientos_orden_fecha ON seguimientos(id_orden_servicio, fecha_registro);
-CREATE INDEX idx_detalles_orden_estado ON detalles_ordenes_servicio(id_orden_servicio, estado);
-
--- =============================================
 -- DATOS INICIALES PARA SERVICIOS Y PROCESOS
 -- =============================================
 
@@ -631,7 +719,8 @@ INSERT INTO servicios (id_servicio, nombre, descripcion, descripcion_corta, visi
 (7, 'Respuesta a Oposición', 'Responde a oposiciones presentadas contra tu marca.', 'Responder a oposiciones de marca', true,
  '{"titulo": "Respuesta a Oposición", "resumen": "Responde a oposiciones presentadas contra tu marca", "imagen": ""}',
  '{"descripcion": "Servicio para responder a oposiciones presentadas contra tu marca comercial."}',
- '/pages/respuesta-oposicion', 1200000.00, true);
+ '/pages/respuesta-oposicion', 1200000.00, true)
+ON DUPLICATE KEY UPDATE nombre=nombre;
 
 -- Insertar estados de proceso para cada servicio
 INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key) VALUES
@@ -639,56 +728,84 @@ INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key
 (1, 'Solicitud Recibida', 'Solicitud de búsqueda recibida y en revisión', 1, 'recibida'),
 (1, 'Búsqueda en Proceso', 'Realizando búsqueda en base de datos de la SIC', 2, 'en_proceso'),
 (1, 'Informe Generado', 'Informe de búsqueda completado y disponible', 3, 'informe'),
+(1, 'Finalizado', 'Proceso de búsqueda completado exitosamente', 4, 'finalizado'),
 
 -- Certificación de Marca
 (2, 'Solicitud Recibida', 'Solicitud de certificación recibida', 1, 'recibida'),
 (2, 'Revisión de Documentos', 'Revisando documentación requerida', 2, 'revision'),
 (2, 'Publicación', 'Publicación en gaceta oficial', 3, 'publicacion'),
 (2, 'Certificado Emitido', 'Certificado de marca emitido', 4, 'certificado'),
+(2, 'Finalizado', 'Certificación de marca completada exitosamente', 5, 'finalizado'),
 
 -- Renovación de Marca
 (3, 'Solicitud Recibida', 'Solicitud de renovación recibida', 1, 'recibida'),
 (3, 'Verificación', 'Verificando vigencia y documentación', 2, 'verificacion'),
 (3, 'Renovación Aprobada', 'Renovación aprobada y certificado actualizado', 3, 'renovacion'),
+(3, 'Finalizado', 'Renovación de marca completada exitosamente', 4, 'finalizado'),
 
 -- Presentación de Oposición
 (4, 'Oposición Presentada', 'Oposición presentada ante la autoridad', 1, 'presentada'),
 (4, 'En Revisión', 'Oposición en proceso de revisión', 2, 'revision'),
 (4, 'Resolución', 'Resolución emitida sobre la oposición', 3, 'resolucion'),
+(4, 'Finalizado', 'Proceso de oposición completado exitosamente', 4, 'finalizado'),
 
 -- Cesión de Marca
 (5, 'Solicitud Recibida', 'Solicitud de cesión recibida', 1, 'recibida'),
 (5, 'Verificación de Derechos', 'Verificando derechos de cesión', 2, 'verificacion'),
 (5, 'Cesión Aprobada', 'Cesión aprobada y registrada', 3, 'cesion'),
+(5, 'Finalizado', 'Cesión de marca completada exitosamente', 4, 'finalizado'),
 
 -- Ampliación de Alcance
 (6, 'Solicitud Recibida', 'Solicitud de ampliación recibida', 1, 'recibida'),
 (6, 'Análisis de Viabilidad', 'Analizando viabilidad de ampliación', 2, 'analisis'),
 (6, 'Ampliación Aprobada', 'Ampliación aprobada y registrada', 3, 'ampliacion'),
+(6, 'Finalizado', 'Ampliación de alcance completada exitosamente', 4, 'finalizado'),
 
 -- Respuesta a Oposición
 (7, 'Oposición Recibida', 'Oposición recibida y en análisis', 1, 'recibida'),
 (7, 'Preparación de Respuesta', 'Preparando respuesta a la oposición', 2, 'preparacion'),
 (7, 'Respuesta Presentada', 'Respuesta presentada ante la autoridad', 3, 'presentada'),
-(7, 'Resolución Final', 'Resolución final sobre la oposición', 4, 'resolucion');
+(7, 'Resolución Final', 'Resolución final sobre la oposición', 4, 'resolucion'),
+(7, 'Finalizado', 'Respuesta a oposición completada exitosamente', 5, 'finalizado');
 
 -- =============================================
 -- COMENTARIOS FINALES
 -- =============================================
 
 /*
-ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v4
+ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.0
 
 ENTIDADES PRINCIPALES:
 - Sistema de autenticación y autorización (usuarios, roles, permisos, privilegios)
 - Gestión de empresas y empleados
 - Gestión de clientes y servicios
-- Órdenes de servicio y seguimiento
-- Sistema de citas y solicitudes
-- Gestión de pagos
+- Órdenes de servicio con 50+ campos editables
+- Sistema de seguimiento con cambios de estado
+- Sistema de citas y solicitudes (ASOCIADAS)
+- Gestión de pagos con pasarelas de pago
+- Sistema de archivos y notificaciones
+- Dashboard administrativo con KPIs y reportes
+
+CAMBIOS EN v7.0:
+- Agregado campo "id_orden_servicio" a tabla citas para asociar con solicitudes
+- Relación Foreign Key entre citas y ordenes_de_servicios
+- Sistema de asociación de citas con solicitudes de servicio
+
+CAMBIOS EN v6.0:
+- Agregado campo "origen" a tabla clientes
+- Agregado campo "id_empleado_asignado" a tabla ordenes_de_servicios
+- Agregados campos de auditoría (anulado_por, fecha_anulacion, motivo_anulacion)
+- Agregados 50+ campos editables en ordenes_de_servicios (Fase 1, 2, 3)
+- Agregados campos de pasarela de pago (transaction_id, gateway, gateway_data, etc.)
+- Tabla detalles_ordenes_servicio ahora usa VARCHAR(100) para estado (permite process_states)
+- Tabla seguimientos agrega campos (nuevo_estado, estado_anterior, observaciones, id_usuario)
+- Agregada tabla notificaciones
+- Todos los servicios incluyen estado "Finalizado" como último process_state
+- Sistema de alertas de renovación de marcas (5 años)
+- Dashboard con análisis de ingresos, KPIs y reportes Excel
 
 CARACTERÍSTICAS:
-- Soporte para MySQL con charset utf8mb4
+- Soporte para MySQL 8+ con charset utf8mb4
 - Claves foráneas con restricciones apropiadas
 - Índices optimizados para consultas frecuentes
 - Triggers para auditoría automática
@@ -705,4 +822,19 @@ RELACIONES:
 - 1:N entre servicios y órdenes
 - N:M entre roles, permisos y privilegios
 - N:M entre empresas y clientes
+- 1:N entre servicios y procesos (process_states)
 */
+
+-- =============================================
+-- DATOS INICIALES: ROLES
+-- =============================================
+INSERT INTO roles (id_rol, nombre, descripcion) VALUES
+(1, 'cliente', 'Cliente externo con acceso a sus propios datos'),
+(2, 'administrador', 'Administrador del sistema con acceso completo'),
+(3, 'empleado', 'Empleado de la empresa con acceso limitado')
+ON DUPLICATE KEY UPDATE nombre=nombre;
+
+-- =============================================
+-- FIN DEL SCRIPT
+-- =============================================
+

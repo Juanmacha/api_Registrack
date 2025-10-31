@@ -20,6 +20,7 @@ import ArchivoRoutes from "./src/routes/archivo.routes.js";
 import DetalleOrdenRoutes from "./src/routes/detalleOrden.routes.js";
 import DetalleProcesoRoutes from "./src/routes/detalleProceso.routes.js";
 import ServicioProcesoRoutes from "./src/routes/servicioProceso.routes.js";
+import DashboardRoutes from "./src/routes/dashboard.routes.js";
 
 import {
   errorHandler,
@@ -154,6 +155,7 @@ app.use("/api/gestion-archivos", ArchivoRoutes);
 app.use("/api/detalles-orden", DetalleOrdenRoutes);
 app.use("/api/detalles-procesos", DetalleProcesoRoutes);
 app.use("/api/gestion-servicios-procesos", ServicioProcesoRoutes);
+app.use("/api/dashboard", authMiddleware, DashboardRoutes);
 
 // Middleware para manejar rutas no encontradas (debe ir antes del error handler)
 app.use(notFoundHandler);

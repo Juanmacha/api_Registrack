@@ -16,8 +16,8 @@ const transformarSolicitudAFrontend = (ordenServicio) => {
   // Extraer nombre del titular de múltiples fuentes
   const titular = sol.nombrecompleto || 
                  sol.nombre_completo ||
-                 (sol.cliente?.usuario ? 
-                   `${sol.cliente.usuario.nombre} ${sol.cliente.usuario.apellido}` : 
+                 (sol.cliente?.Usuario ? 
+                   `${sol.cliente.Usuario.nombre} ${sol.cliente.Usuario.apellido}` : 
                    'Sin titular');
   
   // Extraer nombre de la marca
@@ -30,7 +30,7 @@ const transformarSolicitudAFrontend = (ordenServicio) => {
   // Extraer email
   const email = sol.correoelectronico || 
                sol.correo || 
-               sol.cliente?.usuario?.correo || 
+               sol.cliente?.Usuario?.correo || 
                '';
   
   // Extraer teléfono (solo está disponible en la tabla ordenes_de_servicios)
@@ -78,12 +78,15 @@ const transformarSolicitudAFrontend = (ordenServicio) => {
     nit: sol.nit || empresaData?.nit || '',
     
     // Marca/Producto
-    nombreMarca: marca,
+    nombreMarca: sol.nombredelamarca || marca,
     categoria: sol.clase_niza || sol.categoria || '',
     clase_niza: sol.clase_niza || '',
+    tipoProductoServicio: sol.tipo_producto_servicio || '',
+    logotipo: sol.logotipo || null,
     
     // Tipo de solicitante
     tipoSolicitante: sol.tipo_solicitante || sol.tipodepersona || '',
+    representanteLegal: sol.representante_legal || '',
     
     // Fechas
     fechaCreacion: sol.fecha_creacion || sol.fecha_solicitud || sol.createdAt,
@@ -94,6 +97,36 @@ const transformarSolicitudAFrontend = (ordenServicio) => {
     poderAutorizacion: sol.poderparaelregistrodelamarca || null,
     certificadoCamara: sol.certificado_camara_comercio || null,
     logotipoMarca: sol.logotipo || sol.logo || null,
+    
+    // *** FASE 2: CAMPOS IMPORTANTES ***
+    certificadoRenovacion: sol.certificado_renovacion || null,
+    documentoCesion: sol.documento_cesion || null,
+    documentosOposicion: sol.documentos_oposicion || null,
+    soportes: sol.soportes || null,
+    numeroExpedienteMarca: sol.numero_expediente_marca || '',
+    marcaAOponerse: sol.marca_a_oponerse || '',
+    marcaOpositora: sol.marca_opositora || '',
+    numeroRegistroExistente: sol.numero_registro_existente || '',
+    
+    // *** FASE 3: CAMPOS ESPECÍFICOS ***
+    // Cesionario (objeto anidado)
+    cesionario: sol.nombre_razon_social_cesionario ? {
+      nombreRazonSocial: sol.nombre_razon_social_cesionario,
+      nit: sol.nit_cesionario || '',
+      tipoDocumento: sol.tipo_documento_cesionario || '',
+      numeroDocumento: sol.numero_documento_cesionario || '',
+      correo: sol.correo_cesionario || '',
+      telefono: sol.telefono_cesionario || '',
+      direccion: sol.direccion_cesionario || '',
+      representanteLegal: sol.representante_legal_cesionario || ''
+    } : null,
+    // Campos adicionales
+    argumentosRespuesta: sol.argumentos_respuesta || '',
+    descripcionNuevosProductos: sol.descripcion_nuevos_productos_servicios || '',
+    claseNizaActual: sol.clase_niza_actual || '',
+    nuevasClasesNiza: sol.nuevas_clases_niza || '',
+    documentoNitTitular: sol.documento_nit_titular || '',
+    numeroNitCedula: sol.numero_nit_cedula || '',
     
     // IDs para relaciones
     id_cliente: sol.id_cliente,
@@ -433,7 +466,7 @@ export const crearSolicitud = async (req, res) => {
     let cliente = await Cliente.findOne({
       where: { id_usuario: clienteId },
       include: [
-        { model: Empresa, through: { attributes: [] } },
+        { model: Empresa, as: 'Empresas', through: { attributes: [] } },
         { model: User, as: 'Usuario' }
       ]
     });
@@ -494,8 +527,14 @@ export const crearSolicitud = async (req, res) => {
     console.log('🏢 Verificando/creando empresa...');
     let empresa = null;
     
+    // 🚀 NUEVO: Verificar si el cliente YA tiene una empresa asociada
+    if (cliente.Empresas && cliente.Empresas.length > 0) {
+      console.log('🔍 Cliente ya tiene empresa asociada:', cliente.Empresas[0].nombre);
+      empresa = cliente.Empresas[0]; // Usar la empresa existente
+    }
+    
     // Si se proporciona empresaId, buscar por ID primero
-    if (empresaId) {
+    if (!empresa && empresaId) {
       empresa = await Empresa.findByPk(empresaId);
       console.log('🔍 Empresa encontrada por ID:', empresa ? empresa.nombre : 'No encontrada');
     }
@@ -517,23 +556,24 @@ export const crearSolicitud = async (req, res) => {
     }
     
     // Si no existe empresa, crear una nueva con datos del formulario
-    if (!empresa) {
+    if (!empresa && (req.body.razon_social || req.body.nombre_empresa)) {
       console.log('🔧 Creando empresa con datos del formulario...');
       
       // Generar NIT único si no se proporciona
-      let nitEmpresa = req.body.nit;
+      let nitEmpresa = req.body.nit_empresa || req.body.nit;
       if (!nitEmpresa) {
         // Generar NIT único de exactamente 10 dígitos
         const timestamp = Date.now().toString();
-        const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        nitEmpresa = parseInt((timestamp.slice(-7) + randomPart).padStart(10, '0'));
+        const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        // Usar últimos 6 dígitos del timestamp + 4 dígitos aleatorios = 10 dígitos exactos
+        nitEmpresa = parseInt((timestamp.slice(-6) + randomPart).padStart(10, '0'));
         console.log('🔧 NIT generado automáticamente:', nitEmpresa);
       }
       
       const empresaData = {
         nit: nitEmpresa,
         nombre: req.body.razon_social || req.body.nombre_empresa || 'Empresa del Cliente',
-        tipo_empresa: req.body.tipo_empresa || 'SAS'
+        tipo_empresa: req.body.tipo_entidad || req.body.tipo_empresa || 'SAS'
       };
       
       // Agregar campos adicionales si existen en el formulario
@@ -598,24 +638,46 @@ export const crearSolicitud = async (req, res) => {
       console.log('✅ Empresa existente con ID:', empresa.id_empresa, 'Nombre:', empresa.nombre);
     }
     
-    // Asociar cliente con empresa si no están asociados
-    if (empresa) {
-      const asociacionExistente = await EmpresaCliente.findOne({
-        where: {
-          id_cliente: cliente.id_cliente,
-          id_empresa: empresa.id_empresa
-        }
+    // Si NO se encontró empresa por NIT/nombre, usar empresa del cliente si existe
+    if (!empresa && cliente.Empresas && cliente.Empresas.length > 0) {
+      empresa = cliente.Empresas[0];
+      console.log('✅ Usando empresa existente del cliente:', empresa.nombre);
+    }
+    
+    // Si SIGUE sin haber empresa, crear una empresa por defecto
+    if (!empresa) {
+      console.log('⚠️ No se encontró empresa, creando empresa por defecto...');
+      
+      // Generar NIT único de exactamente 10 dígitos
+      const timestamp = Date.now().toString();
+      const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const nitDefecto = parseInt((timestamp.slice(-6) + randomPart).padStart(10, '0'));
+      
+      empresa = await Empresa.create({
+        nit: nitDefecto,
+        nombre: 'Empresa del Cliente',
+        tipo_empresa: 'SAS'
       });
       
-      if (!asociacionExistente) {
-        await EmpresaCliente.create({
-          id_cliente: cliente.id_cliente,
-          id_empresa: empresa.id_empresa
-        });
-        console.log('✅ Asociación cliente-empresa creada');
-    } else {
-        console.log('✅ Asociación cliente-empresa ya existe');
+      console.log('✅ Empresa por defecto creada con ID:', empresa.id_empresa);
+    }
+    
+    // Asociar cliente con empresa si no están asociados
+    const asociacionExistente = await EmpresaCliente.findOne({
+      where: {
+        id_cliente: cliente.id_cliente,
+        id_empresa: empresa.id_empresa
       }
+    });
+    
+    if (!asociacionExistente) {
+      await EmpresaCliente.create({
+        id_cliente: cliente.id_cliente,
+        id_empresa: empresa.id_empresa
+      });
+      console.log('✅ Asociación cliente-empresa creada');
+    } else {
+      console.log('✅ Asociación cliente-empresa ya existe');
     }
 
     // 🚀 MAPEAR CAMPOS DEL FORMULARIO A COLUMNAS DE LA BD
@@ -642,6 +704,49 @@ export const crearSolicitud = async (req, res) => {
       nit: req.body.nit_empresa || req.body.nit,
       poderdelrepresentanteautorizado: req.body.poder_representante_autorizado || req.body.poder_autorizacion,
       poderparaelregistrodelamarca: req.body.poder_registro_marca,
+      
+      // *** FASE 1: CAMPOS CRÍTICOS (28 Oct 2025) ***
+      // Campos de Marca/Producto
+      nombredelamarca: req.body.nombre_marca || req.body.nombre_a_buscar,
+      clase_niza: req.body.clase_niza || req.body.clase_niza_actual,
+      tipo_producto_servicio: req.body.tipo_producto_servicio,
+      // Campos de Documentos
+      logotipo: req.body.logotipo,
+      // ✨ Campos de Representantes
+      representante_legal: req.body.representante_legal,
+      
+      // *** FASE 2: CAMPOS IMPORTANTES (28 Oct 2025) ***
+      // Documentos adicionales
+      certificado_camara_comercio: req.body.certificado_camara_comercio,
+      certificado_renovacion: req.body.certificado_renovacion,
+      documento_cesion: req.body.documento_cesion,
+      documentos_oposicion: req.body.documentos_oposicion,
+      soportes: req.body.soportes,
+      // Expedientes y referencias
+      numero_expediente_marca: req.body.numero_expediente_marca,
+      marca_a_oponerse: req.body.marca_a_oponerse,
+      marca_opositora: req.body.marca_opositora,
+      numero_registro_existente: req.body.numero_registro_existente,
+      
+      // *** FASE 3: CAMPOS ESPECÍFICOS (28 Oct 2025) ***
+      // Campos de Cesionario
+      nombre_razon_social_cesionario: req.body.nombre_razon_social_cesionario || req.body.nombre_cesionario,
+      nit_cesionario: req.body.nit_cesionario,
+      tipo_documento_cesionario: req.body.tipo_documento_cesionario,
+      numero_documento_cesionario: req.body.numero_documento_cesionario,
+      correo_cesionario: req.body.correo_cesionario,
+      telefono_cesionario: req.body.telefono_cesionario,
+      direccion_cesionario: req.body.direccion_cesionario,
+      representante_legal_cesionario: req.body.representante_legal_cesionario,
+      // Campos de Argumentos/Descripción
+      argumentos_respuesta: req.body.argumentos_respuesta,
+      descripcion_nuevos_productos_servicios: req.body.descripcion_nuevos_productos_servicios,
+      // Campos de Clases Niza
+      clase_niza_actual: req.body.clase_niza_actual,
+      nuevas_clases_niza: req.body.nuevas_clases_niza,
+      // Otros campos
+      documento_nit_titular: req.body.documento_nit_titular,
+      numero_nit_cedula: req.body.numero_nit_cedula || req.body.cedula,
       
       datos_solicitud: JSON.stringify(req.body),
       fecha_solicitud: new Date(),
@@ -802,8 +907,17 @@ export const listarSolicitudes = async (req, res) => {
 
     if (req.user.rol === "cliente") {
       // Cliente: solo sus solicitudes
+      // Primero buscar el cliente asociado al usuario
+      const cliente = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!cliente) {
+        return res.json([]); // No hay cliente asociado, retornar array vacío
+      }
+      
       solicitudes = await OrdenServicio.findAll({
-        where: { id_cliente: req.user.id_usuario },
+        where: { id_cliente: cliente.id_cliente },
         include: [
           {
             model: Cliente,
@@ -1315,8 +1429,8 @@ export const asignarEmpleado = async (req, res) => {
 
     // Enviar emails
     try {
-      const clienteCorreo = solicitud.cliente.usuario?.correo || solicitud.cliente.correo;
-      const clienteNombre = `${solicitud.cliente.usuario?.nombre || solicitud.cliente.nombre} ${solicitud.cliente.usuario?.apellido || solicitud.cliente.apellido}`;
+      const clienteCorreo = solicitud.cliente.Usuario?.correo || solicitud.cliente.correo;
+      const clienteNombre = `${solicitud.cliente.Usuario?.nombre || solicitud.cliente.nombre} ${solicitud.cliente.Usuario?.apellido || solicitud.cliente.apellido}`;
       
       // Email al cliente sobre la asignación (solo si tiene correo válido)
       if (clienteCorreo && clienteCorreo !== 'undefined') {

@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
-import Cita from "../models/citas.js";
+import { Cita, OrdenServicio, Cliente, Servicio } from "../models/associations.js";
 import User from "../models/user.js";
+import Seguimiento from "../models/Seguimiento.js";
 import ExcelJS from "exceljs";
 import {
   SUCCESS_MESSAGES,
@@ -8,6 +9,10 @@ import {
   VALIDATION_MESSAGES,
   ERROR_CODES
 } from "../constants/messages.js";
+import {
+  sendCitaProgramadaCliente,
+  sendCitaProgramadaEmpleado
+} from "../services/email.service.js";
 
 export const getCitas = async (req, res) => {
     try {
@@ -39,6 +44,7 @@ export const getCitas = async (req, res) => {
                     modalidad: cita.modalidad,
                     estado: cita.estado,
                     observacion: cita.observacion,
+                    id_orden_servicio: cita.id_orden_servicio, // Indica si está asociada a una solicitud
                     cliente: cita.Cliente ? {
                         id_usuario: cita.Cliente.id_usuario,
                         documento: cita.Cliente.documento,
@@ -186,7 +192,8 @@ export const createCita = async (req, res) => {
                     estado: newCita.estado,
                     observacion: newCita.observacion,
                     id_cliente: newCita.id_cliente,
-                    id_empleado: newCita.id_empleado
+                    id_empleado: newCita.id_empleado,
+                    id_orden_servicio: newCita.id_orden_servicio || null // Puede ser null si no está asociada
                 }
             },
             meta: {
@@ -310,7 +317,8 @@ export const reprogramarCita = async (req, res) => {
                     tipo: cita.tipo,
                     modalidad: cita.modalidad,
                     estado: cita.estado,
-                    observacion: cita.observacion
+                    observacion: cita.observacion,
+                    id_orden_servicio: cita.id_orden_servicio || null
                 }
             },
             meta: {
@@ -364,7 +372,8 @@ export const anularCita = async (req, res) => {
                     tipo: cita.tipo,
                     modalidad: cita.modalidad,
                     estado: cita.estado,
-                    observacion: cita.observacion
+                    observacion: cita.observacion,
+                    id_orden_servicio: cita.id_orden_servicio || null
                 }
             },
             meta: {
@@ -410,6 +419,7 @@ export const descargarReporteCitas = async (req, res) => {
             { header: "Tipo", key: "tipo", width: 15 },
             { header: "Modalidad", key: "modalidad", width: 15 },
             { header: "Estado", key: "estado", width: 15 },
+            { header: "ID Solicitud", key: "id_orden_servicio", width: 15 },
             { header: "Cliente", key: "cliente", width: 25 },
             { header: "Empleado", key: "empleado", width: 25 },
             { header: "Observación", key: "observacion", width: 30 }
@@ -424,6 +434,7 @@ export const descargarReporteCitas = async (req, res) => {
                 tipo: cita.tipo,
                 modalidad: cita.modalidad,
                 estado: cita.estado,
+                id_orden_servicio: cita.id_orden_servicio || 'No asociada',
                 cliente: cita.Cliente ? `${cita.Cliente.nombre} ${cita.Cliente.apellido}` : 'No asignado',
                 empleado: cita.Empleado ? `${cita.Empleado.nombre} ${cita.Empleado.apellido}` : 'No asignado',
                 observacion: cita.observacion || ''
@@ -544,4 +555,312 @@ export const validateCreateCita = (req, res, next) => {
     }
     
     next();
+};
+
+/**
+ * POST /api/gestion-citas/desde-solicitud/:idOrdenServicio
+ * Crear cita asociada a una solicitud de servicio
+ * Solo Admin/Empleado
+ */
+export const crearCitaDesdeSolicitud = async (req, res) => {
+  const { idOrdenServicio } = req.params;
+  const { fecha, hora_inicio, hora_fin, modalidad, id_empleado, observacion } = req.body;
+
+  try {
+    console.log('📅 Creando cita desde solicitud:', { idOrdenServicio });
+
+    // 1. Validar campos requeridos
+    if (!fecha || !hora_inicio || !hora_fin || !modalidad) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Los campos fecha, hora_inicio, hora_fin y modalidad son obligatorios" 
+      });
+    }
+
+    // 2. Buscar la solicitud con todas las relaciones
+    const solicitud = await OrdenServicio.findByPk(idOrdenServicio, {
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente',
+          include: [{
+            model: User,
+            as: 'Usuario',
+            attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+          }]
+        },
+        {
+          model: Servicio,
+          as: 'servicio',
+          attributes: ['id_servicio', 'nombre']
+        },
+        {
+          model: User,
+          as: 'empleado_asignado',
+          required: false
+        }
+      ]
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Solicitud no encontrada" 
+      });
+    }
+
+    // 3. Validar que la solicitud tenga cliente válido
+    if (!solicitud.cliente || !solicitud.cliente.Usuario) {
+      return res.status(400).json({ 
+        success: false,
+        message: "La solicitud no tiene un cliente asociado válido" 
+      });
+    }
+
+    // 4. Validaciones de fecha y hora
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const requestedDate = new Date(fecha);
+    if (requestedDate < today) {
+      return res.status(400).json({ 
+        success: false,
+        message: "No se puede crear una cita en una fecha anterior a hoy" 
+      });
+    }
+
+    // 5. Validar horario de oficina (7 AM - 6 PM)
+    const startTime = new Date(`1970-01-01T${hora_inicio}`);
+    const endTime = new Date(`1970-01-01T${hora_fin}`);
+    const openingTime = new Date(`1970-01-01T07:00:00`);
+    const closingTime = new Date(`1970-01-01T18:00:00`);
+
+    if (startTime < openingTime || endTime > closingTime) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM" 
+      });
+    }
+
+    if (startTime >= endTime) {
+      return res.status(400).json({ 
+        success: false,
+        message: "La hora de inicio debe ser anterior a la hora de fin" 
+      });
+    }
+
+    // 6. Validar solapamiento de horarios
+    if (id_empleado) {
+      const existingCita = await Cita.findOne({
+        where: {
+          fecha,
+          id_empleado,
+          hora_inicio: { [Op.lt]: hora_fin },
+          hora_fin: { [Op.gt]: hora_inicio }
+        }
+      });
+
+      if (existingCita) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Ya existe una cita agendada en ese horario para el empleado seleccionado" 
+        });
+      }
+    }
+
+    // 7. Mapear nombre del servicio a tipo de cita válido
+    const tipoMap = {
+      'Búsqueda de Antecedentes': 'Busqueda',
+      'Certificación de Marca': 'Certificacion',
+      'Renovación de Marca': 'Renovacion',
+      'Presentación de Oposición': 'Oposicion',
+      'Cesión de Marca': 'Cesion',
+      'Ampliación de Alcance': 'Ampliacion',
+      'Respuesta a Oposición': 'Respuesta de oposicion'
+    };
+    const tipoCita = tipoMap[solicitud.servicio.nombre] || 'General';
+
+    // 8. Crear la cita asociada a la solicitud
+    const nuevaCita = await Cita.create({
+      fecha,
+      hora_inicio,
+      hora_fin,
+      tipo: tipoCita, // Tipo mapeado al ENUM válido
+      modalidad,
+      estado: 'Programada',
+      observacion,
+      id_cliente: solicitud.cliente.Usuario.id_usuario, // Cliente automático
+      id_empleado, // Empleado asignado por admin
+      id_orden_servicio: idOrdenServicio // ← VINCULAR CON SOLICITUD
+    });
+
+    console.log('✅ Cita creada:', nuevaCita.id_cita);
+
+    // 9. Crear seguimiento automático en la solicitud
+    await Seguimiento.create({
+      id_orden_servicio: idOrdenServicio,
+      titulo: 'Cita Programada',
+      descripcion: `Cita ${modalidad} programada para ${fecha} de ${hora_inicio} a ${hora_fin}`,
+      registrado_por: req.user.id_usuario,
+      id_usuario: req.user.id_usuario,
+      fecha_registro: new Date()
+    });
+
+    console.log('✅ Seguimiento creado');
+
+    // 10. Enviar emails de notificación
+    try {
+      // Obtener datos del empleado una sola vez si está asignado
+      let empleadoData = null;
+      if (id_empleado) {
+        const empleado = await User.findByPk(id_empleado);
+        if (empleado) {
+          empleadoData = {
+            correo: empleado.correo,
+            nombre: `${empleado.nombre} ${empleado.apellido}`
+          };
+        }
+      }
+
+      // Email al cliente
+      if (solicitud.cliente && solicitud.cliente.Usuario && solicitud.cliente.Usuario.correo) {
+        console.log('📧 Enviando email de cita al cliente:', solicitud.cliente.Usuario.correo);
+        await sendCitaProgramadaCliente(
+          solicitud.cliente.Usuario.correo,
+          `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
+          {
+            solicitud_id: idOrdenServicio,
+            servicio: solicitud.servicio.nombre,
+            fecha: fecha,
+            hora_inicio: hora_inicio,
+            hora_fin: hora_fin,
+            modalidad: modalidad,
+            empleado_nombre: empleadoData ? empleadoData.nombre : null,
+            observacion: observacion
+          }
+        );
+        console.log('✅ Email enviado al cliente');
+      } else {
+        console.log('⚠️ No se pudo obtener correo del cliente');
+      }
+
+      // Email al empleado si está asignado
+      if (empleadoData && empleadoData.correo) {
+        console.log('📧 Enviando email de cita al empleado:', empleadoData.correo);
+        await sendCitaProgramadaEmpleado(
+          empleadoData.correo,
+          empleadoData.nombre,
+          {
+            solicitud_id: idOrdenServicio,
+            servicio: solicitud.servicio.nombre,
+            cliente_nombre: `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
+            cliente_email: solicitud.cliente.Usuario.correo,
+            fecha: fecha,
+            hora_inicio: hora_inicio,
+            hora_fin: hora_fin,
+            modalidad: modalidad,
+            observacion: observacion
+          }
+        );
+        console.log('✅ Email enviado al empleado');
+      } else {
+        console.log('⚠️ No hay empleado asignado para enviar email');
+      }
+    } catch (emailError) {
+      console.error('❌ Error al enviar emails:', emailError);
+      // No fallar la operación por error de email
+    }
+
+    // 11. Retornar respuesta
+    res.status(201).json({
+      success: true,
+      message: "Cita creada y asociada a la solicitud exitosamente",
+      data: {
+        cita: {
+          id_cita: nuevaCita.id_cita,
+          fecha: nuevaCita.fecha,
+          hora_inicio: nuevaCita.hora_inicio,
+          hora_fin: nuevaCita.hora_fin,
+          modalidad: nuevaCita.modalidad,
+          estado: nuevaCita.estado
+        },
+        solicitud_id: idOrdenServicio,
+        cliente: {
+          nombre: `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
+          correo: solicitud.cliente.Usuario.correo
+        },
+        servicio: solicitud.servicio.nombre
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error al crear cita desde solicitud:', error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error al crear la cita desde la solicitud", 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * GET /api/gestion-citas/solicitud/:id
+ * Obtener todas las citas asociadas a una solicitud
+ */
+export const obtenerCitasDeSolicitud = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Buscar la solicitud
+    const solicitud = await OrdenServicio.findByPk(id, {
+      attributes: ['id_orden_servicio', 'numero_expediente']
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({
+        success: false,
+        message: "Solicitud no encontrada"
+      });
+    }
+
+    // Buscar todas las citas asociadas
+    const citas = await Cita.findAll({
+      where: { id_orden_servicio: id },
+      include: [
+        {
+          model: User,
+          as: 'Empleado',
+          attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
+        }
+      ],
+      order: [['fecha', 'DESC'], ['hora_inicio', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      solicitud_id: id,
+      numero_expediente: solicitud.numero_expediente,
+      total: citas.length,
+      citas: citas.map(cita => ({
+        id_cita: cita.id_cita,
+        fecha: cita.fecha,
+        hora_inicio: cita.hora_inicio,
+        hora_fin: cita.hora_fin,
+        modalidad: cita.modalidad,
+        estado: cita.estado,
+        observacion: cita.observacion,
+        empleado: cita.Empleado ? {
+          nombre: `${cita.Empleado.nombre} ${cita.Empleado.apellido}`,
+          correo: cita.Empleado.correo
+        } : null
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener citas de solicitud:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener citas",
+      error: error.message
+    });
+  }
 };
