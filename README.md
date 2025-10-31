@@ -22,6 +22,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 |-------|--------|---------|
 | **30 Oct 2025** | 📧 **Notificaciones Email Solicitudes de Cita** | Sistema completo de emails automáticos: solicitud creada, aprobada y rechazada. Notificaciones asíncronas que no afectan operaciones principales. |
 | **30 Oct 2025** | 📅 **Asociación de Citas con Solicitudes** | Crear citas vinculadas a solicitudes, datos automáticos, emails a cliente y empleado, seguimiento automático, reportes Excel con ID solicitud. |
+| **30 Oct 2025** | 🔧 **Corrección Relaciones Cliente-Empresa** | Fix en endpoint GET clientes: relaciones many-to-many centralizadas en associations.js, alias correctos en repositorios. |
 | **30 Oct 2025** | 🔔 **Sistema de Alertas de Renovación** | Alertas automáticas diarias para marcas próximas a vencer (5 años), emails a empleados/clientes/admins, cron diario 9AM, dashboard + Excel. |
 | **30 Oct 2025** | 📊 **Dashboard Administrativo** | 5 endpoints REST, análisis de ingresos, KPIs, alertas, reportes Excel con código de colores, gestión de procesos inactivos. |
 | **29 Oct 2025** | 💳 **Módulo de Pagos Completo** | Sistema de pagos con mock, comprobantes PDF, emails automáticos, reportes Excel. Listo para pasarela real. |

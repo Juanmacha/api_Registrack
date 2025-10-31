@@ -4,6 +4,7 @@ import Cliente from "./Cliente.js";
 import User from "./user.js";
 import Empresa from "./Empresa.js";
 import Cita from "./citas.js";
+import EmpresaCliente from "./EmpresaCliente.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -79,4 +80,19 @@ Cita.belongsTo(OrdenServicio, {
   onUpdate: 'CASCADE'
 });
 
-export { OrdenServicio, Servicio, Cliente, User, Empresa, Cita };
+// Relaciones Many-to-Many: Cliente <-> Empresa
+Cliente.belongsToMany(Empresa, {
+  through: EmpresaCliente,
+  foreignKey: "id_cliente",
+  otherKey: "id_empresa",
+  as: 'Empresas'
+});
+
+Empresa.belongsToMany(Cliente, {
+  through: EmpresaCliente,
+  foreignKey: "id_empresa",
+  otherKey: "id_cliente",
+  as: 'Clientes'
+});
+
+export { OrdenServicio, Servicio, Cliente, User, Empresa, Cita, EmpresaCliente };

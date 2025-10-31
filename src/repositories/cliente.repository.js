@@ -11,7 +11,7 @@ export const createCliente = async (clienteData) => {
 export const getAllClientes = async () => {
   return await Cliente.findAll({
     include: [
-      { model: Empresa, through: { attributes: [] } },
+      { model: Empresa, as: 'Empresas', through: { attributes: [] } },
       { model: User, as: "Usuario" }
     ]
   });
@@ -21,7 +21,7 @@ export const getAllClientes = async () => {
 export const getAllClientesAdmin = async () => {
   return await Cliente.findAll({
     include: [
-      { model: Empresa, through: { attributes: [] } },
+      { model: Empresa, as: 'Empresas', through: { attributes: [] } },
       { model: User, as: "Usuario" }
     ]
   });
@@ -31,7 +31,7 @@ export const getAllClientesAdmin = async () => {
 export const getClienteById = async (id_cliente) => {
   return await Cliente.findByPk(id_cliente, {
     include: [
-      { model: Empresa, through: { attributes: [] } },
+      { model: Empresa, as: 'Empresas', through: { attributes: [] } },
       { model: User, as: "Usuario" }
     ]
   });
@@ -41,7 +41,7 @@ export const getClienteById = async (id_cliente) => {
 export const updateCliente = async (id_cliente, updateData) => {
   const cliente = await Cliente.findByPk(id_cliente, {
     include: [
-      { model: Empresa, through: { attributes: [] } },
+      { model: Empresa, as: 'Empresas', through: { attributes: [] } },
       { model: User, as: "Usuario" }
     ]
   });
@@ -52,7 +52,7 @@ export const updateCliente = async (id_cliente, updateData) => {
   // Retornar el cliente actualizado con las relaciones
   return await Cliente.findByPk(id_cliente, {
     include: [
-      { model: Empresa, through: { attributes: [] } },
+      { model: Empresa, as: 'Empresas', through: { attributes: [] } },
       { model: User, as: "Usuario" }
     ]
   });
