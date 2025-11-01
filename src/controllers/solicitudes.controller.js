@@ -924,7 +924,7 @@ export const listarSolicitudes = async (req, res) => {
             as: 'cliente',
             include: [{ 
               model: User,
-              as: 'usuario',
+              as: 'Usuario',
               attributes: ['nombre', 'apellido', 'correo']
             }]
           },
@@ -957,7 +957,7 @@ export const listarSolicitudes = async (req, res) => {
             as: 'cliente',
             include: [{ 
               model: User,
-              as: 'usuario',
+              as: 'Usuario',
               attributes: ['nombre', 'apellido', 'correo']
             }]
           },
@@ -1109,7 +1109,7 @@ export const verDetalleSolicitud = async (req, res) => {
           as: 'cliente',
           include: [{ 
             model: User,
-            as: 'usuario',
+            as: 'Usuario',
             attributes: ['id_usuario', 'nombre', 'apellido', 'correo']
           }]
         },
@@ -1407,7 +1407,7 @@ export const asignarEmpleado = async (req, res) => {
           model: Cliente, 
           as: 'cliente',
           include: [
-            { model: User, as: 'usuario' }
+            { model: User, as: 'Usuario' }
           ]
         },
         { model: User, as: 'empleado_asignado' }
