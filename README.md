@@ -2,7 +2,7 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express-5-blue?logo=express&logoColor=white) ![Sequelize](https://img.shields.io/badge/Sequelize-6-3C76A1?logo=sequelize&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8-blue?logo=mysql&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-Auth-black?logo=jsonwebtokens) ![License](https://img.shields.io/badge/License-ISC-green)
 
-> **🚀 Última Actualización:** 30 de Octubre de 2025
+> **🚀 Última Actualización:** 1 de Noviembre de 2025
 > 
 > **✅ Estado:** Producción Ready (96%)
 > 
@@ -20,6 +20,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **1 Nov 2025** | 📊 **Documentación Seguimiento Completa** | Documentación completa del sistema de seguimiento con 7 endpoints, ejemplos Postman, asociaciones corregidas, respuestas JSON actualizadas. |
 | **30 Oct 2025** | 📧 **Notificaciones Email Solicitudes de Cita** | Sistema completo de emails automáticos: solicitud creada, aprobada y rechazada. Notificaciones asíncronas que no afectan operaciones principales. |
 | **30 Oct 2025** | 📅 **Asociación de Citas con Solicitudes** | Crear citas vinculadas a solicitudes, datos automáticos, emails a cliente y empleado, seguimiento automático, reportes Excel con ID solicitud. |
 | **30 Oct 2025** | 🔧 **Corrección Relaciones Cliente-Empresa** | Fix en endpoint GET clientes: relaciones many-to-many centralizadas en associations.js, alias correctos en repositorios. |
@@ -792,15 +793,17 @@ Content-Type: application/json
 **Respuesta:**
 ```json
 {
-  "success": true,
-  "mensaje": "Seguimiento creado exitosamente",
-  "data": {
+  "mensaje": "Registro de seguimiento creado exitosamente.",
+  "seguimiento": {
     "id_seguimiento": 456,
     "id_orden_servicio": 123,
     "titulo": "Avance en el proceso",
     "descripcion": "Se han recibido todos los documentos necesarios",
+    "documentos_adjuntos": "documentos.pdf",
     "fecha_registro": "2024-01-15T11:00:00.000Z",
     "registrado_por": 1,
+    "nuevo_estado": "Verificación de Documentos",
+    "estado_anterior": "Solicitud Inicial",
     "cambio_proceso": {
       "proceso_anterior": "Solicitud Inicial",
       "nuevo_proceso": "Verificación de Documentos",
@@ -823,6 +826,121 @@ MODIFY COLUMN estado VARCHAR(100) NOT NULL DEFAULT 'Pendiente';
 ALTER TABLE seguimientos 
 ADD COLUMN nuevo_estado VARCHAR(100) NULL,
 ADD COLUMN estado_anterior VARCHAR(100) NULL;
+```
+
+### Ejemplos de Uso de Seguimiento
+
+#### 4. Ver Historial de Seguimiento
+```http
+GET /api/seguimiento/historial/123
+Authorization: Bearer <token_admin>
+```
+
+**Respuesta:**
+```json
+[
+  {
+    "id_seguimiento": 1,
+    "id_orden_servicio": 123,
+    "titulo": "Solicitud creada",
+    "descripcion": "Solicitud de registro de marca creada por el cliente",
+    "documentos_adjuntos": null,
+    "fecha_registro": "2024-01-15T08:00:00.000Z",
+    "registrado_por": 2,
+    "usuario_registro": {
+      "nombre": "Admin",
+      "apellido": "Usuario",
+      "correo": "admin@registrack.com"
+    }
+  },
+  {
+    "id_seguimiento": 2,
+    "id_orden_servicio": 123,
+    "titulo": "Documentos recibidos",
+    "descripcion": "Se recibió toda la documentación requerida",
+    "documentos_adjuntos": "https://ejemplo.com/docs/comprobante.pdf",
+    "fecha_registro": "2024-01-16T10:30:00.000Z",
+    "registrado_por": 1,
+    "usuario_registro": {
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "correo": "juan@ejemplo.com"
+    },
+    "nuevo_estado": "Verificación de Documentos",
+    "estado_anterior": null
+  }
+]
+```
+
+#### 5. Crear Seguimiento Sin Cambio de Estado
+```http
+POST /api/seguimiento/crear
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+
+{
+  "id_orden_servicio": 123,
+  "titulo": "Documentos recibidos",
+  "descripcion": "Se recibió toda la documentación requerida para el trámite",
+  "documentos_adjuntos": "https://ejemplo.com/docs/comprobante.pdf,https://ejemplo.com/docs/poder.pdf"
+}
+```
+
+#### 6. Ver Estados Disponibles de una Solicitud
+```http
+GET /api/seguimiento/123/estados-disponibles
+Authorization: Bearer <token_admin>
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": {
+    "orden_servicio_id": 123,
+    "servicio": "Registro de Marca",
+    "estado_actual": "Verificación de Documentos",
+    "estados_disponibles": [
+      {
+        "id": 1,
+        "nombre": "Verificación de Documentos",
+        "descripcion": "Documentos en revisión",
+        "order_number": 1,
+        "status_key": "verificacion"
+      },
+      {
+        "id": 2,
+        "nombre": "Publicación en Gaceta",
+        "descripcion": "Esperando publicación oficial",
+        "order_number": 2,
+        "status_key": "publicacion"
+      }
+    ]
+  }
+}
+```
+
+#### 7. Buscar Seguimientos por Título
+```http
+GET /api/seguimiento/buscar/123?titulo=Documentos
+Authorization: Bearer <token_admin>
+```
+
+**Respuesta:**
+```json
+[
+  {
+    "id_seguimiento": 2,
+    "titulo": "Documentos recibidos",
+    "descripcion": "Se recibió toda la documentación requerida",
+    "fecha_registro": "2024-01-16T10:30:00.000Z",
+    "usuario_registro": {
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "correo": "juan@ejemplo.com"
+    }
+  }
+]
 ```
 
 ### Ventajas del Sistema
@@ -887,11 +1005,24 @@ ADD COLUMN estado_anterior VARCHAR(100) NULL;
 - `PUT /api/gestion-citas/:id/anular` - Anular cita
 - `GET /api/gestion-citas/reporte/excel` - Reporte Excel con ID Solicitud
 
-### 5. Seguimiento de Procesos (`/api/seguimiento`)
-- Historial detallado por orden de servicio
-- Documentos adjuntos
-- Comentarios y observaciones
-- Búsqueda por título
+### 5. Seguimiento de Procesos (`/api/seguimiento`) ⭐ **ACTUALIZADO**
+- **Historial detallado**: Ver todos los seguimientos de una solicitud
+- **Cambio de estados**: Avanzar el proceso de una solicitud automáticamente
+- **Documentos adjuntos**: URLs de comprobantes y archivos
+- **Comentarios y observaciones**: Notas del personal
+- **Búsqueda por título**: Filtrar seguimientos específicos
+- **Estados disponibles**: Ver qué estados puede tener una solicitud según el servicio
+- **Notificaciones automáticas**: Email al cliente cuando cambia el estado
+- **Traza de usuario**: Quién creó cada seguimiento
+
+**Funcionalidades:**
+- `GET /api/seguimiento/historial/:idOrdenServicio` - Ver historial completo
+- `GET /api/seguimiento/:idOrdenServicio/estados-disponibles` - Ver estados permitidos
+- `POST /api/seguimiento/crear` - Crear seguimiento (con o sin cambio de estado)
+- `GET /api/seguimiento/:id` - Ver seguimiento específico
+- `PUT /api/seguimiento/:id` - Actualizar seguimiento
+- `DELETE /api/seguimiento/:id` - Eliminar seguimiento
+- `GET /api/seguimiento/buscar/:idOrdenServicio?titulo=` - Buscar por título
 
 ### 6. Gestión de Archivos (`/api/archivos`)
 - Subida de archivos con categorización
@@ -999,13 +1130,15 @@ PUT /api/gestion-citas/:id/anular              # Anular cita
 GET /api/gestion-citas/reporte/excel           # Reporte Excel (incluye ID Solicitud)
 ```
 
-### Seguimiento
+### Seguimiento ⭐ **ACTUALIZADO**
 ```http
-GET /api/seguimiento/historial/:idOrdenServicio
-POST /api/seguimiento/crear
-GET /api/seguimiento/:id
-PUT /api/seguimiento/:id
-DELETE /api/seguimiento/:id
+GET /api/seguimiento/historial/:idOrdenServicio        # Historial completo
+GET /api/seguimiento/:idOrdenServicio/estados-disponibles  # Estados permitidos
+POST /api/seguimiento/crear                           # Crear seguimiento
+GET /api/seguimiento/:id                              # Ver seguimiento específico
+PUT /api/seguimiento/:id                              # Actualizar seguimiento
+DELETE /api/seguimiento/:id                           # Eliminar seguimiento
+GET /api/seguimiento/buscar/:idOrdenServicio?titulo=  # Buscar por título
 ```
 
 ### Archivos
@@ -1156,12 +1289,16 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - `tipodeentidadrazonsocial`, `nombredelaempresa`, `nit`
 - `poderdelrepresentanteautorizado`, `poderparaelregistrodelamarca`
 
-### Seguimiento (`/api/seguimiento`) [auth, admin/empleado]
-- **GET /historial/:idOrdenServicio**: Historial por orden
+### Seguimiento (`/api/seguimiento`) [auth, admin/empleado] ⭐ **ACTUALIZADO**
+- **GET /historial/:idOrdenServicio**: Historial por orden con datos de usuario
+- **GET /:idOrdenServicio/estados-disponibles**: Ver estados permitidos por servicio
 - **POST /crear**: Crear seguimiento
   - Body requerido: `id_orden_servicio`, `titulo` (≤200 chars), `descripcion`
-  - Opcional: `documentos_adjuntos` (objeto o string JSON)
-- **GET /:id**: Obtener seguimiento por ID
+  - Opcional: `documentos_adjuntos` (string con URLs separadas por comas)
+  - Opcional: `nuevo_proceso` (nombre del nuevo estado - cambia el estado de la solicitud)
+  - Opcional: `observaciones`
+  - **Nota**: Si incluyes `nuevo_proceso`, se enviará email automático al cliente
+- **GET /:id**: Obtener seguimiento por ID con datos de orden y usuario
 - **PUT /:id**: Actualizar (al menos uno: `titulo`, `descripcion`, `documentos_adjuntos`)
 - **DELETE /:id**: Eliminar seguimiento
 - **GET /buscar/:idOrdenServicio?titulo=**: Buscar por título (query requerido)

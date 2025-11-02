@@ -663,21 +663,21 @@ export const crearSolicitud = async (req, res) => {
     }
     
     // Asociar cliente con empresa si no están asociados
-    const asociacionExistente = await EmpresaCliente.findOne({
-      where: {
-        id_cliente: cliente.id_cliente,
-        id_empresa: empresa.id_empresa
-      }
-    });
-    
-    if (!asociacionExistente) {
-      await EmpresaCliente.create({
-        id_cliente: cliente.id_cliente,
-        id_empresa: empresa.id_empresa
+      const asociacionExistente = await EmpresaCliente.findOne({
+        where: {
+          id_cliente: cliente.id_cliente,
+          id_empresa: empresa.id_empresa
+        }
       });
-      console.log('✅ Asociación cliente-empresa creada');
+      
+      if (!asociacionExistente) {
+        await EmpresaCliente.create({
+          id_cliente: cliente.id_cliente,
+          id_empresa: empresa.id_empresa
+        });
+        console.log('✅ Asociación cliente-empresa creada');
     } else {
-      console.log('✅ Asociación cliente-empresa ya existe');
+        console.log('✅ Asociación cliente-empresa ya existe');
     }
 
     // 🚀 MAPEAR CAMPOS DEL FORMULARIO A COLUMNAS DE LA BD

@@ -5,6 +5,7 @@ import User from "./user.js";
 import Empresa from "./Empresa.js";
 import Cita from "./citas.js";
 import EmpresaCliente from "./EmpresaCliente.js";
+import Seguimiento from "./Seguimiento.js";
 
 // Definir relaciones
 OrdenServicio.belongsTo(Servicio, {
@@ -95,4 +96,25 @@ Empresa.belongsToMany(Cliente, {
   as: 'Clientes'
 });
 
-export { OrdenServicio, Servicio, Cliente, User, Empresa, Cita, EmpresaCliente };
+// Relaciones Seguimiento
+Seguimiento.belongsTo(OrdenServicio, {
+  foreignKey: 'id_orden_servicio',
+  as: 'orden_servicio'
+});
+
+Seguimiento.belongsTo(User, {
+  foreignKey: 'registrado_por',
+  as: 'usuario_registro'
+});
+
+OrdenServicio.hasMany(Seguimiento, {
+  foreignKey: 'id_orden_servicio',
+  as: 'seguimientos'
+});
+
+User.hasMany(Seguimiento, {
+  foreignKey: 'registrado_por',
+  as: 'seguimientos_registrados'
+});
+
+export { OrdenServicio, Servicio, Cliente, User, Empresa, Cita, EmpresaCliente, Seguimiento };

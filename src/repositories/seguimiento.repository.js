@@ -14,7 +14,7 @@ export class SeguimientoRepository {
         {
           model: User,
           as: "usuario_registro",
-          attributes: ["nombre", "apellido", "email"],
+          attributes: ["nombre", "apellido", "correo"],
         },
       ],
       order: [["fecha_registro", "DESC"]],
@@ -33,7 +33,7 @@ export class SeguimientoRepository {
         {
           model: User,
           as: "usuario_registro",
-          attributes: ["nombre", "apellido", "email"],
+          attributes: ["nombre", "apellido", "correo"],
         },
         {
           model: OrdenServicio,
@@ -77,7 +77,7 @@ export class SeguimientoRepository {
         {
           model: User,
           as: "usuario_registro",
-          attributes: ["nombre", "apellido", "email"],
+          attributes: ["nombre", "apellido", "correo"],
         },
       ],
       order: [["fecha_registro", "DESC"]],
