@@ -1,11 +1,13 @@
 import SolicitudCita from "../models/solicitud_cita.js";
 import User from "../models/user.js";
 import Cita from "../models/citas.js"; // Importar Cita
+import Empleado from "../models/Empleado.js"; // Importar Empleado para validaciones
 import { Op } from "sequelize";
 import {
   sendSolicitudCitaCreada,
   sendSolicitudCitaAprobada,
-  sendSolicitudCitaRechazada
+  sendSolicitudCitaRechazada,
+  sendCitaProgramadaEmpleado
 } from "../services/email.service.js";
 
 // Cliente: Crear una nueva solicitud de cita
@@ -132,11 +134,25 @@ export const gestionarSolicitud = async (req, res) => {
                 return res.status(400).json({ message: "Para aprobar una cita, se requiere 'id_empleado_asignado' y 'hora_fin'." });
             }
 
-            // Re-validar solapamiento antes de crear la cita
+            // ✅ VALIDAR que el id_empleado_asignado corresponda a un empleado válido
+            const empleado = await Empleado.findByPk(id_empleado_asignado, {
+                include: [{ model: User, as: 'usuario' }]
+            });
+
+            if (!empleado || !empleado.usuario || !empleado.usuario.estado) {
+                return res.status(400).json({ 
+                    message: "El empleado asignado no es válido o está inactivo" 
+                });
+            }
+
+            // Convertir id_empleado a id_usuario del empleado
+            const id_usuario_empleado = empleado.id_usuario;
+
+            // Re-validar solapamiento antes de crear la cita (usando id_usuario)
             const existingCita = await Cita.findOne({
                 where: {
                     fecha: solicitud.fecha_solicitada,
-                    id_empleado: id_empleado_asignado,
+                    id_empleado: id_usuario_empleado, // ✅ Usar id_usuario
                     hora_inicio: { [Op.lt]: hora_fin },
                     hora_fin: { [Op.gt]: solicitud.hora_solicitada }
                 }
@@ -154,21 +170,21 @@ export const gestionarSolicitud = async (req, res) => {
                 modalidad: solicitud.modalidad,
                 estado: 'Programada',
                 id_cliente: solicitud.id_cliente,
-                id_empleado: id_empleado_asignado,
+                id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario
                 observacion: solicitud.descripcion
             });
             
-            solicitud.id_empleado_asignado = id_empleado_asignado;
+            solicitud.id_empleado_asignado = id_usuario_empleado; // ✅ Guardar id_usuario
             await solicitud.save();
 
-            // Enviar email de aprobación al cliente
+            // Enviar emails de aprobación
             try {
+                // Email al cliente
                 if (solicitud.cliente && solicitud.cliente.correo) {
-                    // Obtener nombre del empleado
-                    const empleado = await User.findByPk(id_empleado_asignado);
-                    const empleadoNombre = empleado ? `${empleado.nombre} ${empleado.apellido}` : null;
+                    // Obtener nombre del empleado (ya lo tenemos cargado)
+                    const empleadoNombre = `${empleado.usuario.nombre} ${empleado.usuario.apellido}`;
 
-                    console.log('📧 Enviando email de aprobación:', solicitud.cliente.correo);
+                    console.log('📧 Enviando email de aprobación al cliente:', solicitud.cliente.correo);
                     await sendSolicitudCitaAprobada(
                         solicitud.cliente.correo,
                         `${solicitud.cliente.nombre} ${solicitud.cliente.apellido}`,
@@ -183,10 +199,31 @@ export const gestionarSolicitud = async (req, res) => {
                             observacion_admin: observacion_admin || null
                         }
                     );
-                    console.log('✅ Email de aprobación enviado');
+                    console.log('✅ Email de aprobación enviado al cliente');
+                }
+
+                // Email al empleado
+                if (empleado && empleado.usuario && empleado.usuario.correo) {
+                    console.log('📧 Enviando email de cita asignada al empleado:', empleado.usuario.correo);
+                    await sendCitaProgramadaEmpleado(
+                        empleado.usuario.correo,
+                        empleado.usuario.nombre,
+                        {
+                            solicitud_id: null,
+                            servicio: solicitud.tipo,
+                            cliente_nombre: `${solicitud.cliente.nombre} ${solicitud.cliente.apellido}`,
+                            cliente_email: solicitud.cliente.correo,
+                            fecha: solicitud.fecha_solicitada,
+                            hora_inicio: solicitud.hora_solicitada,
+                            hora_fin: hora_fin,
+                            modalidad: solicitud.modalidad,
+                            observacion: observacion_admin || null
+                        }
+                    );
+                    console.log('✅ Email enviado al empleado');
                 }
             } catch (emailError) {
-                console.error('❌ Error al enviar email de aprobación:', emailError);
+                console.error('❌ Error al enviar emails:', emailError);
                 // No fallar la operación por error de email
             }
 

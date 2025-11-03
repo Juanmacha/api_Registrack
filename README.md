@@ -2,11 +2,11 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express-5-blue?logo=express&logoColor=white) ![Sequelize](https://img.shields.io/badge/Sequelize-6-3C76A1?logo=sequelize&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8-blue?logo=mysql&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-Auth-black?logo=jsonwebtokens) ![License](https://img.shields.io/badge/License-ISC-green)
 
-> **🚀 Última Actualización:** 1 de Noviembre de 2025
+> **🚀 Última Actualización:** 3 de Noviembre de 2025
 > 
 > **✅ Estado:** Producción Ready (96%)
 > 
-> **🔥 Nuevo:** Asociación de Citas con Solicitudes + Sistema de Alertas de Renovación + Dashboard + Pagos + Notificaciones Email Solicitudes de Cita - Citas vinculadas, datos automáticos, emails, seguimiento, reportes Excel, alertas diarias, KPIs, analíticas, emails automáticos para solicitudes de cita.
+> **🔥 Nuevo:** Emails al Empleado en Citas + Validaciones Unificadas de Tipos de Citas + Corrección URLs - Notificaciones completas (cliente y empleado), tipos consistentes, documentación actualizada.
 
 ---
 
@@ -16,10 +16,13 @@
 
 Plataforma REST completa para la gestión integral de servicios de registro de marcas, propiedad intelectual y procesos legales. Sistema con roles diferenciados (Clientes, Empleados, Administradores), formularios dinámicos por servicio, notificaciones automáticas por email y seguimiento completo de procesos.
 
-### 🔥 Últimas Mejoras (Octubre 2025)
+### 🔥 Últimas Mejoras (Octubre-Noviembre 2025)
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **3 Nov 2025** | 📧 **Emails al Empleado en Citas** | Notificaciones automáticas al empleado cuando se crea una cita directa o se aprueba una solicitud de cita. Emails a cliente y empleado en todos los casos. |
+| **3 Nov 2025** | ✅ **Corrección Validaciones de Citas** | Unificación de tipos permitidos para citas: `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`. Corregidas inconsistencias entre middleware y modelo. |
+| **3 Nov 2025** | 🔧 **Corrección URL Solicitud de Cita** | Actualizada ruta correcta: `/api/gestion-solicitud-cita` (antes `/api/solicitud-cita`). Documentación Postman actualizada. |
 | **1 Nov 2025** | 📊 **Documentación Seguimiento Completa** | Documentación completa del sistema de seguimiento con 7 endpoints, ejemplos Postman, asociaciones corregidas, respuestas JSON actualizadas. |
 | **30 Oct 2025** | 📧 **Notificaciones Email Solicitudes de Cita** | Sistema completo de emails automáticos: solicitud creada, aprobada y rechazada. Notificaciones asíncronas que no afectan operaciones principales. |
 | **30 Oct 2025** | 📅 **Asociación de Citas con Solicitudes** | Crear citas vinculadas a solicitudes, datos automáticos, emails a cliente y empleado, seguimiento automático, reportes Excel con ID solicitud. |
@@ -45,7 +48,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 - **99+ endpoints** documentados y funcionales
 - **17 módulos** principales completamente implementados
 - **7 tipos de servicios** configurados con formularios dinámicos y precios
-- **12 tipos de notificaciones** por email automáticas (solicitudes, citas, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita)
+- **14 tipos de notificaciones** por email automáticas (solicitudes, citas directas, citas desde solicitudes, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita - cliente y empleado)
 - **3 roles de usuario** con permisos granulares
 - **100% cobertura** de funcionalidades documentadas
 - **Sistema de pagos** con mock integrado + Dashboard administrativo + Alertas automáticas + Asociación de citas
@@ -984,13 +987,14 @@ Authorization: Bearer <token_admin>
 - **Manejo de errores mejorado** con mensajes descriptivos
 - **Compatibilidad MySQL** optimizada (LIKE en lugar de ILIKE)
 
-### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - 30 Oct 2025**
+### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - 3 Nov 2025**
 - **Citas independientes**: Crear citas generales sin asociar a solicitud
 - **Citas asociadas**: Vincular citas con solicitudes de servicio existentes
 - **Datos automáticos**: Cliente y tipo de servicio se toman automáticamente
-- **Emails automáticos**: Notificación a cliente y empleado asignado
+- **Emails automáticos**: Notificación a cliente y empleado asignado (en citas directas y desde solicitudes)
 - **Validación de horarios**: Verificación de disponibilidad y solapamiento
 - **Reportes en Excel**: Incluye columna "ID Solicitud" para trazabilidad
+- **Tipos unificados**: Validación consistente de tipos permitidos (`General`, `Busqueda`, `Ampliacion`, etc.)
 
 **Nuevas Funcionalidades:**
 - `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
@@ -1327,6 +1331,16 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - Horario entre 07:00:00 y 18:00:00
 - `hora_inicio` < `hora_fin`
 - No puede traslapar con otra cita del mismo empleado (mismo día, ventana horaria)
+
+**Tipos permitidos para `tipo`:** `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`
+
+**Modalidades permitidas:** `Virtual`, `Presencial`
+
+**Estados permitidos:** `Programada`, `Reprogramada`, `Anulada`
+
+**📧 Notificaciones automáticas:**
+- Al crear una cita directa: Email al cliente y al empleado asignado
+- Al aprobar una solicitud de cita: Email de aprobación al cliente y notificación al empleado asignado
 
 **Otros endpoints de citas:**
 - **PUT /:id/reprogramar**: Reprogramar cita (mismos formatos y reglas que creación)

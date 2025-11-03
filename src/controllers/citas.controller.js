@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import { Cita, OrdenServicio, Cliente, Servicio } from "../models/associations.js";
 import User from "../models/user.js";
+import Empleado from "../models/Empleado.js"; // Importar Empleado para validaciones
 import Seguimiento from "../models/Seguimiento.js";
 import ExcelJS from "exceljs";
 import {
@@ -99,6 +100,20 @@ export const createCita = async (req, res) => {
         });
     }
 
+    // ✅ VALIDAR que id_empleado corresponda a un empleado válido
+    const empleado = await Empleado.findByPk(id_empleado, {
+        include: [{ model: User, as: 'usuario' }]
+    });
+
+    if (!empleado || !empleado.usuario || !empleado.usuario.estado) {
+        return res.status(400).json({ 
+            message: "El empleado no es válido o está inactivo" 
+        });
+    }
+
+    // Convertir id_empleado a id_usuario del empleado
+    const id_usuario_empleado = empleado.id_usuario;
+
     // Date format validation
     const dateFormat = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateFormat.test(fecha)) {
@@ -145,12 +160,12 @@ export const createCita = async (req, res) => {
             return res.status(400).json({ message: "La hora de inicio debe ser anterior a la hora de fin." });
         }
 
-        // 4. Overlap Validation
+        // 4. Overlap Validation (usando id_usuario_empleado)
         console.log("Checking for existing appointments with overlap...");
         const existingCita = await Cita.findOne({
             where: {
                 fecha,
-                id_empleado,
+                id_empleado: id_usuario_empleado, // ✅ Usar id_usuario
                 hora_inicio: {
                     [Op.lt]: hora_fin
                 },
@@ -175,9 +190,61 @@ export const createCita = async (req, res) => {
             modalidad,
             estado,
             id_cliente,
-            id_empleado,
+            id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario
             observacion
         });
+
+        // 📧 Enviar emails de confirmación
+        try {
+            // Obtener datos del cliente y empleado
+            const cliente = await User.findByPk(id_cliente);
+            const empleadoUser = await User.findByPk(id_usuario_empleado);
+
+            // Email al cliente
+            if (cliente && cliente.correo) {
+                console.log('📧 Enviando email de cita al cliente:', cliente.correo);
+                await sendCitaProgramadaCliente(
+                    cliente.correo,
+                    `${cliente.nombre} ${cliente.apellido}`,
+                    {
+                        solicitud_id: null,
+                        servicio: tipo,
+                        fecha: fecha,
+                        hora_inicio: hora_inicio,
+                        hora_fin: hora_fin,
+                        modalidad: modalidad,
+                        empleado_nombre: empleadoUser ? `${empleadoUser.nombre} ${empleadoUser.apellido}` : null,
+                        observacion: observacion
+                    }
+                );
+                console.log('✅ Email enviado al cliente');
+            }
+
+            // Email al empleado
+            if (empleadoUser && empleadoUser.correo) {
+                console.log('📧 Enviando email de cita al empleado:', empleadoUser.correo);
+                await sendCitaProgramadaEmpleado(
+                    empleadoUser.correo,
+                    empleadoUser.nombre,
+                    {
+                        solicitud_id: null,
+                        servicio: tipo,
+                        cliente_nombre: `${cliente.nombre} ${cliente.apellido}`,
+                        cliente_email: cliente.correo,
+                        fecha: fecha,
+                        hora_inicio: hora_inicio,
+                        hora_fin: hora_fin,
+                        modalidad: modalidad,
+                        observacion: observacion
+                    }
+                );
+                console.log('✅ Email enviado al empleado');
+            }
+        } catch (emailError) {
+            console.error('❌ Error al enviar emails:', emailError);
+            // No fallar la operación por error de email
+        }
+
         res.status(201).json({
             success: true,
             message: SUCCESS_MESSAGES.APPOINTMENT_CREATED,
@@ -206,6 +273,7 @@ export const createCita = async (req, res) => {
             }
         });
     } catch (error) {
+        console.error("❌ Error al crear cita:", error);
         if (error.name === 'SequelizeValidationError') {
             const messages = error.errors.map(err => {
                 let customMessage = `Error en el campo '${err.path}': ${err.message}`;
@@ -501,8 +569,8 @@ export const validateCreateCita = (req, res, next) => {
         });
     }
     
-    // Validar tipos permitidos
-    const tiposPermitidos = ['Consulta', 'Seguimiento', 'Reunión', 'Presentación'];
+    // Validar tipos permitidos (alineado con el modelo de BD)
+    const tiposPermitidos = ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'];
     if (!tiposPermitidos.includes(tipo)) {
         return res.status(400).json({
             success: false,
@@ -515,8 +583,8 @@ export const validateCreateCita = (req, res, next) => {
         });
     }
     
-    // Validar modalidades permitidas
-    const modalidadesPermitidas = ['Presencial', 'Virtual', 'Híbrida'];
+    // Validar modalidades permitidas (alineado con el modelo de BD)
+    const modalidadesPermitidas = ['Presencial', 'Virtual'];
     if (!modalidadesPermitidas.includes(modalidad)) {
         return res.status(400).json({
             success: false,
@@ -648,12 +716,30 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
       });
     }
 
-    // 6. Validar solapamiento de horarios
+    // ✅ VALIDAR que id_empleado corresponda a un empleado válido
+    let id_usuario_empleado = null;
     if (id_empleado) {
+      const empleado = await Empleado.findByPk(id_empleado, {
+        include: [{ model: User, as: 'usuario' }]
+      });
+
+      if (!empleado || !empleado.usuario || !empleado.usuario.estado) {
+        return res.status(400).json({ 
+          success: false,
+          message: "El empleado no es válido o está inactivo" 
+        });
+      }
+
+      // Convertir id_empleado a id_usuario del empleado
+      id_usuario_empleado = empleado.id_usuario;
+    }
+
+    // 6. Validar solapamiento de horarios (usando id_usuario_empleado)
+    if (id_usuario_empleado) {
       const existingCita = await Cita.findOne({
         where: {
           fecha,
-          id_empleado,
+          id_empleado: id_usuario_empleado, // ✅ Usar id_usuario
           hora_inicio: { [Op.lt]: hora_fin },
           hora_fin: { [Op.gt]: hora_inicio }
         }
@@ -689,7 +775,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
       estado: 'Programada',
       observacion,
       id_cliente: solicitud.cliente.Usuario.id_usuario, // Cliente automático
-      id_empleado, // Empleado asignado por admin
+      id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario del empleado
       id_orden_servicio: idOrdenServicio // ← VINCULAR CON SOLICITUD
     });
 
@@ -711,12 +797,12 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
     try {
       // Obtener datos del empleado una sola vez si está asignado
       let empleadoData = null;
-      if (id_empleado) {
-        const empleado = await User.findByPk(id_empleado);
-        if (empleado) {
+      if (id_usuario_empleado) {
+        const empleadoUser = await User.findByPk(id_usuario_empleado);
+        if (empleadoUser) {
           empleadoData = {
-            correo: empleado.correo,
-            nombre: `${empleado.nombre} ${empleado.apellido}`
+            correo: empleadoUser.correo,
+            nombre: `${empleadoUser.nombre} ${empleadoUser.apellido}`
           };
         }
       }

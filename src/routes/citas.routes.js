@@ -33,8 +33,8 @@ router.post("/",
     observacion: 'string'
   }),
   validateAllowedValues({
-    tipo: ['Consulta', 'Seguimiento', 'Reunión', 'Presentación'],
-    modalidad: ['Presencial', 'Virtual', 'Híbrida']
+    tipo: ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'],
+    modalidad: ['Presencial', 'Virtual']
   }),
   validateCreateCita,
   createCita

@@ -1424,8 +1424,8 @@ export const asignarEmpleado = async (req, res) => {
     // Verificar si ya tiene empleado asignado
     const empleadoAnterior = solicitud.empleado_asignado;
 
-    // Actualizar empleado asignado
-    await solicitud.update({ id_empleado_asignado: id_empleado });
+    // Actualizar empleado asignado (guardar id_usuario del empleado, no id_empleado)
+    await solicitud.update({ id_empleado_asignado: empleado.id_usuario });
 
     // Enviar emails
     try {
@@ -1463,7 +1463,7 @@ export const asignarEmpleado = async (req, res) => {
       );
 
       // Si había un empleado anterior, notificarle sobre el cambio
-      if (empleadoAnterior && empleadoAnterior.id_usuario !== id_empleado) {
+      if (empleadoAnterior && empleadoAnterior.id_usuario !== empleado.id_usuario) {
         await sendReasignacionEmpleado(
           empleadoAnterior.correo,
           `${empleadoAnterior.nombre} ${empleadoAnterior.apellido}`,
