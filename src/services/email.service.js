@@ -6,13 +6,47 @@ dotenv.config();
 // ---------------------------
 // CONFIGURACIÓN DE NODEMAILER
 // ---------------------------
+// Validar variables de entorno
+const emailUser = process.env.EMAIL_USER;
+const emailPass = process.env.EMAIL_PASS;
+
+if (!emailUser || !emailPass) {
+  console.error('❌ ERROR: Variables de entorno EMAIL_USER o EMAIL_PASS no están definidas');
+  console.error('   Por favor, verifica tu archivo .env');
+}
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER, // correo desde el .env
-    pass: process.env.EMAIL_PASS, // contraseña de aplicación
+    user: emailUser, // correo desde el .env
+    pass: emailPass, // contraseña de aplicación
   },
 });
+
+// Verificar conexión del transporter al inicializar
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ Error verificando configuración de email:', error.message);
+    console.error('   Por favor, verifica:');
+    console.error('   1. Que EMAIL_USER y EMAIL_PASS estén correctamente definidos en .env');
+    console.error('   2. Que uses una contraseña de aplicación de Gmail (no tu contraseña normal)');
+    console.error('   3. Que tengas 2FA habilitado en tu cuenta de Gmail');
+    console.error('   4. Que la contraseña de aplicación no haya expirado');
+  } else {
+    console.log('✅ Configuración de email verificada correctamente');
+    console.log(`   Email remitente: ${emailUser}`);
+  }
+});
+
+// ---------------------------
+// FUNCIÓN AUXILIAR PARA VALIDAR EMAIL
+// ---------------------------
+// Función auxiliar para validar email
+const isValidEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
+};
 
 // ---------------------------
 // FUNCIÓN PARA GENERAR CÓDIGO
@@ -34,9 +68,20 @@ export function generateResetCode(length = 6) {
 // FUNCIÓN PARA ENVIAR EL CORREO AL USUARIO
 // --------------------------------------
 export const sendPasswordResetEmail = async (to, resetCode, userName) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(to)) {
+    console.error(`❌ Email inválido para recuperación de contraseña: ${to}`);
+    throw new Error(`Email inválido: ${to}`);
+  }
+
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   // Configurar el contenido del correo
   const mailOptions = {
-    from: `"Soporte Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Soporte Registrack" <${emailUser}>`,
     to,
     subject: "Código de verificación para restablecer tu contraseña",
     html: `
@@ -80,10 +125,11 @@ export const sendPasswordResetEmail = async (to, resetCode, userName) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Código de restablecimiento enviado a: ${to}`);
+    console.log(`✅ Código de restablecimiento enviado a: ${to}`);
     return resetCode; // lo devuelves para guardarlo en la BD
   } catch (error) {
-    console.error(`Error al enviar el correo a ${to}:`, error);
+    console.error(`❌ Error al enviar el correo a ${to}:`, error.message);
+    console.error(`   Código de error: ${error.code}`);
     throw new Error("No se pudo enviar el correo de restablecimiento.");
   }
 };
@@ -127,8 +173,20 @@ function validateResetCode(inputCode, savedCode, expiresAt) {
 
 // Template para nueva solicitud (cliente)
 export const sendNuevaSolicitudCliente = async (clienteEmail, clienteNombre, solicitudData) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(clienteEmail)) {
+    console.error(`❌ Email inválido para enviar a cliente: ${clienteEmail}`);
+    throw new Error(`Email inválido: ${clienteEmail}`);
+  }
+
+  // Validar que EMAIL_USER esté definido
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "✅ Solicitud Creada Exitosamente - Registrack",
     html: `
@@ -173,15 +231,28 @@ export const sendNuevaSolicitudCliente = async (clienteEmail, clienteNombre, sol
     console.log(`✅ Email de nueva solicitud enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
-    console.error(`❌ Error al enviar email a cliente ${clienteEmail}:`, error);
+    console.error(`❌ Error al enviar email a cliente ${clienteEmail}:`, error.message);
+    console.error(`   Código de error: ${error.code}`);
+    console.error(`   Detalles completos:`, error);
     throw error;
   }
 };
 
 // Template para notificar asignación al cliente
 export const sendAsignacionCliente = async (clienteEmail, clienteNombre, solicitudData) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(clienteEmail)) {
+    console.error(`❌ Email inválido para enviar asignación a cliente: ${clienteEmail}`);
+    throw new Error(`Email inválido: ${clienteEmail}`);
+  }
+
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "👤 Empleado Asignado a tu Solicitud - Registrack",
     html: `
@@ -219,15 +290,27 @@ export const sendAsignacionCliente = async (clienteEmail, clienteNombre, solicit
     console.log(`✅ Email de asignación enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
-    console.error(`❌ Error al enviar email de asignación a cliente ${clienteEmail}:`, error);
+    console.error(`❌ Error al enviar email de asignación a cliente ${clienteEmail}:`, error.message);
+    console.error(`   Código de error: ${error.code}`);
     throw error;
   }
 };
 
 // Template para nueva asignación (empleado)
 export const sendNuevaAsignacionEmpleado = async (empleadoEmail, empleadoNombre, solicitudData) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(empleadoEmail)) {
+    console.error(`❌ Email inválido para enviar asignación a empleado: ${empleadoEmail}`);
+    throw new Error(`Email inválido: ${empleadoEmail}`);
+  }
+
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: empleadoEmail,
     subject: "📋 Nueva Solicitud Asignada - Registrack",
     html: `
@@ -266,15 +349,27 @@ export const sendNuevaAsignacionEmpleado = async (empleadoEmail, empleadoNombre,
     console.log(`✅ Email de nueva asignación enviado a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
-    console.error(`❌ Error al enviar email a empleado ${empleadoEmail}:`, error);
+    console.error(`❌ Error al enviar email a empleado ${empleadoEmail}:`, error.message);
+    console.error(`   Código de error: ${error.code}`);
     throw error;
   }
 };
 
 // Template para notificar reasignación al empleado anterior
 export const sendReasignacionEmpleado = async (empleadoEmail, empleadoNombre, solicitudData) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(empleadoEmail)) {
+    console.error(`❌ Email inválido para enviar reasignación a empleado: ${empleadoEmail}`);
+    throw new Error(`Email inválido: ${empleadoEmail}`);
+  }
+
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: empleadoEmail,
     subject: "🔄 Solicitud Reasignada - Registrack",
     html: `
@@ -317,8 +412,19 @@ export const sendReasignacionEmpleado = async (empleadoEmail, empleadoNombre, so
 
 // Template para notificar cambio de estado al cliente
 export const sendCambioEstadoCliente = async (clienteEmail, clienteNombre, solicitudData) => {
+  // Validar email antes de intentar enviar
+  if (!isValidEmail(clienteEmail)) {
+    console.error(`❌ Email inválido para enviar cambio de estado a cliente: ${clienteEmail}`);
+    throw new Error(`Email inválido: ${clienteEmail}`);
+  }
+
+  if (!emailUser) {
+    console.error('❌ EMAIL_USER no está definido en las variables de entorno');
+    throw new Error('Configuración de email no disponible');
+  }
+
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "📊 Estado de Solicitud Actualizado - Registrack",
     html: `
@@ -374,7 +480,7 @@ export const sendCambioEstadoCliente = async (clienteEmail, clienteNombre, solic
 // ---------------------------
 export const sendAnulacionSolicitudCliente = async (clienteEmail, clienteNombre, solicitudData) => {
   const mailOptions = {
-    from: `"Registrack - Notificaciones" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack - Notificaciones" <${emailUser}>`,
     to: clienteEmail,
     subject: `❌ Solicitud Anulada - Orden #${solicitudData.orden_id}`,
     html: `
@@ -545,7 +651,7 @@ export const sendAnulacionSolicitudCliente = async (clienteEmail, clienteNombre,
 // ---------------------------
 export const sendAnulacionSolicitudEmpleado = async (empleadoEmail, empleadoNombre, solicitudData) => {
   const mailOptions = {
-    from: `"Registrack - Notificaciones" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack - Notificaciones" <${emailUser}>`,
     to: empleadoEmail,
     subject: `⚠️ Solicitud Anulada - Orden #${solicitudData.orden_id}`,
     html: `
@@ -683,7 +789,7 @@ export const sendAnulacionSolicitudEmpleado = async (empleadoEmail, empleadoNomb
 // ---------------------------
 export const sendPaymentConfirmationEmail = async (clienteEmail, clienteNombre, paymentData, comprobanteUrl) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "✅ Pago Confirmado - Comprobante de Pago",
     html: `
@@ -749,7 +855,7 @@ export const sendPaymentConfirmationEmail = async (clienteEmail, clienteNombre, 
 // Email a empleado asignado
 export const sendRenovationAlertEmpleado = async (empleadoEmail, nombreEmpleado, datosMarca) => {
   const mailOptions = {
-    from: `"Registrack - Alertas" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack - Alertas" <${emailUser}>`,
     to: empleadoEmail,
     subject: `⚠️ ALERTA: Marca Próxima a Vencer - ${datosMarca.empresa}`,
     html: `
@@ -821,7 +927,7 @@ export const sendRenovationAlertEmpleado = async (empleadoEmail, nombreEmpleado,
 // Email a cliente titular
 export const sendRenovationAlertCliente = async (clienteEmail, nombreCliente, datosMarca) => {
   const mailOptions = {
-    from: `"Registrack - Recordatorios" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack - Recordatorios" <${emailUser}>`,
     to: clienteEmail,
     subject: `⏰ Recordatorio: Su marca vence pronto - ${datosMarca.empresa}`,
     html: `
@@ -885,7 +991,7 @@ export const sendRenovationAlertCliente = async (clienteEmail, nombreCliente, da
 // Email resumen a administradores
 export const sendRenovationAlertAdmin = async (adminEmail, datosResumen) => {
   const mailOptions = {
-    from: `"Registrack - Alertas Admin" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack - Alertas Admin" <${emailUser}>`,
     to: adminEmail,
     subject: `📢 Alerta Global: ${datosResumen.total} Marca(s) Próxima(s) a Vencer`,
     html: `
@@ -985,7 +1091,7 @@ export const sendRenovationAlertAdmin = async (adminEmail, datosResumen) => {
 // Email al cliente sobre cita programada
 export const sendCitaProgramadaCliente = async (clienteEmail, clienteNombre, citaData) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "📅 Cita Programada - Registrack",
     html: `
@@ -1039,7 +1145,7 @@ export const sendCitaProgramadaCliente = async (clienteEmail, clienteNombre, cit
 // Email al empleado sobre cita programada
 export const sendCitaProgramadaEmpleado = async (empleadoEmail, empleadoNombre, citaData) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: empleadoEmail,
     subject: "📅 Nueva Cita Programada - Registrack",
     html: `
@@ -1090,7 +1196,7 @@ export const sendCitaProgramadaEmpleado = async (empleadoEmail, empleadoNombre, 
 // ---------------------------
 export const sendSolicitudCitaCreada = async (clienteEmail, clienteNombre, solicitudData) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "📅 Solicitud de Cita Creada - Registrack",
     html: `
@@ -1145,7 +1251,7 @@ export const sendSolicitudCitaCreada = async (clienteEmail, clienteNombre, solic
 // ---------------------------
 export const sendSolicitudCitaAprobada = async (clienteEmail, clienteNombre, citaData) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "✅ Solicitud de Cita Aprobada - Registrack",
     html: `
@@ -1207,7 +1313,7 @@ export const sendSolicitudCitaAprobada = async (clienteEmail, clienteNombre, cit
 // ---------------------------
 export const sendSolicitudCitaRechazada = async (clienteEmail, clienteNombre, solicitudData) => {
   const mailOptions = {
-    from: `"Registrack" <${process.env.EMAIL_USER}>`,
+    from: `"Registrack" <${emailUser}>`,
     to: clienteEmail,
     subject: "❌ Solicitud de Cita Rechazada - Registrack",
     html: `
