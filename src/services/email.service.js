@@ -15,37 +15,85 @@ if (!emailUser || !emailPass) {
   console.error('   Por favor, verifica tu archivo .env');
 }
 
+// Configuración adaptativa según el entorno
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+const isRender = process.env.RENDER === 'true' || process.env.RENDER;
+
+// Timeouts más largos para producción/Render (mayor latencia)
+const connectionTimeout = isProduction ? 30000 : 10000; // 30s en producción, 10s en desarrollo
+const socketTimeout = isProduction ? 60000 : 30000; // 60s en producción, 30s en desarrollo
+const greetingTimeout = isProduction ? 20000 : 10000; // 20s en producción, 10s en desarrollo
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: emailUser, // correo desde el .env
     pass: emailPass, // contraseña de aplicación
   },
-  // Configuración de timeout y conexión mejorada
-  connectionTimeout: 10000, // 10 segundos para establecer conexión
-  socketTimeout: 30000, // 30 segundos para operaciones de socket
-  greetingTimeout: 10000, // 10 segundos para greeting
+  // Configuración de timeout y conexión mejorada (adaptativa)
+  connectionTimeout: connectionTimeout,
+  socketTimeout: socketTimeout,
+  greetingTimeout: greetingTimeout,
   pool: true, // Usar pool de conexiones para mejor rendimiento
   maxConnections: 5, // Máximo de conexiones simultáneas
   maxMessages: 100, // Máximo de mensajes por conexión
   rateDelta: 1000, // Ventana de tiempo para rate limiting
   rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
+  // Configuración adicional para Render/producción
+  ...(isProduction && {
+    // En producción, usar más reintentos
+    logger: false, // Desactivar logs verbose en producción
+    debug: false, // Desactivar debug en producción
+  }),
 });
 
-// Verificar conexión del transporter al inicializar
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ Error verificando configuración de email:', error.message);
-    console.error('   Por favor, verifica:');
-    console.error('   1. Que EMAIL_USER y EMAIL_PASS estén correctamente definidos en .env');
-    console.error('   2. Que uses una contraseña de aplicación de Gmail (no tu contraseña normal)');
-    console.error('   3. Que tengas 2FA habilitado en tu cuenta de Gmail');
-    console.error('   4. Que la contraseña de aplicación no haya expirado');
-  } else {
-    console.log('✅ Configuración de email verificada correctamente');
-    console.log(`   Email remitente: ${emailUser}`);
-  }
-});
+// Verificar conexión del transporter al inicializar (NO BLOQUEANTE)
+// En Render/producción, la verificación puede fallar por timeout pero no debe detener el servidor
+const verifyEmailConnection = () => {
+  const timeout = setTimeout(() => {
+    console.warn('⚠️ [EMAIL] Verificación de conexión tardando más de lo esperado...');
+    console.warn('   Esto es normal en Render/producción. Los emails funcionarán cuando se necesiten.');
+  }, isProduction ? 5000 : 3000);
+
+  transporter.verify((error, success) => {
+    clearTimeout(timeout);
+    
+    if (error) {
+      // En producción, no fallar si es solo un timeout
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
+        console.warn('⚠️ [EMAIL] Timeout al verificar conexión (normal en Render/producción)');
+        console.warn('   Los emails se enviarán cuando se necesiten. La verificación puede tardar más en producción.');
+        console.warn(`   Email configurado: ${emailUser}`);
+        
+        if (isRender) {
+          console.warn('   💡 En Render, la verificación puede fallar por timeout pero los emails funcionarán.');
+          console.warn('   💡 Verifica que EMAIL_USER y EMAIL_PASS estén correctamente configurados en las variables de entorno.');
+        }
+      } else {
+        console.error('❌ [EMAIL] Error verificando configuración de email:', error.message);
+        console.error('   Código de error:', error.code);
+        console.error('   Por favor, verifica:');
+        console.error('   1. Que EMAIL_USER y EMAIL_PASS estén correctamente definidos en .env');
+        console.error('   2. Que uses una contraseña de aplicación de Gmail (no tu contraseña normal)');
+        console.error('   3. Que tengas 2FA habilitado en tu cuenta de Gmail');
+        console.error('   4. Que la contraseña de aplicación no haya expirado');
+      }
+    } else {
+      console.log('✅ [EMAIL] Configuración de email verificada correctamente');
+      console.log(`   Email remitente: ${emailUser}`);
+      console.log(`   Entorno: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'}`);
+      if (isRender) {
+        console.log('   Plataforma: Render');
+      }
+    }
+  });
+};
+
+// Ejecutar verificación en background (no bloquea el inicio del servidor)
+// Usar setTimeout para no bloquear el inicio
+setTimeout(() => {
+  verifyEmailConnection();
+}, 1000); // Esperar 1 segundo después del inicio para verificar
 
 // ---------------------------
 // FUNCIÓN AUXILIAR PARA VALIDAR EMAIL

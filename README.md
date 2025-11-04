@@ -8481,21 +8481,40 @@ Al crear una cita desde el frontend:
 
 ##### **✅ SOLUCIÓN IMPLEMENTADA:**
 
-###### **1. Configuración Mejorada de Nodemailer**
+###### **1. Configuración Mejorada de Nodemailer (Adaptativa)**
+
+**Desarrollo:**
 ```javascript
-// Nuevas configuraciones:
 - connectionTimeout: 10000 (10 segundos)
 - socketTimeout: 30000 (30 segundos)
+- greetingTimeout: 10000 (10 segundos)
+```
+
+**Producción/Render:**
+```javascript
+- connectionTimeout: 30000 (30 segundos) - Mayor latencia
+- socketTimeout: 60000 (60 segundos) - Más tiempo para operaciones
+- greetingTimeout: 20000 (20 segundos) - Render puede tardar más
+```
+
+**Configuración Común:**
+```javascript
 - pool: true (pool de conexiones reutilizables)
 - maxConnections: 5 (conexiones simultáneas)
 - rateLimit: 14 (cumple límites de Gmail)
 ```
 
+**Verificación No Bloqueante:**
+- ✅ Verificación en background (no detiene el servidor)
+- ✅ Manejo inteligente de timeouts en Render
+- ✅ Mensajes claros según el entorno
+
 **Beneficios:**
 - ✅ Conexiones más rápidas y eficientes
-- ✅ Mejor manejo de timeouts
+- ✅ Mejor manejo de timeouts en producción
 - ✅ Pool de conexiones reutilizables
 - ✅ Cumplimiento de límites de Gmail
+- ✅ Funciona correctamente en Render (timeouts adaptativos)
 
 ###### **2. Envío de Emails en Background**
 

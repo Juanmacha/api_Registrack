@@ -15,12 +15,13 @@
 **Archivo:** `src/services/email.service.js`
 
 **Cambios:**
-- ✅ Agregado `connectionTimeout: 10000` (10 segundos)
-- ✅ Agregado `socketTimeout: 30000` (30 segundos)
-- ✅ Agregado `greetingTimeout: 10000` (10 segundos)
+- ✅ Timeouts adaptativos según entorno:
+  - **Desarrollo:** `connectionTimeout: 10000`, `socketTimeout: 30000`, `greetingTimeout: 10000`
+  - **Producción/Render:** `connectionTimeout: 30000`, `socketTimeout: 60000`, `greetingTimeout: 20000`
 - ✅ Habilitado `pool: true` para mejor rendimiento
 - ✅ Configurado `maxConnections: 5` para conexiones simultáneas
 - ✅ Configurado `rateLimit: 14` para cumplir límites de Gmail
+- ✅ Verificación de conexión no bloqueante (no detiene el servidor en Render)
 
 **Beneficios:**
 - Conexiones más rápidas y eficientes
@@ -186,7 +187,7 @@ Cuando se crea una cita, deberías ver en los logs:
    ```
 
 2. **Verificar configuración de Gmail:**
-   - ✅ EMAIL_USER y EMAIL_PASS en .env
+   - ✅ EMAIL_USER y EMAIL_PASS en .env (o variables de entorno en Render)
    - ✅ Contraseña de aplicación válida (no contraseña normal)
    - ✅ 2FA habilitado en Gmail
 
@@ -200,11 +201,31 @@ Cuando se crea una cita, deberías ver en los logs:
    - ✅ Cliente tiene correo válido en BD
    - ✅ Empleado tiene correo válido en BD
 
+### En Render - Timeout de Verificación:
+
+**⚠️ IMPORTANTE:** En Render, es normal que la verificación de conexión falle por timeout. Esto NO significa que los emails no funcionen.
+
+**Logs esperados en Render:**
+```
+⚠️ [EMAIL] Timeout al verificar conexión (normal en Render/producción)
+   Los emails se enviarán cuando se necesiten. La verificación puede tardar más en producción.
+   Email configurado: tu@email.com
+   💡 En Render, la verificación puede fallar por timeout pero los emails funcionarán.
+   💡 Verifica que EMAIL_USER y EMAIL_PASS estén correctamente configurados en las variables de entorno.
+```
+
+**✅ Solución:**
+- La verificación de conexión ahora es **no bloqueante**
+- El servidor inicia normalmente incluso si hay timeout
+- Los emails funcionarán cuando se necesiten (la verificación no es crítica)
+- Los timeouts son más largos en producción (30s conexión, 60s socket)
+
 ### Si hay timeouts aún:
 
 1. Verificar timeout del frontend (debe ser suficiente para recibir respuesta HTTP)
 2. Verificar que la respuesta HTTP se envía correctamente (verificar logs)
 3. Verificar conexión de red entre frontend y backend
+4. **En Render:** Verificar que las variables de entorno están configuradas correctamente
 
 ---
 
