@@ -645,6 +645,35 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
       });
     }
 
+    // 1.1. Validar formato de modalidad
+    const modalidadesValidas = ['Virtual', 'Presencial'];
+    const modalidadNormalizada = modalidad.trim();
+    
+    // Corrección automática de typos comunes
+    let modalidadCorregida = modalidadNormalizada;
+    if (modalidadNormalizada.toLowerCase() === 'virtusl' || 
+        modalidadNormalizada.toLowerCase() === 'virtua' ||
+        modalidadNormalizada.toLowerCase() === 'virtul') {
+      modalidadCorregida = 'Virtual';
+      console.log(`⚠️ Modalidad corregida automáticamente: "${modalidadNormalizada}" -> "Virtual"`);
+    } else if (modalidadNormalizada.toLowerCase() === 'presencial' ||
+               modalidadNormalizada.toLowerCase() === 'presenciall') {
+      modalidadCorregida = 'Presencial';
+      console.log(`⚠️ Modalidad corregida automáticamente: "${modalidadNormalizada}" -> "Presencial"`);
+    }
+    
+    if (!modalidadesValidas.includes(modalidadCorregida)) {
+      return res.status(400).json({ 
+        success: false,
+        message: `Modalidad inválida: "${modalidadNormalizada}". Los valores permitidos son: ${modalidadesValidas.join(', ')}`,
+        valor_recibido: modalidadNormalizada,
+        valores_permitidos: modalidadesValidas
+      });
+    }
+
+    // Usar la modalidad corregida para el resto del proceso
+    const modalidadFinal = modalidadCorregida;
+
     // 2. Buscar la solicitud con todas las relaciones
     const solicitud = await OrdenServicio.findByPk(idOrdenServicio, {
       include: [
@@ -771,7 +800,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
       hora_inicio,
       hora_fin,
       tipo: tipoCita, // Tipo mapeado al ENUM válido
-      modalidad,
+      modalidad: modalidadFinal, // Usar modalidad corregida
       estado: 'Programada',
       observacion,
       id_cliente: solicitud.cliente.Usuario.id_usuario, // Cliente automático
@@ -785,7 +814,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
     await Seguimiento.create({
       id_orden_servicio: idOrdenServicio,
       titulo: 'Cita Programada',
-      descripcion: `Cita ${modalidad} programada para ${fecha} de ${hora_inicio} a ${hora_fin}`,
+      descripcion: `Cita ${modalidadFinal} programada para ${fecha} de ${hora_inicio} a ${hora_fin}`,
       registrado_por: req.user.id_usuario,
       id_usuario: req.user.id_usuario,
       fecha_registro: new Date()
@@ -795,17 +824,36 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
 
     // 10. Enviar emails de notificación
     try {
-      // Obtener datos del empleado una sola vez si está asignado
+      // 🚀 NUEVA FUNCIONALIDAD: Obtener empleado asignado a la solicitud
+      let empleadoAsignadoSolicitud = null;
+      if (solicitud.id_empleado_asignado && solicitud.empleado_asignado && solicitud.empleado_asignado.correo) {
+        empleadoAsignadoSolicitud = {
+          id_usuario: solicitud.id_empleado_asignado,
+          correo: solicitud.empleado_asignado.correo,
+          nombre: `${solicitud.empleado_asignado.nombre} ${solicitud.empleado_asignado.apellido}`
+        };
+        console.log('👤 Empleado asignado a la solicitud encontrado:', empleadoAsignadoSolicitud.nombre);
+      } else {
+        console.log('⚠️ No hay empleado asignado a la solicitud o no tiene correo válido');
+      }
+
+      // Obtener datos del empleado del body (si se proporcionó uno diferente)
       let empleadoData = null;
       if (id_usuario_empleado) {
         const empleadoUser = await User.findByPk(id_usuario_empleado);
-        if (empleadoUser) {
+        if (empleadoUser && empleadoUser.correo) {
           empleadoData = {
+            id_usuario: id_usuario_empleado,
             correo: empleadoUser.correo,
             nombre: `${empleadoUser.nombre} ${empleadoUser.apellido}`
           };
+          console.log('👤 Empleado del body encontrado:', empleadoData.nombre);
         }
       }
+
+      // Determinar nombre del empleado para el email del cliente (prioridad: empleado del body > empleado asignado)
+      const empleadoNombreParaCliente = empleadoData ? empleadoData.nombre : 
+                                       (empleadoAsignadoSolicitud ? empleadoAsignadoSolicitud.nombre : null);
 
       // Email al cliente
       if (solicitud.cliente && solicitud.cliente.Usuario && solicitud.cliente.Usuario.correo) {
@@ -819,8 +867,8 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
             fecha: fecha,
             hora_inicio: hora_inicio,
             hora_fin: hora_fin,
-            modalidad: modalidad,
-            empleado_nombre: empleadoData ? empleadoData.nombre : null,
+            modalidad: modalidadFinal,
+            empleado_nombre: empleadoNombreParaCliente,
             observacion: observacion
           }
         );
@@ -829,9 +877,37 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
         console.log('⚠️ No se pudo obtener correo del cliente');
       }
 
-      // Email al empleado si está asignado
+      // 🚀 NUEVA FUNCIONALIDAD: Email al empleado asignado a la solicitud
+      if (empleadoAsignadoSolicitud && empleadoAsignadoSolicitud.correo) {
+        // Solo enviar si no es el mismo empleado que el del body (evitar duplicados)
+        const esMismoEmpleado = empleadoData && empleadoData.id_usuario === empleadoAsignadoSolicitud.id_usuario;
+        
+        if (!esMismoEmpleado) {
+          console.log('📧 Enviando email de cita al empleado asignado de la solicitud:', empleadoAsignadoSolicitud.correo);
+          await sendCitaProgramadaEmpleado(
+            empleadoAsignadoSolicitud.correo,
+            empleadoAsignadoSolicitud.nombre,
+            {
+              solicitud_id: idOrdenServicio,
+              servicio: solicitud.servicio.nombre,
+              cliente_nombre: `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
+              cliente_email: solicitud.cliente.Usuario.correo,
+              fecha: fecha,
+              hora_inicio: hora_inicio,
+              hora_fin: hora_fin,
+              modalidad: modalidadFinal,
+              observacion: observacion
+            }
+          );
+          console.log('✅ Email enviado al empleado asignado de la solicitud');
+        } else {
+          console.log('ℹ️ Empleado asignado es el mismo que el del body, evitando duplicado');
+        }
+      }
+
+      // Email al empleado del body si está asignado y es diferente al asignado de la solicitud
       if (empleadoData && empleadoData.correo) {
-        console.log('📧 Enviando email de cita al empleado:', empleadoData.correo);
+        console.log('📧 Enviando email de cita al empleado del body:', empleadoData.correo);
         await sendCitaProgramadaEmpleado(
           empleadoData.correo,
           empleadoData.nombre,
@@ -843,13 +919,13 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
             fecha: fecha,
             hora_inicio: hora_inicio,
             hora_fin: hora_fin,
-            modalidad: modalidad,
+            modalidad: modalidadFinal,
             observacion: observacion
           }
         );
-        console.log('✅ Email enviado al empleado');
-      } else {
-        console.log('⚠️ No hay empleado asignado para enviar email');
+        console.log('✅ Email enviado al empleado del body');
+      } else if (!empleadoAsignadoSolicitud) {
+        console.log('⚠️ No hay empleado asignado para enviar email (ni en solicitud ni en body)');
       }
     } catch (emailError) {
       console.error('❌ Error al enviar emails:', emailError);
@@ -866,7 +942,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
           fecha: nuevaCita.fecha,
           hora_inicio: nuevaCita.hora_inicio,
           hora_fin: nuevaCita.hora_fin,
-          modalidad: nuevaCita.modalidad,
+          modalidad: nuevaCita.modalidad, // Ya está corregida
           estado: nuevaCita.estado
         },
         solicitud_id: idOrdenServicio,

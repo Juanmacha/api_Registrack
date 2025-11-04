@@ -1122,6 +1122,12 @@ export const sendCitaProgramadaCliente = async (clienteEmail, clienteNombre, cit
           </p>
         </div>
         
+        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+          <p style="color: #721c24; margin: 0; font-size: 14px;">
+            <strong>⚠️ Importante:</strong> Si no puedes presentarte a la cita, por favor comunícate con nosotros con anticipación para cancelarla o reprogramarla.
+          </p>
+        </div>
+        
         <p style="color: #555; font-size: 15px;">Si necesitas reprogramar tu cita, por favor contáctanos con anticipación.</p>
         <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
           ¡Estamos aquí para ayudarte!<br>
@@ -1169,6 +1175,12 @@ export const sendCitaProgramadaEmpleado = async (empleadoEmail, empleadoNombre, 
             <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
             ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Observación:</strong> ${citaData.observacion}</li>` : ''}
           </ul>
+        </div>
+        
+        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+          <p style="color: #721c24; margin: 0; font-size: 14px;">
+            <strong>⚠️ Importante:</strong> Si no puedes presentarte a la cita, por favor comunícate con nosotros con anticipación para cancelarla o reprogramarla.
+          </p>
         </div>
         
         <p style="color: #555; font-size: 15px;">Por favor, prepárate para esta cita y asegúrate de tener toda la información relevante.</p>

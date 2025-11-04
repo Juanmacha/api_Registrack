@@ -2,11 +2,11 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express-5-blue?logo=express&logoColor=white) ![Sequelize](https://img.shields.io/badge/Sequelize-6-3C76A1?logo=sequelize&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8-blue?logo=mysql&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-Auth-black?logo=jsonwebtokens) ![License](https://img.shields.io/badge/License-ISC-green)
 
-> **🚀 Última Actualización:** 3 de Noviembre de 2025
+> **🚀 Última Actualización:** 4 de Noviembre de 2025
 > 
-> **✅ Estado:** Producción Ready (96%)
+> **✅ Estado:** Producción Ready (97%)
 > 
-> **🔥 Nuevo:** Emails al Empleado en Citas + Validaciones Unificadas de Tipos de Citas + Corrección URLs - Notificaciones completas (cliente y empleado), tipos consistentes, documentación actualizada.
+> **🔥 Nuevo:** Emails Mejorados en Citas desde Solicitudes + Validación Inteligente de Modalidad + Corrección Columna BD + Notas de Cancelación en Emails - Sistema completo de notificaciones con validaciones robustas y correcciones automáticas.
 
 ---
 
@@ -20,6 +20,10 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **4 Nov 2025** | 📧 **Emails Mejorados en Citas desde Solicitudes** | Sistema completo de notificaciones: emails al cliente y al empleado asignado a la solicitud cuando se crea una cita. Prevención de duplicados inteligente. |
+| **4 Nov 2025** | ✅ **Validación Inteligente de Modalidad** | Corrección automática de typos comunes (ej: "Virtusl" → "Virtual"). Validación temprana con mensajes claros. |
+| **4 Nov 2025** | 🔧 **Corrección Columna tipodedocumento** | Aumentado tamaño de VARCHAR(10) a VARCHAR(50) para soportar valores completos como "Cédula de Ciudadanía". Migración SQL incluida. |
+| **4 Nov 2025** | 📝 **Notas de Cancelación en Emails** | Nota importante agregada en todos los emails de citas: "Si no puedes presentarte, comunícate para cancelar". Visual destacado en rojo. |
 | **3 Nov 2025** | 📧 **Emails al Empleado en Citas** | Notificaciones automáticas al empleado cuando se crea una cita directa o se aprueba una solicitud de cita. Emails a cliente y empleado en todos los casos. |
 | **3 Nov 2025** | ✅ **Corrección Validaciones de Citas** | Unificación de tipos permitidos para citas: `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`. Corregidas inconsistencias entre middleware y modelo. |
 | **3 Nov 2025** | 🔧 **Corrección URL Solicitud de Cita** | Actualizada ruta correcta: `/api/gestion-solicitud-cita` (antes `/api/solicitud-cita`). Documentación Postman actualizada. |
@@ -48,7 +52,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 - **99+ endpoints** documentados y funcionales
 - **17 módulos** principales completamente implementados
 - **7 tipos de servicios** configurados con formularios dinámicos y precios
-- **14 tipos de notificaciones** por email automáticas (solicitudes, citas directas, citas desde solicitudes, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita - cliente y empleado)
+- **14 tipos de notificaciones** por email automáticas (solicitudes, citas directas, citas desde solicitudes con empleado asignado, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita - cliente y empleado)
 - **3 roles de usuario** con permisos granulares
 - **100% cobertura** de funcionalidades documentadas
 - **Sistema de pagos** con mock integrado + Dashboard administrativo + Alertas automáticas + Asociación de citas
@@ -8460,7 +8464,129 @@ graph TD
 
 ---
 
-## 🚀 **ACTUALIZACIONES RECIENTES** (Octubre 2025)
+## 🚀 **ACTUALIZACIONES RECIENTES** (Noviembre 2025)
+
+### **📧 Sistema de Emails Mejorado en Citas desde Solicitudes** (4 de Noviembre de 2025)
+
+#### **✨ Implementación Completa de Notificaciones**
+
+##### **🔥 PROBLEMA RESUELTO:**
+Al crear una cita desde una solicitud de servicio:
+- ❌ Solo se enviaba email al cliente
+- ❌ No se notificaba al empleado asignado a la solicitud
+- ❌ Si había un empleado en el body, solo se enviaba a ese
+- ❌ Falta de notificación al empleado responsable de la solicitud
+
+##### **✅ SOLUCIÓN IMPLEMENTADA:**
+
+###### **1. Emails Completos y Inteligentes**
+```javascript
+// Nuevo comportamiento:
+- Email al cliente: ✅ Siempre se envía
+- Email al empleado asignado de la solicitud: ✅ Se envía si existe
+- Email al empleado del body: ✅ Se envía si es diferente al asignado
+- Prevención de duplicados: ✅ Compara IDs para evitar emails duplicados
+```
+
+**Beneficios:**
+- ✅ Notificación completa a todos los involucrados
+- ✅ Prevención inteligente de duplicados
+- ✅ Logs descriptivos para debugging
+- ✅ Manejo de errores robusto (no falla la operación si hay error de email)
+
+###### **2. Validación Inteligente de Modalidad**
+
+**Mejoras Implementadas:**
+1. ✅ **Validación temprana** - Valida antes de llegar al modelo
+2. ✅ **Corrección automática de typos**:
+   - `"Virtusl"` → `"Virtual"`
+   - `"virtua"` → `"Virtual"`
+   - `"virtul"` → `"Virtual"`
+   - `"presencial"` → `"Presencial"` (normaliza minúsculas)
+   - `"presenciall"` → `"Presencial"`
+3. ✅ **Mensajes de error claros** - Indica valores permitidos
+
+**Ejemplo:**
+```javascript
+// Si envías "Virtusl" (typo):
+⚠️ Modalidad corregida automáticamente: "Virtusl" -> "Virtual"
+// La cita se crea exitosamente con "Virtual"
+```
+
+###### **3. Corrección Columna tipodedocumento**
+
+**Problema:**
+- Columna `tipodedocumento` estaba definida como `VARCHAR(10)`
+- Valores como "Cédula de Ciudadanía" tienen 23 caracteres
+- Error: `Data too long for column 'tipodedocumento'`
+
+**Solución:**
+- ✅ Modelo actualizado: `STRING(10)` → `STRING(50)`
+- ✅ Migración SQL creada: `database/migrations/fix_tipodedocumento_size.sql`
+- ✅ Documentación actualizada con valores válidos
+
+**Migración SQL:**
+```sql
+ALTER TABLE ordenes_de_servicios 
+MODIFY COLUMN tipodedocumento VARCHAR(50) NULL 
+COMMENT 'Tipo de documento del solicitante';
+```
+
+###### **4. Notas de Cancelación en Emails**
+
+**Mejora Implementada:**
+- ✅ Nota destacada agregada en todos los emails de citas
+- ✅ Visual destacado en rojo para llamar la atención
+- ✅ Mensaje claro: "Si no puedes presentarte, comunícate para cancelar"
+
+**Ubicación:**
+- Email al cliente: Después de los detalles de la cita
+- Email al empleado: Después de los detalles de la cita
+
+**Visualización:**
+```
+⚠️ Importante: Si no puedes presentarte a la cita, 
+por favor comunícate con nosotros con anticipación 
+para cancelarla o reprogramarla.
+```
+
+##### **📋 Archivos Modificados:**
+
+1. ✅ **`src/controllers/citas.controller.js`**
+   - Función: `crearCitaDesdeSolicitud`
+   - Líneas 796-904: Implementación completa de envío de emails
+   - Líneas 648-675: Validación inteligente de modalidad
+
+2. ✅ **`src/models/OrdenServicio.js`**
+   - Línea 67: Actualizado `tipodedocumento` de `STRING(10)` a `STRING(50)`
+
+3. ✅ **`src/services/email.service.js`**
+   - Líneas 1125-1129: Nota de cancelación en email al cliente
+   - Líneas 1180-1184: Nota de cancelación en email al empleado
+
+4. ✅ **`database/migrations/fix_tipodedocumento_size.sql`**
+   - Nueva migración para corregir tamaño de columna
+
+##### **🧪 Casos de Uso:**
+
+**Caso 1:** Solicitud con empleado asignado, crear cita sin especificar empleado
+- ✅ Email al cliente
+- ✅ Email al empleado asignado de la solicitud
+
+**Caso 2:** Solicitud con empleado asignado, crear cita con mismo empleado en body
+- ✅ Email al cliente
+- ✅ UN solo email al empleado (evita duplicado)
+
+**Caso 3:** Solicitud con empleado asignado, crear cita con empleado diferente en body
+- ✅ Email al cliente
+- ✅ Email al empleado asignado de la solicitud
+- ✅ Email al empleado del body
+
+**Caso 4:** Solicitud sin empleado asignado, crear cita con empleado en body
+- ✅ Email al cliente
+- ✅ Email al empleado del body
+
+---
 
 ### **🚫 Sistema de Anulación de Solicitudes Mejorado** (27 de Octubre de 2025)
 
