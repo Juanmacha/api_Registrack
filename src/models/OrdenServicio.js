@@ -64,7 +64,7 @@ const OrdenServicio = sequelize.define(
       allowNull: true,
     },
     tipodedocumento: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.STRING(50),
       allowNull: true,
     },
     numerodedocumento: {
