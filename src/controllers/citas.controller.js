@@ -822,117 +822,57 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
 
     console.log('✅ Seguimiento creado');
 
-    // 10. Enviar emails de notificación
-    try {
-      // 🚀 NUEVA FUNCIONALIDAD: Obtener empleado asignado a la solicitud
-      let empleadoAsignadoSolicitud = null;
-      if (solicitud.id_empleado_asignado && solicitud.empleado_asignado && solicitud.empleado_asignado.correo) {
-        empleadoAsignadoSolicitud = {
-          id_usuario: solicitud.id_empleado_asignado,
-          correo: solicitud.empleado_asignado.correo,
-          nombre: `${solicitud.empleado_asignado.nombre} ${solicitud.empleado_asignado.apellido}`
-        };
-        console.log('👤 Empleado asignado a la solicitud encontrado:', empleadoAsignadoSolicitud.nombre);
-      } else {
-        console.log('⚠️ No hay empleado asignado a la solicitud o no tiene correo válido');
-      }
-
-      // Obtener datos del empleado del body (si se proporcionó uno diferente)
-      let empleadoData = null;
-      if (id_usuario_empleado) {
-        const empleadoUser = await User.findByPk(id_usuario_empleado);
-        if (empleadoUser && empleadoUser.correo) {
-          empleadoData = {
-            id_usuario: id_usuario_empleado,
-            correo: empleadoUser.correo,
-            nombre: `${empleadoUser.nombre} ${empleadoUser.apellido}`
-          };
-          console.log('👤 Empleado del body encontrado:', empleadoData.nombre);
+    // 10. Preparar datos para emails (ANTES de responder)
+    const emailData = {
+      solicitud: {
+        id: idOrdenServicio,
+        servicioNombre: solicitud.servicio.nombre,
+        cliente: {
+          correo: solicitud.cliente?.Usuario?.correo,
+          nombre: solicitud.cliente?.Usuario ? `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}` : null
         }
+      },
+      empleadoAsignadoSolicitud: null,
+      empleadoData: null,
+      cita: {
+        fecha,
+        hora_inicio,
+        hora_fin,
+        modalidad: modalidadFinal,
+        observacion
       }
+    };
 
-      // Determinar nombre del empleado para el email del cliente (prioridad: empleado del body > empleado asignado)
-      const empleadoNombreParaCliente = empleadoData ? empleadoData.nombre : 
-                                       (empleadoAsignadoSolicitud ? empleadoAsignadoSolicitud.nombre : null);
-
-      // Email al cliente
-      if (solicitud.cliente && solicitud.cliente.Usuario && solicitud.cliente.Usuario.correo) {
-        console.log('📧 Enviando email de cita al cliente:', solicitud.cliente.Usuario.correo);
-        await sendCitaProgramadaCliente(
-          solicitud.cliente.Usuario.correo,
-          `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
-          {
-            solicitud_id: idOrdenServicio,
-            servicio: solicitud.servicio.nombre,
-            fecha: fecha,
-            hora_inicio: hora_inicio,
-            hora_fin: hora_fin,
-            modalidad: modalidadFinal,
-            empleado_nombre: empleadoNombreParaCliente,
-            observacion: observacion
-          }
-        );
-        console.log('✅ Email enviado al cliente');
-      } else {
-        console.log('⚠️ No se pudo obtener correo del cliente');
-      }
-
-      // 🚀 NUEVA FUNCIONALIDAD: Email al empleado asignado a la solicitud
-      if (empleadoAsignadoSolicitud && empleadoAsignadoSolicitud.correo) {
-        // Solo enviar si no es el mismo empleado que el del body (evitar duplicados)
-        const esMismoEmpleado = empleadoData && empleadoData.id_usuario === empleadoAsignadoSolicitud.id_usuario;
-        
-        if (!esMismoEmpleado) {
-          console.log('📧 Enviando email de cita al empleado asignado de la solicitud:', empleadoAsignadoSolicitud.correo);
-          await sendCitaProgramadaEmpleado(
-            empleadoAsignadoSolicitud.correo,
-            empleadoAsignadoSolicitud.nombre,
-            {
-              solicitud_id: idOrdenServicio,
-              servicio: solicitud.servicio.nombre,
-              cliente_nombre: `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
-              cliente_email: solicitud.cliente.Usuario.correo,
-              fecha: fecha,
-              hora_inicio: hora_inicio,
-              hora_fin: hora_fin,
-              modalidad: modalidadFinal,
-              observacion: observacion
-            }
-          );
-          console.log('✅ Email enviado al empleado asignado de la solicitud');
-        } else {
-          console.log('ℹ️ Empleado asignado es el mismo que el del body, evitando duplicado');
-        }
-      }
-
-      // Email al empleado del body si está asignado y es diferente al asignado de la solicitud
-      if (empleadoData && empleadoData.correo) {
-        console.log('📧 Enviando email de cita al empleado del body:', empleadoData.correo);
-        await sendCitaProgramadaEmpleado(
-          empleadoData.correo,
-          empleadoData.nombre,
-          {
-            solicitud_id: idOrdenServicio,
-            servicio: solicitud.servicio.nombre,
-            cliente_nombre: `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}`,
-            cliente_email: solicitud.cliente.Usuario.correo,
-            fecha: fecha,
-            hora_inicio: hora_inicio,
-            hora_fin: hora_fin,
-            modalidad: modalidadFinal,
-            observacion: observacion
-          }
-        );
-        console.log('✅ Email enviado al empleado del body');
-      } else if (!empleadoAsignadoSolicitud) {
-        console.log('⚠️ No hay empleado asignado para enviar email (ni en solicitud ni en body)');
-      }
-    } catch (emailError) {
-      console.error('❌ Error al enviar emails:', emailError);
-      // No fallar la operación por error de email
+    // Obtener datos del empleado asignado a la solicitud
+    if (solicitud.id_empleado_asignado && solicitud.empleado_asignado && solicitud.empleado_asignado.correo) {
+      emailData.empleadoAsignadoSolicitud = {
+        id_usuario: solicitud.id_empleado_asignado,
+        correo: solicitud.empleado_asignado.correo,
+        nombre: `${solicitud.empleado_asignado.nombre} ${solicitud.empleado_asignado.apellido}`
+      };
+      console.log('👤 [EMAIL] Empleado asignado a la solicitud encontrado:', emailData.empleadoAsignadoSolicitud.nombre);
+    } else {
+      console.log('⚠️ [EMAIL] No hay empleado asignado a la solicitud o no tiene correo válido');
     }
 
-    // 11. Retornar respuesta
+    // Obtener datos del empleado del body (si se proporcionó uno diferente)
+    if (id_usuario_empleado) {
+      const empleadoUser = await User.findByPk(id_usuario_empleado);
+      if (empleadoUser && empleadoUser.correo) {
+        emailData.empleadoData = {
+          id_usuario: id_usuario_empleado,
+          correo: empleadoUser.correo,
+          nombre: `${empleadoUser.nombre} ${empleadoUser.apellido}`
+        };
+        console.log('👤 [EMAIL] Empleado del body encontrado:', emailData.empleadoData.nombre);
+      }
+    }
+
+    // Determinar nombre del empleado para el email del cliente
+    const empleadoNombreParaCliente = emailData.empleadoData ? emailData.empleadoData.nombre : 
+                                     (emailData.empleadoAsignadoSolicitud ? emailData.empleadoAsignadoSolicitud.nombre : null);
+
+    // 11. Retornar respuesta INMEDIATAMENTE (antes de enviar emails)
     res.status(201).json({
       success: true,
       message: "Cita creada y asociada a la solicitud exitosamente",
@@ -942,7 +882,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
           fecha: nuevaCita.fecha,
           hora_inicio: nuevaCita.hora_inicio,
           hora_fin: nuevaCita.hora_fin,
-          modalidad: nuevaCita.modalidad, // Ya está corregida
+          modalidad: nuevaCita.modalidad,
           estado: nuevaCita.estado
         },
         solicitud_id: idOrdenServicio,
@@ -952,6 +892,124 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
         },
         servicio: solicitud.servicio.nombre
       }
+    });
+
+    // 12. Enviar emails de notificación EN BACKGROUND (después de responder)
+    // Esto asegura que los emails se envíen incluso si hay timeout en el frontend
+    console.log('📧 [EMAIL] Iniciando envío de emails en background...');
+    
+    // Función asíncrona para enviar emails sin bloquear
+    const enviarEmailsBackground = async () => {
+      try {
+        const inicioTiempo = Date.now();
+        console.log('📧 [EMAIL] Iniciando proceso de envío de emails...');
+
+        // Email al cliente
+        if (emailData.solicitud.cliente.correo) {
+          console.log('📧 [EMAIL] Enviando email al cliente:', emailData.solicitud.cliente.correo);
+          const clienteStartTime = Date.now();
+          try {
+            await sendCitaProgramadaCliente(
+              emailData.solicitud.cliente.correo,
+              emailData.solicitud.cliente.nombre,
+              {
+                solicitud_id: idOrdenServicio,
+                servicio: emailData.solicitud.servicioNombre,
+                fecha: emailData.cita.fecha,
+                hora_inicio: emailData.cita.hora_inicio,
+                hora_fin: emailData.cita.hora_fin,
+                modalidad: emailData.cita.modalidad,
+                empleado_nombre: empleadoNombreParaCliente,
+                observacion: emailData.cita.observacion
+              }
+            );
+            const clienteTime = Date.now() - clienteStartTime;
+            console.log(`✅ [EMAIL] Email enviado al cliente en ${clienteTime}ms`);
+          } catch (clienteError) {
+            console.error(`❌ [EMAIL] Error al enviar email al cliente:`, clienteError.message);
+            console.error(`   Stack:`, clienteError.stack);
+          }
+        } else {
+          console.log('⚠️ [EMAIL] No se pudo obtener correo del cliente');
+        }
+
+        // Email al empleado asignado de la solicitud
+        if (emailData.empleadoAsignadoSolicitud && emailData.empleadoAsignadoSolicitud.correo) {
+          const esMismoEmpleado = emailData.empleadoData && 
+                                emailData.empleadoData.id_usuario === emailData.empleadoAsignadoSolicitud.id_usuario;
+          
+          if (!esMismoEmpleado) {
+            console.log('📧 [EMAIL] Enviando email al empleado asignado de la solicitud:', emailData.empleadoAsignadoSolicitud.correo);
+            const empleadoSolicitudStartTime = Date.now();
+            try {
+              await sendCitaProgramadaEmpleado(
+                emailData.empleadoAsignadoSolicitud.correo,
+                emailData.empleadoAsignadoSolicitud.nombre,
+                {
+                  solicitud_id: idOrdenServicio,
+                  servicio: emailData.solicitud.servicioNombre,
+                  cliente_nombre: emailData.solicitud.cliente.nombre,
+                  cliente_email: emailData.solicitud.cliente.correo,
+                  fecha: emailData.cita.fecha,
+                  hora_inicio: emailData.cita.hora_inicio,
+                  hora_fin: emailData.cita.hora_fin,
+                  modalidad: emailData.cita.modalidad,
+                  observacion: emailData.cita.observacion
+                }
+              );
+              const empleadoSolicitudTime = Date.now() - empleadoSolicitudStartTime;
+              console.log(`✅ [EMAIL] Email enviado al empleado asignado de la solicitud en ${empleadoSolicitudTime}ms`);
+            } catch (empleadoSolicitudError) {
+              console.error(`❌ [EMAIL] Error al enviar email al empleado asignado:`, empleadoSolicitudError.message);
+              console.error(`   Stack:`, empleadoSolicitudError.stack);
+            }
+          } else {
+            console.log('ℹ️ [EMAIL] Empleado asignado es el mismo que el del body, evitando duplicado');
+          }
+        }
+
+        // Email al empleado del body si está asignado y es diferente
+        if (emailData.empleadoData && emailData.empleadoData.correo) {
+          console.log('📧 [EMAIL] Enviando email al empleado del body:', emailData.empleadoData.correo);
+          const empleadoBodyStartTime = Date.now();
+          try {
+            await sendCitaProgramadaEmpleado(
+              emailData.empleadoData.correo,
+              emailData.empleadoData.nombre,
+              {
+                solicitud_id: idOrdenServicio,
+                servicio: emailData.solicitud.servicioNombre,
+                cliente_nombre: emailData.solicitud.cliente.nombre,
+                cliente_email: emailData.solicitud.cliente.correo,
+                fecha: emailData.cita.fecha,
+                hora_inicio: emailData.cita.hora_inicio,
+                hora_fin: emailData.cita.hora_fin,
+                modalidad: emailData.cita.modalidad,
+                observacion: emailData.cita.observacion
+              }
+            );
+            const empleadoBodyTime = Date.now() - empleadoBodyStartTime;
+            console.log(`✅ [EMAIL] Email enviado al empleado del body en ${empleadoBodyTime}ms`);
+          } catch (empleadoBodyError) {
+            console.error(`❌ [EMAIL] Error al enviar email al empleado del body:`, empleadoBodyError.message);
+            console.error(`   Stack:`, empleadoBodyError.stack);
+          }
+        } else if (!emailData.empleadoAsignadoSolicitud) {
+          console.log('⚠️ [EMAIL] No hay empleado asignado para enviar email (ni en solicitud ni en body)');
+        }
+
+        const tiempoTotal = Date.now() - inicioTiempo;
+        console.log(`✅ [EMAIL] Proceso de envío de emails completado en ${tiempoTotal}ms`);
+      } catch (emailError) {
+        console.error('❌ [EMAIL] Error general en proceso de envío de emails:', emailError);
+        console.error('   Mensaje:', emailError.message);
+        console.error('   Stack:', emailError.stack);
+      }
+    };
+
+    // Ejecutar en background sin await (no bloquea la respuesta)
+    enviarEmailsBackground().catch(error => {
+      console.error('❌ [EMAIL] Error crítico en función de envío background:', error);
     });
 
   } catch (error) {

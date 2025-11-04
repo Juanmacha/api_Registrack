@@ -21,6 +21,15 @@ const transporter = nodemailer.createTransport({
     user: emailUser, // correo desde el .env
     pass: emailPass, // contraseña de aplicación
   },
+  // Configuración de timeout y conexión mejorada
+  connectionTimeout: 10000, // 10 segundos para establecer conexión
+  socketTimeout: 30000, // 30 segundos para operaciones de socket
+  greetingTimeout: 10000, // 10 segundos para greeting
+  pool: true, // Usar pool de conexiones para mejor rendimiento
+  maxConnections: 5, // Máximo de conexiones simultáneas
+  maxMessages: 100, // Máximo de mensajes por conexión
+  rateDelta: 1000, // Ventana de tiempo para rate limiting
+  rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
 });
 
 // Verificar conexión del transporter al inicializar
