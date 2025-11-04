@@ -20,6 +20,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
 | **4 Nov 2025** | 📧 **Solución de Timeouts en Emails** | Envío de emails en background después de responder HTTP. Garantiza envío incluso con timeouts. Respuesta HTTP inmediata (1-2s). Configuración mejorada de Nodemailer con pool de conexiones. |
 | **4 Nov 2025** | 📧 **Emails Mejorados en Citas desde Solicitudes** | Sistema completo de notificaciones: emails al cliente y al empleado asignado a la solicitud cuando se crea una cita. Prevención de duplicados inteligente. |
 | **4 Nov 2025** | ✅ **Validación Inteligente de Modalidad** | Corrección automática de typos comunes (ej: "Virtusl" → "Virtual"). Validación temprana con mensajes claros. |
@@ -8586,6 +8587,174 @@ grep "[EMAIL]" logs/server.log
 2. **Los errores de email NO afectan la creación de la cita**. Si falla el envío, la cita se crea correctamente y se registra el error en logs.
 
 3. **La respuesta HTTP es inmediata**, pero los emails se procesan en background. No esperes ver los emails instantáneamente.
+
+---
+
+### **🔐 Edición Completa de Permisos y Privilegios en Roles** (4 de Noviembre de 2025)
+
+#### **✨ Implementación de Actualización Granular de Roles**
+
+##### **🔥 PROBLEMA RESUELTO:**
+El endpoint `PUT /api/gestion-roles/:id` tenía limitaciones críticas:
+- ❌ Solo permitía actualizar `nombre` y `estado`
+- ❌ No permitía actualizar permisos/privilegios de un rol existente
+- ❌ No se podían quitar permisos/privilegios de un rol
+- ❌ No se podían agregar nuevos permisos/privilegios a un rol existente
+- ❌ El frontend no podía editar completamente los permisos de un rol desde la interfaz
+
+##### **✅ SOLUCIÓN IMPLEMENTADA:**
+
+###### **1. Campos Opcionales y Actualización Parcial**
+```javascript
+// Nuevo comportamiento:
+- nombre: ✅ Opcional (se actualiza solo si se proporciona)
+- estado: ✅ Opcional (acepta múltiples formatos)
+- permisos: ✅ Opcional (se actualizan solo si se proporcionan)
+```
+
+**Beneficios:**
+- ✅ Actualización parcial: solo se modifican los campos proporcionados
+- ✅ Compatibilidad hacia atrás: funciona con requests anteriores
+- ✅ Flexibilidad completa para el frontend
+
+###### **2. Validación y Manejo de Estado Mejorado**
+
+**Formatos aceptados para estado:**
+- ✅ `true` / `false` (boolean)
+- ✅ `"Activo"` / `"Inactivo"` (string)
+- ✅ `"true"` / `"false"` (string)
+- ✅ `1` / `0` (number)
+
+**Ejemplo:**
+```javascript
+// Todos estos formatos funcionan:
+{ "estado": true }
+{ "estado": "Activo" }
+{ "estado": "activo" }
+{ "estado": 1 }
+```
+
+###### **3. Transacciones ACID para Consistencia**
+
+**Implementación:**
+- ✅ Transacciones de base de datos para garantizar consistencia
+- ✅ Rollback automático en caso de error
+- ✅ Eliminación y creación de relaciones en una sola transacción
+
+**Beneficios:**
+- ✅ Operaciones atómicas (todo o nada)
+- ✅ Integridad de datos garantizada
+- ✅ Sin estados inconsistentes
+
+###### **4. Permisos Vacíos Permitidos**
+
+**Nuevo comportamiento:**
+- ✅ Permite enviar arrays vacíos de permisos para quitar todos los permisos
+- ✅ Valida estructura pero permite arrays vacíos
+- ✅ Elimina todas las relaciones si se envía un objeto de permisos con todos los valores en `false`
+
+**Ejemplo:**
+```javascript
+// Quitar todos los permisos:
+{
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": false,
+      "actualizar": false,
+      "eliminar": false
+    }
+  }
+}
+// Resultado: Rol sin permisos asignados
+```
+
+##### **📊 Casos de Uso Implementados:**
+
+| Caso | Request | Resultado |
+|------|---------|-----------|
+| **Solo nombre y estado** | `{ "nombre": "...", "estado": true }` | ✅ Solo actualiza nombre y estado, permisos se mantienen |
+| **Solo permisos** | `{ "permisos": {...} }` | ✅ Solo actualiza permisos, nombre y estado se mantienen |
+| **Todo** | `{ "nombre": "...", "estado": true, "permisos": {...} }` | ✅ Actualiza todos los campos proporcionados |
+| **Quitar permisos** | `{ "permisos": { todos en false } }` | ✅ Rol queda sin permisos asignados |
+| **Rol no encontrado** | `PUT /api/gestion-roles/999` | ✅ 404 con mensaje claro |
+
+##### **📋 Archivos Modificados:**
+
+1. ✅ **`src/controllers/role.controller.js`**
+   - Función `updateRole`: Campos opcionales, validación de existencia, actualización parcial
+
+2. ✅ **`src/services/role.service.js`**
+   - Función `updateRoleWithDetails`: Transacciones, arrays vacíos permitidos, manejo de estado
+
+3. ✅ **`src/middlewares/role.middleware.js`**
+   - Función `updateRoleValidation`: Validación de permisos, estado mejorado
+
+##### **🧪 Ejemplos de Uso:**
+
+**Ejemplo 1: Actualización Completa**
+```http
+PUT /api/gestion-roles/4
+{
+  "nombre": "Supervisor de Ventas",
+  "estado": "Activo",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "clientes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    }
+  }
+}
+```
+
+**Ejemplo 2: Solo Actualizar Permisos**
+```http
+PUT /api/gestion-roles/4
+{
+  "permisos": {
+    "solicitudes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    }
+  }
+}
+```
+
+**Ejemplo 3: Solo Actualizar Estado**
+```http
+PUT /api/gestion-roles/4
+{
+  "estado": false
+}
+```
+
+##### **✅ Validaciones Implementadas:**
+
+1. ✅ **Existencia del rol** - Verifica que existe antes de actualizar (404 si no existe)
+2. ✅ **Estructura de permisos** - Valida módulos y acciones válidos
+3. ✅ **Nombre** - No permite nombres vacíos si se proporciona
+4. ✅ **Estado** - Acepta múltiples formatos y normaliza a booleano
+5. ✅ **Al menos un campo** - Requiere al menos un campo para actualizar
+
+##### **📝 Notas Importantes:**
+
+1. **Compatibilidad hacia atrás:** El endpoint funciona si solo se envía `nombre` y `estado` (comportamiento anterior)
+
+2. **Permisos opcionales:** Si no se proporcionan permisos, se mantienen los existentes
+
+3. **Transacciones:** Todas las operaciones son atómicas (todo o nada)
+
+4. **Formato de respuesta:** La respuesta sigue el formato granular del frontend con todos los módulos presentes
 
 ---
 

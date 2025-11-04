@@ -123,7 +123,7 @@ export const getRoleById = async (req, res) => {
   }
 };
 
-// Actualizar un rol (nombre y estado)
+// Actualizar un rol (nombre, estado y permisos opcionales)
 export const updateRole = async (req, res) => {
   try {
     console.log('✏️ [Backend] Actualizando rol...');
@@ -132,28 +132,58 @@ export const updateRole = async (req, res) => {
     
     const { nombre, estado, permisos } = req.body;
     
-    // Validar datos básicos
-    if (!nombre || typeof nombre !== 'string') {
-      throw new Error('El nombre del rol es obligatorio y debe ser un string');
+    // Validar que el rol existe
+    const rolExistente = await roleService.getRoleById(req.params.id);
+    if (!rolExistente) {
+      console.log('❌ [Backend] Rol no encontrado:', req.params.id);
+      return res.status(404).json({ 
+        success: false,
+        error: 'Rol no encontrado',
+        details: { id: req.params.id }
+      });
     }
-    
-    if (!permisos || typeof permisos !== 'object') {
-      throw new Error('Los permisos son obligatorios y deben ser un objeto');
+
+    // Preparar datos para actualización (solo los campos que se proporcionan)
+    const updateData = {};
+
+    // Actualizar nombre si se proporciona
+    if (nombre !== undefined) {
+      if (typeof nombre !== 'string' || nombre.trim() === '') {
+        throw new Error('El nombre del rol debe ser un string no vacío');
+      }
+      updateData.nombre = nombre.toLowerCase().trim();
+      console.log('📝 [Backend] Nombre a actualizar:', updateData.nombre);
     }
-    
-    // Transformar permisos del frontend al formato de la API
-    const { permisos: permisosAPI, privilegios } = transformPermisosToAPI(permisos);
-    
-    console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios });
-    
+
+    // Actualizar estado si se proporciona
+    if (estado !== undefined) {
+      const estadoBoolean = parseEstado(estado);
+      updateData.estado = estadoBoolean;
+      console.log('📝 [Backend] Estado a actualizar:', estadoBoolean);
+    }
+
+    // Actualizar permisos si se proporcionan
+    if (permisos !== undefined) {
+      if (typeof permisos !== 'object' || permisos === null) {
+        throw new Error('Los permisos deben ser un objeto');
+      }
+
+      // Transformar permisos del frontend al formato de la API
+      const { permisos: permisosAPI, privilegios } = transformPermisosToAPI(permisos);
+      
+      console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios });
+      
+      updateData.permisos = permisosAPI;
+      updateData.privilegios = privilegios;
+    }
+
+    // Validar que al menos se esté actualizando algo
+    if (Object.keys(updateData).length === 0) {
+      throw new Error('Debe proporcionar al menos un campo para actualizar (nombre, estado o permisos)');
+    }
+
     // Actualizar el rol con los datos transformados
-    const rolData = {
-      nombre: nombre.toLowerCase().trim(),
-      permisos: permisosAPI,
-      privilegios: privilegios
-    };
-    
-    const result = await roleService.updateRoleWithDetails(req.params.id, rolData);
+    const result = await roleService.updateRoleWithDetails(req.params.id, updateData);
     console.log('✅ [Backend] Rol actualizado en la base de datos:', result.id_rol);
     
     // Transformar el resultado al formato del frontend
@@ -163,6 +193,7 @@ export const updateRole = async (req, res) => {
     
     res.json({
       success: true,
+      message: 'Rol actualizado exitosamente',
       data: transformedRole
     });
   } catch (error) {

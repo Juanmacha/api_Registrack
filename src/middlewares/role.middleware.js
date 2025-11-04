@@ -9,7 +9,16 @@ export const createRoleValidation = [
 export const updateRoleValidation = [
   param('id').isInt().withMessage('ID inválido'),
   body('nombre').optional().notEmpty().withMessage('El nombre no puede estar vacío'),
-  body('estado').optional().isBoolean().withMessage('El estado debe ser true o false')
+  body('estado').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase();
+      return lower === 'activo' || lower === 'inactivo' || lower === 'true' || lower === 'false';
+    }
+    if (typeof value === 'number') return value === 0 || value === 1;
+    return false;
+  }).withMessage('El estado debe ser true/false, "Activo"/"Inactivo" o 1/0'),
+  body('permisos').optional().isObject().withMessage('Los permisos deben ser un objeto')
 ];
 
 // Cambiar estado
