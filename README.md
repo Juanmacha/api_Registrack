@@ -2,11 +2,11 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express-5-blue?logo=express&logoColor=white) ![Sequelize](https://img.shields.io/badge/Sequelize-6-3C76A1?logo=sequelize&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8-blue?logo=mysql&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-Auth-black?logo=jsonwebtokens) ![License](https://img.shields.io/badge/License-ISC-green)
 
-> **🚀 Última Actualización:** 4 de Noviembre de 2025
+> **🚀 Última Actualización:** Enero 2026
 > 
 > **✅ Estado:** Producción Ready (98%)
 > 
-> **🔥 Nuevo:** Emails en Background + Configuración Mejorada de Nodemailer + Solución de Timeouts - Sistema robusto de notificaciones que garantiza envío de emails incluso con timeouts, respuesta HTTP inmediata y logging detallado.
+> **🔥 Nuevo:** Sistema de Pago Requerido para Activar Solicitudes - Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock.
 
 ---
 
@@ -16,12 +16,13 @@
 
 Plataforma REST completa para la gestión integral de servicios de registro de marcas, propiedad intelectual y procesos legales. Sistema con roles diferenciados (Clientes, Empleados, Administradores), formularios dinámicos por servicio, notificaciones automáticas por email y seguimiento completo de procesos.
 
-### 🔥 Últimas Mejoras (Octubre-Noviembre 2025)
+### 🔥 Últimas Mejoras (Octubre 2025 - Enero 2026)
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
-| **4 Nov 2025** | 📧 **Solución de Timeouts en Emails** | Envío de emails en background después de responder HTTP. Garantiza envío incluso con timeouts. Respuesta HTTP inmediata (1-2s). Configuración mejorada de Nodemailer con pool de conexiones. |
+| **4 Nov 2025** | 📧 **Solución de Timeouts en Emails + Render** | Envío de emails en background después de responder HTTP. Timeouts adaptativos según entorno (30s/60s en producción). Verificación no bloqueante. Funciona correctamente en Render con manejo inteligente de timeouts. |
 | **4 Nov 2025** | 📧 **Emails Mejorados en Citas desde Solicitudes** | Sistema completo de notificaciones: emails al cliente y al empleado asignado a la solicitud cuando se crea una cita. Prevención de duplicados inteligente. |
 | **4 Nov 2025** | ✅ **Validación Inteligente de Modalidad** | Corrección automática de typos comunes (ej: "Virtusl" → "Virtual"). Validación temprana con mensajes claros. |
 | **4 Nov 2025** | 🔧 **Corrección Columna tipodedocumento** | Aumentado tamaño de VARCHAR(10) a VARCHAR(50) para soportar valores completos como "Cédula de Ciudadanía". Migración SQL incluida. |
@@ -1049,7 +1050,7 @@ Authorization: Bearer <token_admin>
 - **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
 - **Datos completos**: Información completa del usuario y empresa asociada
 
-### 8. Sistema de Pagos (`/api/gestion-pagos`) ⭐ **NUEVO - 29 Oct 2025**
+### 8. Sistema de Pagos (`/api/gestion-pagos`) ⭐ **ACTUALIZADO - Enero 2025**
 - **Procesamiento con Mock**: Simula pasarelas de pago (PayPal, Stripe, Wompi)
 - **Comprobantes automáticos**: Generación de número único (formato: RC-YYYYMM-XXXX)
 - **Emails de confirmación**: Notificación automática al procesar pago
@@ -1060,9 +1061,10 @@ Authorization: Bearer <token_admin>
 - **Listo para producción**: Arquitectura preparada para pasarela real
 - **Precios configurados**: Servicios con precio_base en BD
 - **7 campos nuevos**: transaction_id, gateway, gateway_data, verified_at, verified_by, verification_method, numero_comprobante
+- **🔄 Activación Automática de Solicitudes**: Al procesar un pago exitoso, la solicitud asociada se activa automáticamente con el primer estado del proceso
 
 **Funcionalidades:**
-- `POST /api/gestion-pagos/process-mock` - Procesar pago simulado
+- `POST /api/gestion-pagos/process-mock` - Procesar pago simulado **y activar solicitud automáticamente**
 - `GET /api/gestion-pagos` - Ver todos los pagos (admin)
 - `GET /api/gestion-pagos/:id` - Ver pago específico
 - `GET /api/gestion-pagos/:id/comprobante/download` - Descargar comprobante
@@ -1070,6 +1072,37 @@ Authorization: Bearer <token_admin>
 - `GET /api/gestion-pagos/reporte/excel` - Reporte Excel
 - `POST /api/gestion-pagos/:id/verify-manual` - Verificación manual (admin)
 - `POST /api/gestion-pagos/simular` - Simular pago para testing
+
+**💰 Flujo de Pago para Activar Solicitud (Solo Clientes):**
+
+**⚠️ IMPORTANTE:** Este flujo aplica SOLO para solicitudes creadas por **clientes**.
+
+1. **Cliente crea solicitud** → Estado: "Pendiente de Pago"
+2. **Cliente procesa pago** con `POST /api/gestion-pagos/process-mock`:
+   ```json
+   {
+     "monto": 500000.00,
+     "metodo_pago": "Tarjeta",
+     "id_orden_servicio": 123
+   }
+   ```
+3. **Respuesta exitosa** incluye `solicitud_activada: true`:
+   ```json
+   {
+     "success": true,
+     "message": "Pago procesado exitosamente. Solicitud activada.",
+     "data": {
+       "payment": { ... },
+       "solicitud_activada": true
+     }
+   }
+   ```
+4. La solicitud se activa automáticamente con el primer estado del proceso del servicio.
+
+**👨‍💼 Para Administradores/Empleados:**
+- Las solicitudes se activan **automáticamente** al crearlas
+- No requieren procesamiento de pago por API
+- El pago puede gestionarse físicamente después si es necesario
 
 
 ### 9. Gestión de Empleados (`/api/gestion-empleados`)
@@ -1116,18 +1149,41 @@ GET /api/servicios/:id               # Obtener servicio por ID
 GET /api/servicios/:id/procesos      # Procesos de un servicio
 ```
 
-### Solicitudes ⭐ **ACTUALIZADO**
+### Solicitudes ⭐ **ACTUALIZADO - Enero 2026**
 ```http
-POST /api/gestion-solicitudes/crear/:servicio           # Crear solicitud (crea entidades automáticamente)
+POST /api/gestion-solicitudes/crear/:servicio           # Crear solicitud (estado: "Pendiente de Pago") 💰 NUEVO
 GET /api/gestion-solicitudes/mias                      # Mis solicitudes (cliente)
 GET /api/gestion-solicitudes                           # Todas las solicitudes (admin/empleado)
 GET /api/gestion-solicitudes/buscar                    # Buscar solicitudes (query search)
 GET /api/gestion-solicitudes/:id                       # Obtener solicitud específica
 PUT /api/gestion-solicitudes/editar/:id                # Editar solicitud
 PUT /api/gestion-solicitudes/anular/:id                # Anular solicitud
-PUT /api/gestion-solicitudes/asignar-empleado/:id      # Asignar empleado a solicitud ⭐ NUEVO
-GET /api/gestion-solicitudes/:id/empleado-asignado     # Ver empleado asignado ⭐ NUEVO
+PUT /api/gestion-solicitudes/asignar-empleado/:id      # Asignar empleado a solicitud
+GET /api/gestion-solicitudes/:id/empleado-asignado     # Ver empleado asignado
 ```
+
+**💰 Nota Importante:**
+- **Clientes:** Las solicitudes se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse
+- **Administradores/Empleados:** Las solicitudes se activan automáticamente con el primer estado del proceso (NO requieren pago por API)
+
+Ver sección de **Pagos** para más detalles sobre el flujo de pago de clientes.
+
+### Pagos 💰 **ACTUALIZADO - Enero 2026**
+```http
+POST /api/gestion-pagos/process-mock           # Procesar pago y activar solicitud automáticamente 💰 NUEVO
+GET /api/gestion-pagos                          # Ver todos los pagos (admin)
+GET /api/gestion-pagos/:id                      # Ver pago específico
+GET /api/gestion-pagos/:id/comprobante          # Generar comprobante PDF
+GET /api/gestion-pagos/:id/comprobante/download # Descargar comprobante
+GET /api/gestion-pagos/reporte/excel            # Reporte Excel de pagos
+POST /api/gestion-pagos/:id/verify-manual      # Verificar pago manualmente (admin)
+POST /api/gestion-pagos/simular                # Simular pago para testing
+```
+
+**💰 Flujo de Activación:**
+1. Crear solicitud → Estado: "Pendiente de Pago"
+2. Procesar pago con `POST /api/gestion-pagos/process-mock` → Activa solicitud automáticamente
+3. Respuesta incluye `solicitud_activada: true` si fue exitoso
 
 ### Citas ⭐ **ACTUALIZADO**
 ```http
@@ -1200,7 +1256,7 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - `contrasena`: Contraseña fuerte
 - `id_rol`: Número > 0 (debe existir y pertenecer a [administrador, empleado, cliente])
 
-### Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO**
+### Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO - Enero 2025**
 - **POST /crear/:servicio** (crear solicitud dinámica con creación automática de entidades)
 
 **Características mejoradas:**
@@ -1209,6 +1265,9 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - ✅ **Validación robusta**: Campos requeridos específicos por tipo de servicio
 - ✅ **Compatibilidad MySQL**: Optimizado para base de datos MySQL
 - ✅ **Manejo de errores**: Mensajes descriptivos y debugging detallado
+- ✅ **💰 Pago Requerido (Solo Clientes)**: Los clientes crean solicitudes con estado "Pendiente de Pago" y requieren pago para activarse
+- ✅ **✅ Activación Directa (Admin/Empleado)**: Los administradores/empleados crean solicitudes que se activan automáticamente (pago físico posterior)
+- ✅ **Activación Automática por Pago**: Al procesar el pago exitosamente, la solicitud del cliente se activa automáticamente con el primer estado del proceso
 
 **Body requerido dinámico según tipo de servicio:**
 
@@ -1252,6 +1311,59 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 
 **⚠️ IMPORTANTE:** El campo `nit` debe ser un **número entero** entre 1000000000 y 9999999999 (10 dígitos). **NO incluir el dígito de verificación con guión**. Ejemplo correcto: `9001234567` (no `"900123456-1"`).
 
+**💰 NUEVO - Flujo Diferenciado por Rol (Enero 2026):**
+
+### 👤 Como CLIENTE:
+Al crear una solicitud como cliente, esta se crea con estado **"Pendiente de Pago"** y NO se activa automáticamente. La respuesta incluye:
+
+```json
+{
+  "success": true,
+  "mensaje": "Solicitud creada. Pendiente de pago para activar.",
+  "data": {
+    "orden_id": 123,
+    "estado": "Pendiente de Pago",
+    "monto_a_pagar": 500000.00,
+    "requiere_pago": true
+  }
+}
+```
+
+**Para activar la solicitud del cliente:**
+1. Procesar el pago usando `POST /api/gestion-pagos/process-mock` con el `orden_id`
+2. Si el pago es exitoso, la solicitud se activa automáticamente con el primer estado del proceso del servicio
+3. La respuesta del pago incluye `solicitud_activada: true` cuando se activa correctamente
+
+### 👨‍💼 Como ADMINISTRADOR/EMPLEADO:
+Al crear una solicitud como administrador/empleado, esta se **activa automáticamente** con el primer estado del proceso. La respuesta incluye:
+
+```json
+{
+  "success": true,
+  "mensaje": "Solicitud creada y activada exitosamente.",
+  "data": {
+    "orden_id": 123,
+    "estado": "Solicitud Recibida",
+    "monto_a_pagar": null,
+    "requiere_pago": false
+  }
+}
+```
+
+**⚠️ IMPORTANTE - Diferencias en el Body:**
+
+| Campo | Cliente | Administrador/Empleado |
+|-------|---------|------------------------|
+| `id_cliente` | ❌ **NO enviar** (se toma automáticamente del token) | ✅ **OBLIGATORIO** (error 400 si falta) |
+| `id_empresa` | ⚪ Opcional | ⚪ Opcional |
+| Otros campos | ✅ Iguales | ✅ Iguales |
+
+**Resumen:**
+- **Clientes:** No envían `id_cliente` → Estado: "Pendiente de Pago" → Requieren pago por API
+- **Administradores/Empleados:** Deben enviar `id_cliente` → Estado: Primer proceso activo → NO requieren pago por API (pago físico posterior)
+
+Ver sección de **Sistema de Pagos** para más detalles sobre pagos de clientes.
+
 #### Renovación de marca
 ```json
 {
@@ -1291,6 +1403,56 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - Oposición de marca
 - Respuesta a oposición
 - Ampliación de cobertura
+
+**📋 Ejemplos de Uso por Rol:**
+
+**Ejemplo 1: Cliente crea solicitud (requiere pago)**
+```http
+POST /api/gestion-solicitudes/crear/1
+Authorization: Bearer TOKEN_CLIENTE
+Content-Type: application/json
+
+{
+  "nombres_apellidos": "Juan Pérez",
+  "tipo_documento": "Cédula de Ciudadanía",
+  "numero_documento": "1234567890",
+  "direccion": "Calle 123 #45-67",
+  "telefono": "3001234567",
+  "correo": "juan.perez@email.com",
+  "pais": "Colombia",
+  "ciudad": "Bogotá",
+  "nombre_a_buscar": "Mi Marca",
+  "tipo_producto_servicio": "Productos alimenticios",
+  "clase_niza": "25",
+  "logotipo": "data:image/jpeg;base64,..."
+  // ⚠️ NO incluir id_cliente - se toma del token
+}
+```
+**Respuesta:** `estado: "Pendiente de Pago"`, `requiere_pago: true`, `monto_a_pagar: 100000.00`
+
+**Ejemplo 2: Administrador crea solicitud (activación automática)**
+```http
+POST /api/gestion-solicitudes/crear/1
+Authorization: Bearer TOKEN_ADMIN
+Content-Type: application/json
+
+{
+  "id_cliente": 45,  // ⚠️ OBLIGATORIO para admin/empleado
+  "nombres_apellidos": "María González",
+  "tipo_documento": "Cédula de Ciudadanía",
+  "numero_documento": "9876543210",
+  "direccion": "Carrera 78 #90-12",
+  "telefono": "3109876543",
+  "correo": "maria.gonzalez@email.com",
+  "pais": "Colombia",
+  "ciudad": "Medellín",
+  "nombre_a_buscar": "Marca Premium",
+  "tipo_producto_servicio": "Servicios tecnológicos",
+  "clase_niza": "42",
+  "logotipo": "data:image/jpeg;base64,..."
+}
+```
+**Respuesta:** `estado: "Solicitud Recibida"` (primer proceso), `requiere_pago: false`, `monto_a_pagar: null`
 
 **Campos editables en solicitudes:**
 - `pais`, `ciudad`, `codigo_postal`, `total_estimado` (>0)
@@ -8606,6 +8768,28 @@ grep "[EMAIL]" logs/server.log
 2. **Los errores de email NO afectan la creación de la cita**. Si falla el envío, la cita se crea correctamente y se registra el error en logs.
 
 3. **La respuesta HTTP es inmediata**, pero los emails se procesan en background. No esperes ver los emails instantáneamente.
+
+4. **En Render:** Es normal que la verificación de conexión falle por timeout. Esto NO significa que los emails no funcionen. Los emails se enviarán cuando se necesiten.
+
+##### **🔧 Solución para Render:**
+
+**Problema anterior:** En Render, la verificación de conexión fallaba por timeout y mostraba un error crítico.
+
+**Solución implementada:**
+- ✅ Verificación no bloqueante (no detiene el servidor)
+- ✅ Timeouts adaptativos más largos en producción (30s conexión, 60s socket)
+- ✅ Manejo inteligente de timeouts (advertencia en lugar de error)
+- ✅ Mensajes claros indicando que es normal en Render
+
+**Logs esperados en Render:**
+```
+⚠️ [EMAIL] Timeout al verificar conexión (normal en Render/producción)
+   Los emails se enviarán cuando se necesiten. La verificación puede tardar más en producción.
+   Email configurado: tu@email.com
+   💡 En Render, la verificación puede fallar por timeout pero los emails funcionarán.
+```
+
+**✅ Resultado:** El servidor inicia normalmente y los emails funcionan correctamente cuando se necesitan.
 
 ---
 

@@ -134,8 +134,13 @@ export const PagoController = {
       if (resultado.success) {
         res.status(201).json({
           success: true,
-          message: 'Pago procesado exitosamente',
-          data: resultado
+          message: resultado.solicitud_activada 
+            ? 'Pago procesado exitosamente. Solicitud activada.' 
+            : 'Pago procesado exitosamente',
+          data: {
+            ...resultado,
+            solicitud_activada: resultado.solicitud_activada || false
+          }
         });
       } else {
         res.status(400).json({

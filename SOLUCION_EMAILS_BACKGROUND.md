@@ -240,6 +240,72 @@ Cuando se crea una cita, deberías ver en los logs:
 
 ---
 
+---
+
+## 🌐 Solución Específica para Render
+
+### Problema Detectado en Render
+
+Cuando se desplegó en Render, se observó que:
+- ❌ La verificación de conexión fallaba por timeout
+- ❌ Se mostraba un error crítico que podía confundir
+- ❌ Aunque el servidor funcionaba, el mensaje era alarmante
+
+### Solución Implementada
+
+**Fecha:** 4 de Noviembre de 2025
+
+**Cambios:**
+1. ✅ **Verificación no bloqueante:** La verificación se ejecuta en background y no detiene el servidor
+2. ✅ **Timeouts adaptativos:** Timeouts más largos en producción (30s conexión, 60s socket)
+3. ✅ **Detección de entorno:** El sistema detecta automáticamente si está en Render/producción
+4. ✅ **Mensajes claros:** Advertencias en lugar de errores críticos cuando hay timeout
+
+### Comportamiento en Render
+
+**Antes:**
+```
+❌ Error verificando configuración de email: Connection timeout
+   Por favor, verifica:
+   1. Que EMAIL_USER y EMAIL_PASS estén correctamente definidos...
+```
+
+**Ahora:**
+```
+⚠️ [EMAIL] Timeout al verificar conexión (normal en Render/producción)
+   Los emails se enviarán cuando se necesiten. La verificación puede tardar más en producción.
+   Email configurado: juanmanuelmachadomaturana1@gmail.com
+   💡 En Render, la verificación puede fallar por timeout pero los emails funcionarán.
+   💡 Verifica que EMAIL_USER y EMAIL_PASS estén correctamente configurados en las variables de entorno.
+```
+
+### Configuración de Variables en Render
+
+Asegúrate de tener estas variables de entorno configuradas en Render:
+
+1. **EMAIL_USER** - Tu correo Gmail completo
+2. **EMAIL_PASS** - Contraseña de aplicación de Gmail (no tu contraseña normal)
+3. **RENDER** - Se detecta automáticamente cuando está en Render
+
+### Verificación de Funcionamiento
+
+**✅ Deploy exitoso en Render:**
+- Build exitoso
+- Servidor iniciado correctamente
+- Conexión a MySQL exitosa
+- Base de datos inicializada
+- Timeout de verificación manejado correctamente (advertencia, no error)
+- Servicio disponible y funcionando
+
+**✅ Los emails funcionarán cuando se necesiten:**
+- La verificación de conexión es opcional
+- Los emails se envían cuando se crean citas/solicitudes
+- Los logs mostrarán `[EMAIL]` cuando se envíen emails
+- Si hay problemas reales, aparecerán errores específicos
+
+---
+
 **Fecha de implementación:** 4 de Noviembre de 2025  
-**Estado:** ✅ Implementado y listo para pruebas
+**Estado:** ✅ Implementado y probado en Render  
+**Última actualización:** 4 de Noviembre de 2025 - Solución para Render
 

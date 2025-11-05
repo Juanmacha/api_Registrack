@@ -96,6 +96,17 @@ export const PagoRepository = {
       }
     );
     return result;
+  },
+
+  /**
+   * ✅ NUEVO: Buscar pagos por orden de servicio
+   */
+  async findByOrdenServicio(idOrdenServicio) {
+    const result = await sequelize.query(
+      "SELECT * FROM pagos WHERE id_orden_servicio = ? ORDER BY created_at DESC",
+      { replacements: [idOrdenServicio], type: QueryTypes.SELECT }
+    );
+    return result;
   }
 
 };

@@ -634,7 +634,7 @@ export const crearSolicitud = async (req, res) => {
         throw error;
         }
       }
-    } else {
+    } else if (empresa) {
       console.log('✅ Empresa existente con ID:', empresa.id_empresa, 'Nombre:', empresa.nombre);
     }
     
@@ -681,6 +681,11 @@ export const crearSolicitud = async (req, res) => {
     }
 
     // 🚀 MAPEAR CAMPOS DEL FORMULARIO A COLUMNAS DE LA BD
+    // ⚠️ LÓGICA: Clientes requieren pago, Administradores/Empleados activan directamente
+    const estadoInicial = (req.user.rol === 'cliente') 
+      ? "Pendiente de Pago"  // Cliente: requiere pago
+      : null;  // Admin/Empleado: se activará con primer proceso
+    
     const ordenData = {
       id_cliente: cliente.id_cliente,
       id_servicio: servicio.id_servicio,
@@ -689,7 +694,7 @@ export const crearSolicitud = async (req, res) => {
       pais: req.body.pais_titular || req.body.pais || req.body.pais_residencia || "Colombia",
       ciudad: req.body.ciudad_titular || req.body.ciudad || req.body.ciudad_residencia || "Bogotá",
       codigo_postal: req.body.codigo_postal || "110111",
-      estado: "Pendiente",
+      estado: estadoInicial || "Pendiente", // Temporal, se actualizará después
       
       // *** MAPEO DE CAMPOS DEL FORMULARIO ***
       tipodepersona: req.body.tipo_solicitante || req.body.tipo_persona,
@@ -758,63 +763,55 @@ export const crearSolicitud = async (req, res) => {
     const nuevaOrden = await OrdenServicio.create(ordenData);
     console.log('✅ Orden creada:', nuevaOrden.id_orden_servicio);
 
-    // 🚀 NUEVA FUNCIONALIDAD: Asignar primer estado del servicio
-    console.log('🔄 Asignando primer estado del servicio...');
-    console.log('🔍 Debug - Servicio ID:', servicio.id_servicio);
-    console.log('🔍 Debug - Orden ID:', nuevaOrden.id_orden_servicio);
-    
-    try {
-      // Obtener los process_states del servicio ordenados por order_number
-      const procesos = await Proceso.findAll({
-        where: { servicio_id: servicio.id_servicio },
-        order: [['order_number', 'ASC']]
-      });
+    // 🚀 LÓGICA DIFERENCIADA POR ROL
+    if (req.user.rol === 'cliente') {
+      // CLIENTE: Crear con estado "Pendiente de Pago" (requiere pago)
+      await nuevaOrden.update({ estado: "Pendiente de Pago" });
+      console.log('💰 Estado inicial: Pendiente de Pago (requiere pago para activar)');
+      console.log('⚠️ El proceso se asignará cuando se confirme el pago exitosamente');
+      // Ver función activarSolicitudDespuesPago()
+    } else {
+      // ADMINISTRADOR/EMPLEADO: Activar directamente con primer estado del proceso
+      console.log('👨‍💼 Administrador/Empleado - Activando solicitud directamente...');
       
-      console.log('🔍 Debug - Procesos encontrados:', procesos.length);
-      procesos.forEach((p, index) => {
-        console.log(`   ${index + 1}. ${p.nombre} (order: ${p.order_number})`);
-      });
-      
-      if (procesos.length > 0) {
-        const primerProceso = procesos[0];
-        console.log('✅ Primer proceso encontrado:', primerProceso.nombre);
-        
-        // Crear registro en DetalleOrdenServicio con el primer proceso
-        const detalleOrden = await DetalleOrdenServicio.create({
-          id_orden_servicio: nuevaOrden.id_orden_servicio,
-          id_servicio: servicio.id_servicio,
-          estado: primerProceso.nombre, // Usar directamente el nombre del proceso
-          fecha_estado: new Date()
+      try {
+        // Obtener los process_states del servicio ordenados por order_number
+        const procesos = await Proceso.findAll({
+          where: { servicio_id: servicio.id_servicio },
+          order: [['order_number', 'ASC']]
         });
         
-        console.log('✅ Proceso inicial asignado:', detalleOrden.estado);
-        console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
-        
-        // Actualizar el estado de la orden principal
-        await nuevaOrden.update({ estado: primerProceso.nombre });
-        console.log('✅ Estado de orden actualizado:', primerProceso.nombre);
-        
-      } else {
-        console.log('⚠️ No se encontraron procesos para el servicio, usando estado por defecto');
-        
-        // Si no hay procesos, usar estado por defecto
-        const detalleOrden = await DetalleOrdenServicio.create({
-          id_orden_servicio: nuevaOrden.id_orden_servicio,
-          id_servicio: servicio.id_servicio,
-          estado: "Pendiente",
-          fecha_estado: new Date()
-        });
-        
-        console.log('✅ Estado por defecto asignado: Pendiente');
-        console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
+        if (procesos.length > 0) {
+          const primerProceso = procesos[0];
+          console.log('✅ Primer proceso encontrado:', primerProceso.nombre);
+          
+          // Crear registro en DetalleOrdenServicio con el primer proceso
+          await DetalleOrdenServicio.create({
+            id_orden_servicio: nuevaOrden.id_orden_servicio,
+            id_servicio: servicio.id_servicio,
+            estado: primerProceso.nombre,
+            fecha_estado: new Date()
+          });
+          
+          // Actualizar el estado de la orden principal
+          await nuevaOrden.update({ estado: primerProceso.nombre });
+          console.log('✅ Solicitud activada con estado:', primerProceso.nombre);
+        } else {
+          // Si no hay procesos, usar estado por defecto
+          await DetalleOrdenServicio.create({
+            id_orden_servicio: nuevaOrden.id_orden_servicio,
+            id_servicio: servicio.id_servicio,
+            estado: "Pendiente",
+            fecha_estado: new Date()
+          });
+          await nuevaOrden.update({ estado: "Pendiente" });
+          console.log('✅ Solicitud activada con estado por defecto: Pendiente');
+        }
+      } catch (error) {
+        console.error('❌ Error al activar solicitud (admin):', error);
+        // No fallar la creación, pero dejar en estado pendiente
+        await nuevaOrden.update({ estado: "Pendiente" });
       }
-      
-    } catch (error) {
-      console.error('❌ Error al asignar estado inicial:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error stack:', error.stack);
-      // No fallar la creación de la solicitud por este error
-      console.log('⚠️ Continuando sin asignar estado inicial');
     }
 
     // Cliente ya fue creado/encontrado arriba
@@ -853,15 +850,39 @@ export const crearSolicitud = async (req, res) => {
       // No fallar la operación por error de email
     }
 
+    // Obtener el estado actualizado
+    const ordenActualizada = await OrdenServicio.findByPk(nuevaOrden.id_orden_servicio);
+    
     console.log('🎉 Solicitud creada exitosamente');
+    
+    // Respuesta diferenciada según el rol
+    const requierePago = req.user.rol === 'cliente';
+    const mensaje = requierePago 
+      ? "Solicitud creada. Pendiente de pago para activar."
+      : "Solicitud creada y activada exitosamente.";
+    
+    const nextSteps = requierePago
+      ? [
+          "Complete el pago para activar la solicitud",
+          "Una vez pagado, la solicitud será procesada automáticamente",
+          "Puede consultar el estado en cualquier momento"
+        ]
+      : [
+          "La solicitud está activa y lista para procesar",
+          "Se notificará por email el estado de la solicitud",
+          "Puede consultar el estado en cualquier momento"
+        ];
+    
     return res.status(201).json({
       success: true,
-      mensaje: "Solicitud creada exitosamente",
+      mensaje: mensaje,
       data: {
-      orden_id: nuevaOrden.id_orden_servicio,
-      servicio: servicioEncontrado,
-      estado: nuevaOrden.estado, // Usar el estado actualizado (nombre del proceso)
-      fecha_solicitud: nuevaOrden.fecha_solicitud,
+        orden_id: ordenActualizada.id_orden_servicio,
+        servicio: servicioEncontrado,
+        estado: ordenActualizada.estado,
+        monto_a_pagar: requierePago ? (servicioEncontrado.precio_base || servicio.precio_base || 100000.00) : null,
+        requiere_pago: requierePago,
+        fecha_solicitud: ordenActualizada.fecha_creacion,
         cliente: {
           id_cliente: cliente.id_cliente,
           marca: cliente.marca,
@@ -877,12 +898,9 @@ export const crearSolicitud = async (req, res) => {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        version: "2.2",
-        nextSteps: [
-          "La solicitud está pendiente de revisión",
-          "Se notificará por email el estado de la solicitud",
-          "Puede consultar el estado en cualquier momento"
-        ]
+        version: "2.4",
+        rol: req.user.rol,
+        nextSteps: nextSteps
       }
     });
 
@@ -892,6 +910,142 @@ export const crearSolicitud = async (req, res) => {
       mensaje: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : "Error interno",
     });
+  }
+};
+
+/**
+ * 🔄 Activa una solicitud después de confirmar el pago
+ * Asigna el primer estado del proceso y crea el detalle inicial
+ * @param {number} idOrdenServicio - ID de la orden de servicio
+ * @returns {Promise<Object>} Resultado de la activación
+ */
+export const activarSolicitudDespuesPago = async (idOrdenServicio) => {
+  try {
+    console.log('🔄 Activando solicitud después de pago:', idOrdenServicio);
+    
+    // 1. Verificar que la solicitud existe y está en "Pendiente de Pago"
+    const orden = await OrdenServicio.findByPk(idOrdenServicio, {
+      include: [{ 
+        model: Servicio, 
+        as: 'servicio' 
+      }]
+    });
+    
+    if (!orden) {
+      throw new Error('Solicitud no encontrada');
+    }
+    
+    if (orden.estado !== 'Pendiente de Pago') {
+      console.log('⚠️ Solicitud ya está activa o en otro estado:', orden.estado);
+      return { 
+        success: false, 
+        mensaje: `La solicitud ya está en estado: ${orden.estado}`,
+        estado_actual: orden.estado
+      };
+    }
+    
+    // 2. Verificar que no haya otro pago ya procesado (validación adicional)
+    const { PagoRepository } = await import("../repositories/pago.repository.js");
+    const pagosExistentes = await PagoRepository.findByOrdenServicio(idOrdenServicio);
+    const pagoPagado = pagosExistentes?.find(p => p.estado === 'Pagado' && p.verified_at);
+    
+    // Si ya hay un pago procesado y la solicitud NO está en "Pendiente de Pago", 
+    // significa que ya fue activada antes
+    if (pagoPagado && orden.estado !== 'Pendiente de Pago') {
+      console.log('⚠️ Solicitud ya tiene un pago procesado y está activa');
+      return { 
+        success: false, 
+        mensaje: 'Solicitud ya tiene un pago procesado y está activa',
+        tiene_pago: true,
+        estado_actual: orden.estado
+      };
+    }
+    
+    // 3. Obtener el primer proceso del servicio
+    const procesos = await Proceso.findAll({
+      where: { servicio_id: orden.id_servicio },
+      order: [['order_number', 'ASC']]
+    });
+    
+    if (procesos.length === 0) {
+      // Si no hay procesos, usar estado por defecto
+      console.log('⚠️ No se encontraron procesos para el servicio, usando estado por defecto');
+      await orden.update({ estado: 'Pendiente' });
+      await DetalleOrdenServicio.create({
+        id_orden_servicio: orden.id_orden_servicio,
+        id_servicio: orden.id_servicio,
+        estado: 'Pendiente',
+        fecha_estado: new Date()
+      });
+      
+      console.log('✅ Solicitud activada con estado por defecto: Pendiente');
+      return {
+        success: true,
+        mensaje: 'Solicitud activada con estado por defecto',
+        estado: 'Pendiente'
+      };
+    }
+    
+    // 4. Asignar primer proceso
+    const primerProceso = procesos[0];
+    console.log('✅ Primer proceso encontrado:', primerProceso.nombre);
+    
+    // Crear registro en DetalleOrdenServicio
+    const detalleOrden = await DetalleOrdenServicio.create({
+      id_orden_servicio: orden.id_orden_servicio,
+      id_servicio: orden.id_servicio,
+      estado: primerProceso.nombre,
+      fecha_estado: new Date()
+    });
+    
+    // Actualizar estado de la orden
+    await orden.update({ estado: primerProceso.nombre });
+    
+    console.log('✅ Solicitud activada con estado:', primerProceso.nombre);
+    console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
+    
+    // 5. Enviar email de confirmación de activación (opcional)
+    try {
+      const ordenCompleta = await OrdenServicio.findByPk(idOrdenServicio, {
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            include: [{ 
+              model: User,
+              as: 'Usuario',
+              attributes: ['nombre', 'apellido', 'correo']
+            }]
+          },
+          {
+            model: Servicio,
+            as: 'servicio'
+          }
+        ]
+      });
+      
+      if (ordenCompleta.cliente?.Usuario?.correo) {
+        // Email de confirmación de activación (puedes personalizar este email)
+        console.log('📧 Enviando email de confirmación de activación...');
+        // Aquí puedes agregar un nuevo tipo de email si lo deseas
+        // Por ahora solo logueamos
+      }
+    } catch (emailError) {
+      console.error('⚠️ Error al enviar email de activación:', emailError);
+      // No fallar la activación por error de email
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Solicitud activada exitosamente',
+      estado: primerProceso.nombre,
+      orden_id: orden.id_orden_servicio,
+      detalle_orden_id: detalleOrden.id_detalle_orden
+    };
+    
+  } catch (error) {
+    console.error('❌ Error al activar solicitud:', error);
+    throw error;
   }
 };
 

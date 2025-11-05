@@ -48,7 +48,26 @@ export const PagoService = {
         verification_method: 'mock'
       });
 
-      // 3. Si pago exitoso, generar comprobante y enviar email
+      // 3. ⚠️ NUEVO: Si pago exitoso, activar la solicitud
+      let solicitudActivada = false;
+      if (paymentResult.success && paymentResult.verified && paymentData.id_orden_servicio) {
+        try {
+          const { activarSolicitudDespuesPago } = await import('../controllers/solicitudes.controller.js');
+          const activacion = await activarSolicitudDespuesPago(paymentData.id_orden_servicio);
+          
+          if (activacion.success) {
+            solicitudActivada = true;
+            console.log('✅ Solicitud activada después de pago:', activacion.estado);
+          } else {
+            console.log('⚠️ No se pudo activar solicitud:', activacion.mensaje);
+          }
+        } catch (activacionError) {
+          console.error('❌ Error al activar solicitud:', activacionError);
+          // No fallar el pago si falla la activación (se puede activar manualmente después)
+        }
+      }
+
+      // 4. Si pago exitoso, generar comprobante y enviar email
       if (paymentResult.success && paymentResult.verified) {
         try {
           await this.generarYEnviarComprobante(pago.id_pago);
@@ -61,7 +80,8 @@ export const PagoService = {
       return {
         success: true,
         payment: pago,
-        transaction_id: paymentResult.transaction_id
+        transaction_id: paymentResult.transaction_id,
+        solicitud_activada: solicitudActivada // ⚠️ Nuevo campo
       };
 
     } catch (error) {
