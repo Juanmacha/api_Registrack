@@ -31,15 +31,11 @@ export const CAMPOS_OBLIGATORIOS_POR_SERVICIO = {
     "numero_nit_cedula",
     "nombre_marca",
     "tipo_producto_servicio",
-    "certificado_camara_comercio",
     "logotipo",
-    "poder_autorizacion",
-    // Campos para persona jurídica
-    "tipo_entidad",
-    "razon_social",
-    "nit_empresa",
-    "representante_legal",
-    "direccion_domicilio",
+    "poder_autorizacion"
+    // ✅ Campos condicionales removidos: certificado_camara_comercio, tipo_entidad,
+    //    razon_social, nit_empresa, representante_legal, direccion_domicilio
+    //    Estos se validarán condicionalmente en el controlador según tipo_solicitante
   ],
 
   // 3. Renovación de marca
