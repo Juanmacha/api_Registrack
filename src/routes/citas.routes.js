@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCitas, createCita, reprogramarCita, anularCita, descargarReporteCitas, validateCreateCita, crearCitaDesdeSolicitud, obtenerCitasDeSolicitud } from "../controllers/citas.controller.js";
+import { getCitas, createCita, reprogramarCita, anularCita, descargarReporteCitas, validateCreateCita, crearCitaDesdeSolicitud, obtenerCitasDeSolicitud, buscarUsuarioPorDocumento } from "../controllers/citas.controller.js";
 
 // Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -19,9 +19,10 @@ const router = Router();
 router.get("/", roleMiddleware(["administrador", "empleado", "cliente"]), getCitas);
 
 // Crear cita con validaciones mejoradas
+// ✅ NOTA: validateAllowedValues se removió porque createCita normaliza y valida el tipo internamente
 router.post("/", 
   roleMiddleware(["administrador", "empleado", "cliente"]),
-  validateRequiredFields(['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_cliente', 'id_empleado']),
+  validateRequiredFields(['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_empleado']),
   validateFieldTypes({
     fecha: 'date',
     hora_inicio: 'string',
@@ -33,10 +34,9 @@ router.post("/",
     observacion: 'string'
   }),
   validateAllowedValues({
-    tipo: ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'],
+    // Solo validar modalidad aquí, tipo se normaliza en createCita
     modalidad: ['Presencial', 'Virtual']
   }),
-  validateCreateCita,
   createCita
 );
 
@@ -86,6 +86,18 @@ router.get(
   authMiddleware,
   roleMiddleware(["administrador", "empleado", "cliente"]),
   obtenerCitasDeSolicitud
+);
+
+/**
+ * GET /api/gestion-citas/buscar-usuario/:documento
+ * Buscar usuario por documento y retornar sus datos para autocompletar
+ * Solo Admin/Empleado
+ */
+router.get(
+  "/buscar-usuario/:documento",
+  authMiddleware,
+  roleMiddleware(["administrador", "empleado"]),
+  buscarUsuarioPorDocumento
 );
 
 export default router;

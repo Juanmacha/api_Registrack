@@ -20,6 +20,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
 | **4 Nov 2025** | 📧 **Solución de Timeouts en Emails + Render** | Envío de emails en background después de responder HTTP. Timeouts adaptativos según entorno (30s/60s en producción). Verificación no bloqueante. Funciona correctamente en Render con manejo inteligente de timeouts. |
@@ -994,23 +995,26 @@ Authorization: Bearer <token_admin>
 - **Manejo de errores mejorado** con mensajes descriptivos
 - **Compatibilidad MySQL** optimizada (LIKE en lugar de ILIKE)
 
-### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - 3 Nov 2025**
+### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Citas independientes**: Crear citas generales sin asociar a solicitud
 - **Citas asociadas**: Vincular citas con solicitudes de servicio existentes
 - **Datos automáticos**: Cliente y tipo de servicio se toman automáticamente
 - **Emails automáticos**: Notificación a cliente y empleado asignado (en citas directas y desde solicitudes)
 - **Validación de horarios**: Verificación de disponibilidad y solapamiento
 - **Reportes en Excel**: Incluye columna "ID Solicitud" para trazabilidad
-- **Tipos unificados**: Validación consistente de tipos permitidos (`General`, `Busqueda`, `Ampliacion`, etc.)
+- **Normalización automática de tipos**: Acepta variaciones con acentos y las normaliza automáticamente (ej: "Certificación" → "Certificacion")
+- **Búsqueda de usuario por documento**: Autocompletar datos de usuario al crear cita
+- **Prevención de citas duplicadas**: Valida que el usuario no tenga una cita activa en el mismo horario
 
-**Nuevas Funcionalidades:**
-- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
-- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
-- Todas las respuestas incluyen `id_orden_servicio` (null si no está asociada)
-- Seguimiento automático creado en la solicitud
+**Nuevas Funcionalidades (Ene 2026):**
+- `GET /api/gestion-citas/buscar-usuario/:documento` - Buscar usuario por documento y autocompletar datos
+- Normalización automática de tipos de cita (acepta "Certificación", "Búsqueda", etc.)
+- Validación de citas duplicadas para el mismo cliente
 
 **Funcionalidades Existentes:**
-- `POST /api/gestion-citas` - Crear cita independiente
+- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
+- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
+- `POST /api/gestion-citas` - Crear cita independiente (acepta `id_cliente` o `documento`)
 - `GET /api/gestion-citas` - Ver todas las citas
 - `PUT /api/gestion-citas/:id/reprogramar` - Reprogramar cita
 - `PUT /api/gestion-citas/:id/anular` - Anular cita
@@ -1185,16 +1189,22 @@ POST /api/gestion-pagos/simular                # Simular pago para testing
 2. Procesar pago con `POST /api/gestion-pagos/process-mock` → Activa solicitud automáticamente
 3. Respuesta incluye `solicitud_activada: true` si fue exitoso
 
-### Citas ⭐ **ACTUALIZADO**
+### Citas ⭐ **ACTUALIZADO - Ene 2026**
 ```http
 GET /api/gestion-citas                         # Listar todas las citas
-POST /api/gestion-citas                        # Crear cita independiente
-POST /api/gestion-citas/desde-solicitud/:id    # Crear cita asociada a solicitud ⭐ NUEVO
-GET /api/gestion-citas/solicitud/:id           # Ver citas de una solicitud ⭐ NUEVO
+POST /api/gestion-citas                        # Crear cita independiente (acepta id_cliente o documento)
+GET /api/gestion-citas/buscar-usuario/:documento # Buscar usuario por documento ⭐ NUEVO
+POST /api/gestion-citas/desde-solicitud/:id    # Crear cita asociada a solicitud
+GET /api/gestion-citas/solicitud/:id           # Ver citas de una solicitud
 PUT /api/gestion-citas/:id/reprogramar         # Reprogramar cita
 PUT /api/gestion-citas/:id/anular              # Anular cita
 GET /api/gestion-citas/reporte/excel           # Reporte Excel (incluye ID Solicitud)
 ```
+
+**🔄 Normalización Automática de Tipos:**
+- Acepta variaciones con acentos: `"Certificación"` → `"Certificacion"`
+- Acepta texto completo: `"Búsqueda de Antecedentes"` → `"Busqueda"`
+- Funciona con valores exactos y variaciones
 
 ### Seguimiento ⭐ **ACTUALIZADO**
 ```http
@@ -1502,9 +1512,24 @@ Content-Type: application/json
 
 **Tipos permitidos para `tipo`:** `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`
 
+**🔄 Normalización Automática de Tipos (Ene 2026):**
+El sistema acepta variaciones comunes y las normaliza automáticamente:
+- `"Certificación"` → `"Certificacion"` ✅
+- `"Búsqueda"` → `"Busqueda"` ✅
+- `"Búsqueda de Antecedentes"` → `"Busqueda"` ✅
+- `"Renovación"` → `"Renovacion"` ✅
+- `"Cesión"` → `"Cesion"` ✅
+- `"Oposición"` → `"Oposicion"` ✅
+- `"Respuesta de oposición"` → `"Respuesta de oposicion"` ✅
+
 **Modalidades permitidas:** `Virtual`, `Presencial`
 
 **Estados permitidos:** `Programada`, `Reprogramada`, `Anulada`
+
+**📋 Campos opcionales para crear cita:**
+- `id_cliente` (number) - ID del cliente (opcional si se envía `documento`)
+- `documento` (number) - Documento del cliente para búsqueda automática (opcional si se envía `id_cliente`)
+- `observacion` (string) - Observaciones adicionales
 
 **📧 Notificaciones automáticas:**
 - Al crear una cita directa: Email al cliente y al empleado asignado
@@ -2406,7 +2431,9 @@ curl -X GET "http://localhost:3000/api/gestion-citas" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 21. Crear cita
+#### 21. Crear cita ⭐ **ACTUALIZADO - Ene 2026**
+
+**Opción 1: Con id_cliente**
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-citas" \
   -H "Content-Type: application/json" \
@@ -2415,14 +2442,32 @@ curl -X POST "http://localhost:3000/api/gestion-citas" \
     "fecha": "2024-01-15",
     "hora_inicio": "09:00:00",
     "hora_fin": "10:00:00",
-    "tipo": "Consulta",
+    "tipo": "Certificacion",
     "modalidad": "Presencial",
     "id_cliente": 1,
     "id_empleado": 1,
-    "estado": "Programada",
     "observacion": "Consulta sobre registro de marca"
   }'
 ```
+
+**Opción 2: Con documento (búsqueda automática) ⭐ NUEVO**
+```bash
+curl -X POST "http://localhost:3000/api/gestion-citas" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "fecha": "2024-01-15",
+    "hora_inicio": "09:00:00",
+    "hora_fin": "10:00:00",
+    "tipo": "Certificación",
+    "modalidad": "Presencial",
+    "documento": 1234567890,
+    "id_empleado": 1,
+    "observacion": "Consulta sobre registro de marca"
+  }'
+```
+
+**Nota:** El tipo `"Certificación"` se normaliza automáticamente a `"Certificacion"`. El sistema acepta variaciones con acentos.
 
 #### 22. Reprogramar cita
 ```bash
@@ -2451,6 +2496,34 @@ curl -X PUT "http://localhost:3000/api/gestion-citas/1/anular" \
 curl -X GET "http://localhost:3000/api/gestion-citas/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -o reporte_citas.xlsx
+```
+
+#### 24.1. Buscar usuario por documento (autocompletar) ⭐ **NUEVO - Ene 2026**
+```bash
+curl -X GET "http://localhost:3000/api/gestion-citas/buscar-usuario/1234567890" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "usuario": {
+    "id_usuario": 1,
+    "documento": "1234567890",
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "correo": "juan@example.com",
+    "tipo_documento": "Cédula de Ciudadanía"
+  },
+  "es_cliente": true,
+  "cliente": {
+    "id_cliente": 1,
+    "marca": "Mi Marca",
+    "tipo_persona": "Natural"
+  },
+  "citas_activas": []
+}
 ```
 
 ### 📋 Solicitudes de Citas
@@ -2625,6 +2698,24 @@ curl -X PUT "http://localhost:3000/api/gestion-solicitud-cita/1/gestionar" \
 - **Cesion**: Cesión de derechos
 - **Oposicion**: Oposición de marca
 - **Respuesta de oposicion**: Respuesta a oposición
+
+**🔄 Normalización Automática (Ene 2026):**
+El sistema acepta variaciones con acentos y las normaliza automáticamente:
+- `"Certificación"` → `"Certificacion"` ✅
+- `"Búsqueda"` o `"Búsqueda de Antecedentes"` → `"Busqueda"` ✅
+- `"Renovación"` → `"Renovacion"` ✅
+- `"Cesión"` → `"Cesion"` ✅
+- `"Oposición"` → `"Oposicion"` ✅
+- `"Respuesta de oposición"` → `"Respuesta de oposicion"` ✅
+
+**Ejemplo de uso:**
+```json
+{
+  "tipo": "Certificación",  // Se normaliza automáticamente a "Certificacion"
+  "modalidad": "Presencial",
+  ...
+}
+```
 
 #### 📋 Modalidades disponibles:
 - **Presencial**: Cita física en oficina

@@ -278,8 +278,11 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     nit VARCHAR(20),
     
     -- Campos editables para documentos de poder
-    poderdelrepresentanteautorizado TEXT,
-    poderparaelregistrodelamarca TEXT,
+    -- ✅ IMPORTANTE: poder_autorizacion del frontend SIEMPRE va a poderparaelregistrodelamarca
+    -- ✅ poderdelrepresentanteautorizado SOLO para poder_representante_autorizado (Jurídica)
+    -- ✅ Para personas Naturales, NO se guarda en poderdelrepresentanteautorizado
+    poderdelrepresentanteautorizado TEXT COMMENT 'Poder del representante autorizado (base64) - Solo para personas jurídicas',
+    poderparaelregistrodelamarca TEXT COMMENT 'Poder para el registro de la marca (base64) - Siempre usado',
     
     -- *** FASE 1: CAMPOS CRÍTICOS ***
     -- Campos de Marca/Producto
@@ -287,16 +290,18 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     clase_niza VARCHAR(50),
     tipo_producto_servicio VARCHAR(50),
     -- Campos de Documentos
-    logotipo TEXT,
+    logotipo TEXT COMMENT 'Logotipo de la marca (base64)',
     -- Campos de Representantes
-    representante_legal VARCHAR(100),
+    -- ✅ IMPORTANTE: representante_legal solo para personas jurídicas
+    representante_legal VARCHAR(100) COMMENT 'Nombre completo del representante legal - Solo para personas jurídicas',
     -- *** FASE 2: CAMPOS IMPORTANTES ***
     -- Campos de Documentos
-    certificado_camara_comercio TEXT,
-    certificado_renovacion TEXT,
-    documento_cesion TEXT,
-    documentos_oposicion TEXT,
-    soportes TEXT,
+    -- ✅ IMPORTANTE: certificado_camara_comercio solo para personas jurídicas
+    certificado_camara_comercio TEXT COMMENT 'Certificado de cámara de comercio (base64) - Solo para personas jurídicas',
+    certificado_renovacion TEXT COMMENT 'Certificado de renovación (base64)',
+    documento_cesion TEXT COMMENT 'Documento de cesión (base64)',
+    documentos_oposicion TEXT COMMENT 'Documentos de oposición (base64)',
+    soportes TEXT COMMENT 'Documentos adicionales de soporte (base64)',
     -- Campos de Expedientes/Referencias
     numero_expediente_marca VARCHAR(50),
     marca_a_oponerse VARCHAR(100),

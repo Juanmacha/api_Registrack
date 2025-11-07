@@ -769,8 +769,13 @@ export const crearSolicitud = async (req, res) => {
       tipodeentidadrazonsocial: req.body.tipo_entidad || req.body.tipo_entidad_razon_social,
       nombredelaempresa: req.body.nombre_empresa || req.body.razon_social,
       nit: req.body.nit_empresa || req.body.nit,
-      poderdelrepresentanteautorizado: req.body.poder_representante_autorizado || req.body.poder_autorizacion,
-      poderparaelregistrodelamarca: req.body.poder_registro_marca,
+      // ✅ CORRECCIÓN: poder_autorizacion SIEMPRE va a poderparaelregistrodelamarca
+      // poderdelrepresentanteautorizado SOLO para poder_representante_autorizado (Jurídica)
+      poderparaelregistrodelamarca: req.body.poder_autorizacion || req.body.poder_registro_marca,
+      // Solo incluir poderdelrepresentanteautorizado si es Jurídica y existe poder_representante_autorizado
+      ...(req.body.tipo_solicitante === 'Jurídica' && req.body.poder_representante_autorizado ? {
+        poderdelrepresentanteautorizado: req.body.poder_representante_autorizado
+      } : {}),
       
       // *** FASE 1: CAMPOS CRÍTICOS (28 Oct 2025) ***
       // Campos de Marca/Producto
@@ -818,6 +823,19 @@ export const crearSolicitud = async (req, res) => {
       datos_solicitud: JSON.stringify(req.body),
       fecha_solicitud: new Date(),
     };
+    
+    // ✅ CORRECCIÓN: Para personas Naturales, NO guardar campos de representante/empresa
+    if (req.body.tipo_solicitante === 'Natural') {
+      // Remover campos que NO aplican para personas naturales
+      delete ordenData.tipodeentidadrazonsocial;
+      delete ordenData.nombredelaempresa;
+      delete ordenData.nit;
+      delete ordenData.poderdelrepresentanteautorizado;
+      delete ordenData.representante_legal;
+      delete ordenData.certificado_camara_comercio;
+      // Nota: direccion_domicilio no se está usando en ordenData, está bien
+      console.log('✅ Persona Natural - Campos de representante/empresa removidos del ordenData');
+    }
     
     console.log('🔍 Debug - ordenData:', ordenData);
 

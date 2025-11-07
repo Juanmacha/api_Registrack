@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import { Cita, OrdenServicio, Cliente, Servicio } from "../models/associations.js";
 import User from "../models/user.js";
+import Rol from "../models/Role.js"; // Importar Rol para búsqueda de usuario
 import Empleado from "../models/Empleado.js"; // Importar Empleado para validaciones
 import Seguimiento from "../models/Seguimiento.js";
 import ExcelJS from "exceljs";
@@ -81,22 +82,117 @@ export const getCitas = async (req, res) => {
     }
 };
 
+// ✅ Función para normalizar tipos de cita (mapea variaciones comunes a valores exactos)
+const normalizarTipoCita = (tipo) => {
+    if (!tipo || typeof tipo !== 'string') return tipo;
+    
+    // Convertir a minúsculas y remover espacios/acentos para comparación
+    const tipoNormalizado = tipo.trim();
+    const tipoLower = tipoNormalizado.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // Remover acentos
+    
+    // Mapeo de variaciones comunes a valores exactos
+    const mapeoTipos = {
+        // General
+        'general': 'General',
+        // Búsqueda
+        'busqueda': 'Busqueda',
+        'busqueda de antecedentes': 'Busqueda',
+        'búsqueda': 'Busqueda',
+        'búsqueda de antecedentes': 'Busqueda',
+        // Ampliación
+        'ampliacion': 'Ampliacion',
+        'ampliación': 'Ampliacion',
+        'ampliacion de alcance': 'Ampliacion',
+        'ampliación de alcance': 'Ampliacion',
+        // Certificación
+        'certificacion': 'Certificacion',
+        'certificación': 'Certificacion',
+        'certificacion de marca': 'Certificacion',
+        'certificación de marca': 'Certificacion',
+        // Renovación
+        'renovacion': 'Renovacion',
+        'renovación': 'Renovacion',
+        'renovacion de marca': 'Renovacion',
+        'renovación de marca': 'Renovacion',
+        // Cesión
+        'cesion': 'Cesion',
+        'cesión': 'Cesion',
+        'cesion de marca': 'Cesion',
+        'cesión de marca': 'Cesion',
+        // Oposición
+        'oposicion': 'Oposicion',
+        'oposición': 'Oposicion',
+        'presentacion de oposicion': 'Oposicion',
+        'presentación de oposición': 'Oposicion',
+        // Respuesta de oposición
+        'respuesta de oposicion': 'Respuesta de oposicion',
+        'respuesta de oposición': 'Respuesta de oposicion',
+        'respuesta a oposicion': 'Respuesta de oposicion',
+        'respuesta a oposición': 'Respuesta de oposicion',
+    };
+    
+    // Si existe en el mapeo, retornar el valor exacto
+    if (mapeoTipos[tipoLower]) {
+        return mapeoTipos[tipoLower];
+    }
+    
+    // Si coincide exactamente con un valor permitido, retornarlo tal cual
+    const tiposPermitidos = ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'];
+    if (tiposPermitidos.includes(tipoNormalizado)) {
+        return tipoNormalizado;
+    }
+    
+    // Si no coincide, retornar el valor original (será rechazado en la validación)
+    return tipoNormalizado;
+};
+
 export const createCita = async (req, res) => {
-    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion } = req.body;
+    // ✅ NORMALIZAR TIPO ANTES DE VALIDAR
+    let tipoNormalizado = null;
+    if (req.body.tipo) {
+        tipoNormalizado = normalizarTipoCita(req.body.tipo);
+        req.body.tipo = tipoNormalizado; // Actualizar el body con el valor normalizado
+    }
+    
+    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion, documento } = req.body;
     let { estado } = req.body;
 
-    // 1. Field Validation
-    const requiredFields = ['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_cliente', 'id_empleado'];
+    // 1. Field Validation - Modificado para aceptar documento o id_cliente
+    const requiredFields = ['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_empleado'];
     const missingFields = [];
     for (const field of requiredFields) {
         if (!req.body[field]) {
             missingFields.push(field);
         }
     }
+    
+    // Validar que se proporcione id_cliente O documento (no ambos requeridos)
+    if (!id_cliente && !documento) {
+        missingFields.push('id_cliente o documento');
+    }
+    
     if (missingFields.length > 0) {
         return res.status(400).json({
             message: "Los siguientes campos son obligatorios:",
-            campos_faltantes: missingFields
+            campos_faltantes: missingFields,
+            nota: "Debe proporcionar 'id_cliente' o 'documento' (no ambos)"
+        });
+    }
+    
+    // ✅ VALIDAR TIPO con mensaje mejorado
+    const tiposPermitidos = ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'];
+    if (!tiposPermitidos.includes(tipo)) {
+        return res.status(400).json({
+            success: false,
+            message: "Tipo de cita no válido",
+            error: {
+                campo: 'tipo',
+                valor_recibido: req.body.tipo || tipo,
+                valores_permitidos: tiposPermitidos,
+                nota: "Los valores deben ser exactamente: " + tiposPermitidos.join(', ')
+            }
         });
     }
 
@@ -137,6 +233,85 @@ export const createCita = async (req, res) => {
     console.log("Creating cita with data:", req.body);
 
     try {
+        // ✅ NUEVO: Si se envía documento, buscar el usuario primero
+        let clienteId = id_cliente;
+        if (documento && !id_cliente) {
+            console.log('🔍 Buscando usuario por documento:', documento);
+            const usuario = await User.findOne({
+                where: { documento: BigInt(documento) }
+            });
+            
+            if (!usuario) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "No se encontró un usuario con ese documento",
+                    documento: documento.toString()
+                });
+            }
+            
+            // Verificar que el usuario sea un cliente
+            const cliente = await Cliente.findOne({
+                where: { id_usuario: usuario.id_usuario }
+            });
+            
+            if (!cliente) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "El usuario no es un cliente registrado",
+                    documento: documento.toString(),
+                    id_usuario: usuario.id_usuario
+                });
+            }
+            
+            clienteId = usuario.id_usuario;
+            console.log('✅ Usuario encontrado:', usuario.nombre, usuario.apellido, 'ID:', clienteId);
+        }
+
+        if (!clienteId) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Se requiere id_cliente o documento válido" 
+            });
+        }
+
+        // ✅ NUEVO: Validar que el cliente no tenga una cita activa en ese horario
+        console.log('🔍 Validando citas duplicadas para cliente:', clienteId);
+        const citaExistenteCliente = await Cita.findOne({
+            where: {
+                id_cliente: clienteId,
+                fecha: fecha,
+                estado: {
+                    [Op.in]: ['Programada', 'Reprogramada']
+                },
+                hora_inicio: {
+                    [Op.lt]: hora_fin
+                },
+                hora_fin: {
+                    [Op.gt]: hora_inicio
+                }
+            }
+        });
+
+        if (citaExistenteCliente) {
+            console.log('❌ Cita duplicada encontrada:', citaExistenteCliente.id_cita);
+            return res.status(400).json({
+                success: false,
+                message: "El usuario ya tiene una cita activa en ese horario",
+                data: {
+                    cita_existente: {
+                        id_cita: citaExistenteCliente.id_cita,
+                        fecha: citaExistenteCliente.fecha,
+                        hora_inicio: citaExistenteCliente.hora_inicio,
+                        hora_fin: citaExistenteCliente.hora_fin,
+                        tipo: citaExistenteCliente.tipo,
+                        modalidad: citaExistenteCliente.modalidad,
+                        estado: citaExistenteCliente.estado
+                    }
+                }
+            });
+        }
+        console.log('✅ No se encontraron citas duplicadas para el cliente');
+
         // 2. Date Validation
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Set to midnight
@@ -186,10 +361,10 @@ export const createCita = async (req, res) => {
             fecha,
             hora_inicio,
             hora_fin,
-            tipo,
+            tipo: tipo, // ✅ Usar tipo normalizado
             modalidad,
             estado,
-            id_cliente,
+            id_cliente: clienteId, // ✅ Usar clienteId (puede venir de documento o id_cliente)
             id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario
             observacion
         });
@@ -197,7 +372,7 @@ export const createCita = async (req, res) => {
         // 📧 Enviar emails de confirmación
         try {
             // Obtener datos del cliente y empleado
-            const cliente = await User.findByPk(id_cliente);
+            const cliente = await User.findByPk(clienteId); // ✅ Usar clienteId
             const empleadoUser = await User.findByPk(id_usuario_empleado);
 
             // Email al cliente
@@ -524,104 +699,11 @@ export const descargarReporteCitas = async (req, res) => {
     }
 };
 
-// Middleware de validación para crear cita
+// ⚠️ DEPRECATED: Este middleware ya no se usa porque createCita normaliza y valida internamente
+// Se mantiene por compatibilidad pero createCita maneja todas las validaciones
 export const validateCreateCita = (req, res, next) => {
-    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado } = req.body;
-    
-    const requiredFields = { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado };
-    const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);
-    
-    if (missingFields.length > 0) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: `Los campos son obligatorios: ${missingFields.join(', ')}`,
-                code: 'REQUIRED_FIELD',
-                details: { missingFields },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    // Validar formato de fecha
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: 'El formato de fecha debe ser YYYY-MM-DD',
-                code: 'INVALID_DATE_FORMAT',
-                details: { field: 'fecha', value: fecha },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    // Validar formato de hora
-    if (!/^\d{2}:\d{2}:\d{2}$/.test(hora_inicio) || !/^\d{2}:\d{2}:\d{2}$/.test(hora_fin)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: 'El formato de hora debe ser HH:MM:SS',
-                code: 'INVALID_TIME_FORMAT',
-                details: { field: 'hora_inicio/hora_fin' },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    // Validar tipos permitidos (alineado con el modelo de BD)
-    const tiposPermitidos = ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'];
-    if (!tiposPermitidos.includes(tipo)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: `Tipo de cita no válido. Tipos permitidos: ${tiposPermitidos.join(', ')}`,
-                code: 'INVALID_CHOICE',
-                details: { field: 'tipo', value: tipo, allowed: tiposPermitidos },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    // Validar modalidades permitidas (alineado con el modelo de BD)
-    const modalidadesPermitidas = ['Presencial', 'Virtual'];
-    if (!modalidadesPermitidas.includes(modalidad)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: `Modalidad no válida. Modalidades permitidas: ${modalidadesPermitidas.join(', ')}`,
-                code: 'INVALID_CHOICE',
-                details: { field: 'modalidad', value: modalidad, allowed: modalidadesPermitidas },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    // Validar IDs numéricos
-    if (isNaN(parseInt(id_cliente)) || parseInt(id_cliente) <= 0) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: 'El ID del cliente debe ser un número válido',
-                code: 'INVALID_ID',
-                details: { field: 'id_cliente', value: id_cliente },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
-    if (isNaN(parseInt(id_empleado)) || parseInt(id_empleado) <= 0) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                message: 'El ID del empleado debe ser un número válido',
-                code: 'INVALID_ID',
-                details: { field: 'id_empleado', value: id_empleado },
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-    
+    // Este middleware ya no valida porque createCita lo hace internamente
+    // Solo pasar al siguiente middleware
     next();
 };
 
@@ -1081,6 +1163,137 @@ export const obtenerCitasDeSolicitud = async (req, res) => {
       success: false,
       message: "Error al obtener citas",
       error: error.message
+    });
+  }
+};
+
+/**
+ * GET /api/gestion-citas/buscar-usuario/:documento
+ * Buscar usuario por documento y retornar sus datos para autocompletar
+ * Solo Admin/Empleado
+ */
+export const buscarUsuarioPorDocumento = async (req, res) => {
+  try {
+    const { documento } = req.params;
+
+    if (!documento) {
+      return res.status(400).json({
+        success: false,
+        message: "El documento es requerido"
+      });
+    }
+
+    console.log('🔍 Buscando usuario por documento:', documento);
+
+    // Validar que el documento sea numérico
+    if (isNaN(documento)) {
+      return res.status(400).json({
+        success: false,
+        message: "El documento debe ser un número válido",
+        documento: documento
+      });
+    }
+
+    // Buscar usuario por documento
+    // Nota: Si la relación 'rol' no está disponible, se obtendrá el rol por separado
+    const usuario = await User.findOne({
+      where: { documento: BigInt(documento) }
+    });
+    
+    // Obtener el rol del usuario si existe
+    let rolUsuario = null;
+    if (usuario) {
+      try {
+        rolUsuario = await Rol.findByPk(usuario.id_rol);
+      } catch (rolError) {
+        console.warn('⚠️ No se pudo obtener el rol del usuario:', rolError.message);
+      }
+    }
+
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado con ese documento",
+        documento: documento
+      });
+    }
+
+    console.log('✅ Usuario encontrado:', usuario.nombre, usuario.apellido);
+
+    // Verificar si es un cliente
+    const cliente = await Cliente.findOne({
+      where: { id_usuario: usuario.id_usuario }
+    });
+
+    if (!cliente) {
+      return res.status(400).json({
+        success: false,
+        message: "El usuario no es un cliente registrado",
+        documento: documento,
+        id_usuario: usuario.id_usuario,
+        rol: rolUsuario?.nombre || 'No definido'
+      });
+    }
+
+    console.log('✅ Cliente encontrado:', cliente.id_cliente);
+
+    // Buscar citas activas del usuario
+    const citasActivas = await Cita.findAll({
+      where: {
+        id_cliente: usuario.id_usuario,
+        estado: {
+          [Op.in]: ['Programada', 'Reprogramada']
+        }
+      },
+      order: [['fecha', 'DESC'], ['hora_inicio', 'DESC']],
+      limit: 10
+    });
+
+    console.log('📅 Citas activas encontradas:', citasActivas.length);
+
+    res.json({
+      success: true,
+      data: {
+        usuario: {
+          id_usuario: usuario.id_usuario,
+          tipo_documento: usuario.tipo_documento,
+          documento: usuario.documento.toString(),
+          nombre: usuario.nombre,
+          apellido: usuario.apellido,
+          correo: usuario.correo,
+          id_rol: usuario.id_rol,
+          rol: rolUsuario?.nombre || null,
+          estado: usuario.estado
+        },
+        cliente: {
+          id_cliente: cliente.id_cliente,
+          tipo_persona: cliente.tipo_persona,
+          estado: cliente.estado
+        },
+        tiene_citas_activas: citasActivas.length > 0,
+        citas_activas: citasActivas.map(cita => ({
+          id_cita: cita.id_cita,
+          fecha: cita.fecha,
+          hora_inicio: cita.hora_inicio,
+          hora_fin: cita.hora_fin,
+          tipo: cita.tipo,
+          modalidad: cita.modalidad,
+          estado: cita.estado,
+          observacion: cita.observacion
+        }))
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        total_citas_activas: citasActivas.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error al buscar usuario por documento:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error al buscar usuario",
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
