@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getCitas, createCita, reprogramarCita, anularCita, descargarReporteCitas, validateCreateCita, crearCitaDesdeSolicitud, obtenerCitasDeSolicitud, buscarUsuarioPorDocumento } from "../controllers/citas.controller.js";
+import { getCitas, createCita, reprogramarCita, anularCita, finalizarCita, descargarReporteCitas, validateCreateCita, crearCitaDesdeSolicitud, obtenerCitasDeSolicitud, buscarUsuarioPorDocumento } from "../controllers/citas.controller.js";
 
 // Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -59,6 +59,12 @@ router.put("/:id/anular",
     observacion: 'string'
   }),
   anularCita
+);
+
+// Finalizar cita ⭐ NUEVO
+router.put("/:id/finalizar", 
+  roleMiddleware(["administrador", "empleado"]),
+  finalizarCita
 );
 
 // Ruta para descargar reporte Excel de citas

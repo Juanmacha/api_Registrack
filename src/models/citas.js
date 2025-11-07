@@ -39,7 +39,7 @@ const Cita = sequelize.define("Cita", {
     allowNull: false,
     defaultValue: 'Programada',
     validate: {
-      isIn: [['Programada', 'Reprogramada', 'Anulada']]
+      isIn: [['Programada', 'Reprogramada', 'Anulada', 'Finalizada']]
     }
   },
   observacion: {

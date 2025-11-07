@@ -16,8 +16,47 @@ import {
   sendCitaProgramadaEmpleado
 } from "../services/email.service.js";
 
+// ✅ Función para actualizar automáticamente citas pasadas a "Finalizada"
+const actualizarCitasFinalizadas = async () => {
+    try {
+        const ahora = new Date();
+        const fechaActual = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+        const horaActual = ahora.toTimeString().split(' ')[0]; // HH:MM:SS
+        
+        // Actualizar citas que ya pasaron su fecha/hora y no están anuladas
+        const resultado = await Cita.update(
+            { estado: 'Finalizada' },
+            {
+                where: {
+                    estado: {
+                        [Op.in]: ['Programada', 'Reprogramada']
+                    },
+                    [Op.or]: [
+                        // Fecha pasada
+                        { fecha: { [Op.lt]: fechaActual } },
+                        // Fecha hoy pero hora_fin ya pasó
+                        {
+                            fecha: fechaActual,
+                            hora_fin: { [Op.lt]: horaActual }
+                        }
+                    ]
+                }
+            }
+        );
+        
+        if (resultado[0] > 0) {
+            console.log(`✅ ${resultado[0]} citas actualizadas automáticamente a "Finalizada"`);
+        }
+    } catch (error) {
+        console.error('❌ Error al actualizar citas finalizadas:', error);
+    }
+};
+
 export const getCitas = async (req, res) => {
     try {
+        // ✅ Actualizar automáticamente citas pasadas antes de consultar
+        await actualizarCitasFinalizadas();
+        
         const citas = await Cita.findAll({
             include: [
                 {
@@ -30,7 +69,8 @@ export const getCitas = async (req, res) => {
                     as: 'Empleado',
                     attributes: ['id_usuario', 'nombre', 'apellido']
                 }
-            ]
+            ],
+            order: [['fecha', 'DESC'], ['hora_inicio', 'DESC']]
         });
         
         res.status(200).json({
@@ -480,9 +520,13 @@ export const reprogramarCita = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
 
-        // Check if the appointment is canceled
+        // Check if the appointment is canceled or finalized
         if (cita.estado === 'Anulada') {
             return res.status(400).json({ message: "No se puede reprogramar una cita que ha sido anulada." });
+        }
+        
+        if (cita.estado === 'Finalizada') {
+            return res.status(400).json({ message: "No se puede reprogramar una cita que ya ha sido finalizada." });
         }
 
         // Validations (similar to createCita)
@@ -594,9 +638,13 @@ export const anularCita = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
 
-        // Check if the appointment is already canceled
+        // Check if the appointment is already canceled or finalized
         if (cita.estado === 'Anulada') {
             return res.status(400).json({ message: "Esta cita ya ha sido anulada." });
+        }
+        
+        if (cita.estado === 'Finalizada') {
+            return res.status(400).json({ message: "No se puede anular una cita que ya ha sido finalizada." });
         }
 
         cita.estado = 'Anulada';
@@ -696,6 +744,72 @@ export const descargarReporteCitas = async (req, res) => {
         res.end();
     } catch (error) {
         res.status(500).json({ message: "Error al generar el reporte de citas", error: error.message });
+    }
+};
+
+// ✅ Endpoint para marcar cita como finalizada manualmente
+export const finalizarCita = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const cita = await Cita.findByPk(id);
+        if (!cita) {
+            return res.status(404).json({ message: "Cita no encontrada." });
+        }
+        
+        // Verificar que la cita no esté anulada
+        if (cita.estado === 'Anulada') {
+            return res.status(400).json({ message: "No se puede finalizar una cita que ha sido anulada." });
+        }
+        
+        // Verificar que la cita no esté ya finalizada
+        if (cita.estado === 'Finalizada') {
+            return res.status(400).json({ message: "Esta cita ya ha sido finalizada." });
+        }
+        
+        // Verificar que la fecha/hora ya pasó (opcional, pero recomendado)
+        const ahora = new Date();
+        const fechaActual = ahora.toISOString().split('T')[0];
+        const horaActual = ahora.toTimeString().split(' ')[0];
+        const fechaHoraCita = new Date(`${cita.fecha}T${cita.hora_fin}`);
+        const fechaHoraActual = new Date(`${fechaActual}T${horaActual}`);
+        
+        if (fechaHoraCita > fechaHoraActual) {
+            return res.status(400).json({ 
+                message: "No se puede finalizar una cita que aún no ha terminado. La cita finaliza el " + 
+                cita.fecha + " a las " + cita.hora_fin 
+            });
+        }
+        
+        cita.estado = 'Finalizada';
+        if (req.body.observacion) {
+            cita.observacion = req.body.observacion;
+        }
+        await cita.save();
+        
+        res.status(200).json({
+            success: true,
+            message: "Cita marcada como finalizada exitosamente",
+            data: {
+                cita: {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    estado: cita.estado,
+                    observacion: cita.observacion,
+                    id_orden_servicio: cita.id_orden_servicio || null
+                }
+            },
+            meta: {
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error("Error al finalizar cita:", error);
+        res.status(500).json({ message: error.message });
     }
 };
 
