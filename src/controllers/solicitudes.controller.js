@@ -259,15 +259,15 @@ const requiredFields = {
     "telefono",
     "correo",
     "pais",
-    "nit_empresa",
+    "nit_empresa", // ✅ SIEMPRE requerido (incluso para Natural)
     "nombre_marca",
     "marca_a_oponerse",
     "poder_autorizacion",
-    "tipo_entidad",
-    "razon_social",
-    "representante_legal",
     "argumentos_respuesta",
     "documentos_oposicion",
+    // ✅ Campos condicionales removidos: tipo_entidad, razon_social,
+    //    representante_legal
+    //    Estos se validarán condicionalmente en el controlador según tipo_solicitante
   ],
   "Respuesta de Oposición": [
     "nombres_apellidos",
@@ -541,6 +541,72 @@ export const crearSolicitud = async (req, res) => {
         }
       }
       // Para Natural, estos campos son opcionales (no se validan)
+    }
+    // ============================================
+
+    // ============================================
+    // VALIDACIÓN CONDICIONAL PARA PRESENTACIÓN DE OPOSICIÓN
+    // ============================================
+    if (servicioEncontrado.nombre === "Presentación de Oposición") {
+      const tipoSolicitante = req.body.tipo_solicitante;
+      
+      // Validar que tipo_solicitante sea válido
+      if (!tipoSolicitante || (tipoSolicitante !== "Natural" && tipoSolicitante !== "Jurídica")) {
+        return res.status(400).json({
+          mensaje: "tipo_solicitante debe ser 'Natural' o 'Jurídica'",
+          valor_recibido: tipoSolicitante,
+          valores_aceptados: ["Natural", "Jurídica"]
+        });
+      }
+      
+      // ⚠️ IMPORTANTE: En Oposición, nit_empresa es SIEMPRE requerido (incluso para Natural)
+      // Validar nit_empresa para ambos tipos
+      if (!req.body.nit_empresa || req.body.nit_empresa === "" || isNaN(Number(req.body.nit_empresa))) {
+        return res.status(400).json({
+          mensaje: "nit_empresa es requerido para Presentación de Oposición (incluso para personas Naturales)",
+          tipo_solicitante: tipoSolicitante,
+          campo_faltante: "nit_empresa"
+        });
+      }
+      
+      // Validación de formato de NIT (debe tener exactamente 10 dígitos)
+      const nitEmpresa = Number(req.body.nit_empresa);
+      if (nitEmpresa < 1000000000 || nitEmpresa > 9999999999) {
+        return res.status(400).json({
+          mensaje: "NIT de empresa inválido",
+          error: "NIT debe tener exactamente 10 dígitos (entre 1000000000 y 9999999999)",
+          valor_recibido: req.body.nit_empresa,
+          rango_valido: "1000000000 - 9999999999",
+          tipo_solicitante: tipoSolicitante
+        });
+      }
+      
+      // Si es persona jurídica, validar campos adicionales requeridos
+      if (tipoSolicitante === "Jurídica") {
+        const camposJuridica = [
+          "tipo_entidad",
+          "razon_social",
+          "representante_legal"
+        ];
+        
+        const camposFaltantesJuridica = camposJuridica.filter(
+          (campo) => {
+            const valor = req.body[campo];
+            return !valor || valor.toString().trim() === "";
+          }
+        );
+        
+        if (camposFaltantesJuridica.length > 0) {
+          return res.status(400).json({
+            mensaje: "Campos requeridos faltantes para persona jurídica",
+            camposFaltantes: camposFaltantesJuridica,
+            tipo_solicitante: tipoSolicitante,
+            camposRequeridos: camposJuridica
+          });
+        }
+      }
+      // Para Natural, solo se requiere nit_empresa (ya validado arriba)
+      // Los campos tipo_entidad, razon_social, representante_legal son opcionales
     }
     // ============================================
 
@@ -884,14 +950,23 @@ export const crearSolicitud = async (req, res) => {
     };
     
     // ✅ CORRECCIÓN: Para personas Naturales, NO guardar campos de representante/empresa
+    // ⚠️ EXCEPCIÓN: Para "Presentación de Oposición", nit_empresa es SIEMPRE requerido (incluso para Natural)
     if (req.body.tipo_solicitante === 'Natural') {
       // Remover campos que NO aplican para personas naturales
       delete ordenData.tipodeentidadrazonsocial;
       delete ordenData.nombredelaempresa;
-      delete ordenData.nit;
       delete ordenData.poderdelrepresentanteautorizado;
       delete ordenData.representante_legal;
       delete ordenData.certificado_camara_comercio;
+      
+      // ⚠️ IMPORTANTE: NO eliminar 'nit' si es "Presentación de Oposición"
+      // porque en Oposición, nit_empresa es SIEMPRE requerido (incluso para Natural)
+      if (servicioEncontrado.nombre !== "Presentación de Oposición") {
+        delete ordenData.nit;
+      } else {
+        console.log('✅ Persona Natural en Oposición - nit_empresa se mantiene (siempre requerido)');
+      }
+      
       // Nota: direccion_domicilio no se está usando en ordenData, está bien
       console.log('✅ Persona Natural - Campos de representante/empresa removidos del ordenData');
     }

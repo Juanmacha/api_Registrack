@@ -93,16 +93,15 @@ export const CAMPOS_OBLIGATORIOS_POR_SERVICIO = {
     "telefono",
     "correo",
     "pais",
-    "nit_empresa",
+    "nit_empresa", // ✅ SIEMPRE requerido (incluso para Natural)
     "nombre_marca",
     "marca_a_oponerse",
     "poder_autorizacion",
-    // Campos para persona jurídica
-    "tipo_entidad",
-    "razon_social",
-    "representante_legal",
     "argumentos_respuesta",
     "documentos_oposicion",
+    // ✅ Campos condicionales removidos: tipo_entidad, razon_social,
+    //    representante_legal
+    //    Estos se validarán condicionalmente en el controlador según tipo_solicitante
   ],
 
   // 6. Respuesta de Oposición
