@@ -10,6 +10,7 @@ import {
   obtenerEstadoActual,
   asignarEmpleado,
   verEmpleadoAsignado,
+  descargarArchivosSolicitud,
 } from "../controllers/solicitudes.controller.js";
 import {
   validateSearch,
@@ -133,6 +134,14 @@ router.get(
   roleMiddleware(["cliente"]),
   validateId,
   verEmpleadoAsignado
+);
+
+// 🚀 RUTA: Descargar todos los archivos de una solicitud en ZIP
+router.get(
+  "/:id/descargar-archivos",
+  roleMiddleware(["administrador", "empleado", "cliente"]),
+  validateId,
+  descargarArchivosSolicitud
 );
 
 export default router;

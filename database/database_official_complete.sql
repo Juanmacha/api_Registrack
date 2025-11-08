@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     -- Campos de Cesionario
     nombre_razon_social_cesionario VARCHAR(100),
     nit_cesionario VARCHAR(20),
-    tipo_documento_cesionario VARCHAR(10),
+    tipo_documento_cesionario VARCHAR(50) COMMENT 'Tipo de documento del cesionario (CC, CE, NIT, etc.) - Aumentado a VARCHAR(50) para soportar "Cédula de Ciudadanía"',
     numero_documento_cesionario VARCHAR(20),
     correo_cesionario VARCHAR(100),
     telefono_cesionario VARCHAR(20),
@@ -796,6 +796,9 @@ CAMBIOS EN v7.1 (Enero 2026):
 - Columnas actualizadas: logotipo, poderparaelregistrodelamarca, poderdelrepresentanteautorizado,
   certificado_camara_comercio, certificado_renovacion, documento_cesion, documentos_oposicion, soportes
 - Soluciona errores "Data too long for column" al almacenar archivos Base64 grandes
+- Aumentado tamaño de tipo_documento_cesionario de VARCHAR(10) a VARCHAR(50) para soportar
+  valores completos como "Cédula de Ciudadanía" (22 caracteres)
+- Soluciona error "Data too long for column 'tipo_documento_cesionario'" en Cesión de Marca
 
 CAMBIOS EN v7.0:
 - Agregado campo "id_orden_servicio" a tabla citas para asociar con solicitudes

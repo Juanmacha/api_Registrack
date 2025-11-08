@@ -20,6 +20,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 📦 **Descarga de Archivos en ZIP** | Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP. Incluye logotipo, poderes, certificados, documentos de cesión/oposición y soportes. Detección automática de tipos MIME, nombres descriptivos y archivo README con información de la solicitud. |
 | **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
@@ -985,7 +986,7 @@ Authorization: Bearer <token_admin>
 - Asociación de servicios con procesos
 - Precios y descripciones
 
-### 3. Sistema de Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO**
+### 3. Sistema de Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Creación automática de entidades**: Clientes, empresas y servicios se crean automáticamente si no existen
 - **Formularios dinámicos** personalizables según el tipo de servicio
 - **Validación robusta** con campos requeridos específicos por servicio
@@ -994,6 +995,7 @@ Authorization: Bearer <token_admin>
 - **Búsqueda y filtrado avanzado** con query parameters
 - **Manejo de errores mejorado** con mensajes descriptivos
 - **Compatibilidad MySQL** optimizada (LIKE en lugar de ILIKE)
+- **📦 Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud (logotipo, poderes, certificados, documentos) en un archivo ZIP comprimido con nombres descriptivos y archivo README incluido
 
 ### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Citas independientes**: Crear citas generales sin asociar a solicitud
@@ -1160,6 +1162,7 @@ GET /api/gestion-solicitudes/mias                      # Mis solicitudes (client
 GET /api/gestion-solicitudes                           # Todas las solicitudes (admin/empleado)
 GET /api/gestion-solicitudes/buscar                    # Buscar solicitudes (query search)
 GET /api/gestion-solicitudes/:id                       # Obtener solicitud específica
+GET /api/gestion-solicitudes/:id/descargar-archivos    # Descargar todos los archivos en ZIP 📦 NUEVO
 PUT /api/gestion-solicitudes/editar/:id                # Editar solicitud
 PUT /api/gestion-solicitudes/anular/:id                # Anular solicitud
 PUT /api/gestion-solicitudes/asignar-empleado/:id      # Asignar empleado a solicitud
@@ -1169,6 +1172,14 @@ GET /api/gestion-solicitudes/:id/empleado-asignado     # Ver empleado asignado
 **💰 Nota Importante:**
 - **Clientes:** Las solicitudes se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse
 - **Administradores/Empleados:** Las solicitudes se activan automáticamente con el primer estado del proceso (NO requieren pago por API)
+
+**📦 Descarga de Archivos:**
+- `GET /api/gestion-solicitudes/:id/descargar-archivos` - Descarga todos los archivos de una solicitud en un archivo ZIP
+- Incluye: logotipo, poderes, certificados, documentos de cesión/oposición y soportes
+- Los archivos se nombran descriptivamente (01_logotipo.pdf, 02_poder_registro_marca.pdf, etc.)
+- Incluye un archivo README.txt con información de la solicitud
+- Los clientes solo pueden descargar archivos de sus propias solicitudes
+- Requiere autenticación (JWT)
 
 Ver sección de **Pagos** para más detalles sobre el flujo de pago de clientes.
 
@@ -8672,6 +8683,7 @@ graph TD
 - ✅ Asignación de empleados con notificaciones automáticas
 - ✅ Estados dinámicos basados en process_states del servicio
 - ✅ Historial completo de cambios
+- ✅ 📦 Descarga de archivos en ZIP (Ene 2026)
 
 ### **Gestión de Empleados**
 - ✅ Creación en dos pasos (Usuario + Empleado)

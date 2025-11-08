@@ -6,6 +6,7 @@ import Proceso from "../models/Proceso.js";
 import { sendNuevaSolicitudCliente, sendAsignacionCliente, sendNuevaAsignacionEmpleado, sendReasignacionEmpleado } from "../services/email.service.js";
 import Empleado from "../models/Empleado.js";
 import { Op } from "sequelize";
+import archiver from "archiver";
 
 const solicitudesService = new SolicitudesService();
 
@@ -610,6 +611,104 @@ export const crearSolicitud = async (req, res) => {
     }
     // ============================================
 
+    // ============================================
+    // VALIDACIÓN CONDICIONAL PARA CESIÓN DE MARCA
+    // ============================================
+    if (servicioEncontrado.nombre === "Cesión de Marca") {
+      const tipoSolicitante = req.body.tipo_solicitante;
+      
+      // Validar que tipo_solicitante sea válido
+      if (!tipoSolicitante || (tipoSolicitante !== "Natural" && tipoSolicitante !== "Jurídica")) {
+        return res.status(400).json({
+          mensaje: "tipo_solicitante debe ser 'Natural' o 'Jurídica'",
+          valor_recibido: tipoSolicitante,
+          valores_aceptados: ["Natural", "Jurídica"]
+        });
+      }
+      
+      // ⚠️ IMPORTANTE: En Cesión de Marca, los campos del cesionario son SIEMPRE requeridos
+      // Validar campos del cesionario (siempre requeridos, independiente del tipo de cedente)
+      const camposCesionario = [
+        "nombre_razon_social_cesionario",
+        "nit_cesionario",
+        "representante_legal_cesionario",
+        "tipo_documento_cesionario",
+        "numero_documento_cesionario",
+        "correo_cesionario",
+        "telefono_cesionario",
+        "direccion_cesionario"
+      ];
+      
+      const camposFaltantesCesionario = camposCesionario.filter(
+        (campo) => {
+          const valor = req.body[campo];
+          return !valor || valor.toString().trim() === "";
+        }
+      );
+      
+      if (camposFaltantesCesionario.length > 0) {
+        return res.status(400).json({
+          mensaje: "Campos del cesionario requeridos faltantes",
+          camposFaltantes: camposFaltantesCesionario,
+          tipo_solicitante: tipoSolicitante,
+          camposRequeridos: camposCesionario,
+          nota: "Los campos del cesionario son siempre requeridos, independiente del tipo de cedente"
+        });
+      }
+      
+      // Validar formato de NIT del cesionario (debe tener exactamente 10 dígitos)
+      if (req.body.nit_cesionario) {
+        const nitCesionario = Number(req.body.nit_cesionario);
+        if (isNaN(nitCesionario) || nitCesionario < 1000000000 || nitCesionario > 9999999999) {
+          return res.status(400).json({
+            mensaje: "NIT del cesionario inválido",
+            error: "NIT debe tener exactamente 10 dígitos (entre 1000000000 y 9999999999)",
+            valor_recibido: req.body.nit_cesionario,
+            rango_valido: "1000000000 - 9999999999"
+          });
+        }
+      }
+      
+      // Si es persona jurídica (cedente), validar campos adicionales requeridos
+      if (tipoSolicitante === "Jurídica") {
+        const camposJuridica = [
+          "tipo_entidad",
+          "razon_social",
+          "nit_empresa",
+          "representante_legal"
+        ];
+        
+        const camposFaltantesJuridica = camposJuridica.filter(
+          (campo) => {
+            const valor = req.body[campo];
+            
+            // Para nit_empresa, validar formato
+            if (campo === "nit_empresa") {
+              if (!valor || isNaN(Number(valor))) {
+                return true;
+              }
+              const nit = Number(valor);
+              return nit < 1000000000 || nit > 9999999999;
+            }
+            
+            return !valor || valor.toString().trim() === "";
+          }
+        );
+        
+        if (camposFaltantesJuridica.length > 0) {
+          return res.status(400).json({
+            mensaje: "Campos requeridos faltantes para persona jurídica (cedente)",
+            camposFaltantes: camposFaltantesJuridica,
+            tipo_solicitante: tipoSolicitante,
+            camposRequeridos: camposJuridica
+          });
+        }
+      }
+      // Para Natural (cedente), NO se requiere nit_empresa ni campos de empresa
+      // Los campos tipo_entidad, razon_social, nit_empresa, representante_legal son opcionales
+    }
+    // ============================================
+
     // 🚀 NUEVA LÓGICA: Manejo inteligente según el rol del usuario
     let clienteId, empresaId;
     
@@ -949,10 +1048,12 @@ export const crearSolicitud = async (req, res) => {
       fecha_solicitud: new Date(),
     };
     
-    // ✅ CORRECCIÓN: Para personas Naturales, NO guardar campos de representante/empresa
+    // ✅ CORRECCIÓN: Para personas Naturales, NO guardar campos de representante/empresa del cedente
     // ⚠️ EXCEPCIÓN: Para "Presentación de Oposición", nit_empresa es SIEMPRE requerido (incluso para Natural)
+    // ✅ NOTA: Para "Cesión de Marca", nit_empresa del cedente NO se requiere para Natural (se elimina)
+    //    Los campos del cesionario SIEMPRE se guardan (son siempre requeridos)
     if (req.body.tipo_solicitante === 'Natural') {
-      // Remover campos que NO aplican para personas naturales
+      // Remover campos que NO aplican para personas naturales (cedente)
       delete ordenData.tipodeentidadrazonsocial;
       delete ordenData.nombredelaempresa;
       delete ordenData.poderdelrepresentanteautorizado;
@@ -961,14 +1062,17 @@ export const crearSolicitud = async (req, res) => {
       
       // ⚠️ IMPORTANTE: NO eliminar 'nit' si es "Presentación de Oposición"
       // porque en Oposición, nit_empresa es SIEMPRE requerido (incluso para Natural)
+      // Para "Cesión de Marca" y otros servicios, nit_empresa NO se requiere para Natural
       if (servicioEncontrado.nombre !== "Presentación de Oposición") {
         delete ordenData.nit;
       } else {
         console.log('✅ Persona Natural en Oposición - nit_empresa se mantiene (siempre requerido)');
       }
       
+      // Nota: Los campos del cesionario (nombre_razon_social_cesionario, nit_cesionario, etc.)
+      // NO se eliminan porque son SIEMPRE requeridos, independiente del tipo de cedente
       // Nota: direccion_domicilio no se está usando en ordenData, está bien
-      console.log('✅ Persona Natural - Campos de representante/empresa removidos del ordenData');
+      console.log('✅ Persona Natural - Campos de representante/empresa del cedente removidos del ordenData');
     }
     
     console.log('🔍 Debug - ordenData:', ordenData);
@@ -2002,4 +2106,198 @@ export const verEmpleadoAsignado = async (req, res) => {
   }
 };
 
+// ============================================
+// FUNCIÓN: Descargar todos los archivos de una solicitud en ZIP
+// ============================================
+export const descargarArchivosSolicitud = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    console.log('📦 [API] Descargando archivos de solicitud ID:', id);
+
+    // Obtener la solicitud con todas las relaciones
+    const solicitud = await OrdenServicio.findByPk(id, {
+      include: [
+        {
+          model: Servicio,
+          as: 'servicio',
+          attributes: ['id_servicio', 'nombre']
+        },
+        {
+          model: Cliente,
+          as: 'cliente',
+          include: [{ 
+            model: User,
+            as: 'Usuario',
+            attributes: ['id_usuario', 'nombre', 'apellido']
+          }]
+        }
+      ]
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({ 
+        success: false,
+        mensaje: "Solicitud no encontrada" 
+      });
+    }
+
+    // Verificar permisos para clientes
+    if (req.user.rol === "cliente" && solicitud.id_cliente !== req.user.id_usuario) {
+      return res.status(403).json({
+        success: false,
+        mensaje: "No tienes permisos para descargar archivos de esta solicitud."
+      });
+    }
+
+    // Función auxiliar para extraer Base64 y tipo MIME de una cadena Base64
+    const extraerBase64YExtension = (base64String) => {
+      if (!base64String || typeof base64String !== 'string') return null;
+      
+      // Si ya incluye el prefijo data: (data:image/png;base64,...)
+      if (base64String.includes('data:')) {
+        const match = base64String.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          // Determinar extensión desde MIME type
+          const extensionMap = {
+            'application/pdf': 'pdf',
+            'image/png': 'png',
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/gif': 'gif',
+            'application/msword': 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+            'application/vnd.ms-excel': 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx'
+          };
+          const extension = extensionMap[mimeType] || 'bin';
+          return { base64Data, extension, mimeType };
+        }
+      }
+      
+      // Si es solo Base64 sin prefijo, intentar decodificar y determinar tipo
+      // Por defecto, asumimos PDF si no hay prefijo
+      return { base64Data: base64String, extension: 'pdf', mimeType: 'application/pdf' };
+    };
+
+    // Función auxiliar para convertir Base64 a Buffer
+    const base64ToBuffer = (base64String) => {
+      try {
+        const { base64Data } = extraerBase64YExtension(base64String) || { base64Data: base64String };
+        return Buffer.from(base64Data, 'base64');
+      } catch (error) {
+        console.error('❌ Error al convertir Base64 a Buffer:', error);
+        return null;
+      }
+    };
+
+    // Recopilar todos los archivos de la solicitud
+    const archivos = [];
+    const nombreBase = `EXP-${solicitud.numero_expediente || solicitud.id_orden_servicio}`;
+    const nombreMarca = solicitud.nombredelamarca || 'marca';
+    const nombreCarpeta = `${nombreBase}_${nombreMarca}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // Lista de campos que contienen archivos Base64
+    const camposArchivos = [
+      { campo: 'logotipo', nombre: '01_logotipo' },
+      { campo: 'poderparaelregistrodelamarca', nombre: '02_poder_registro_marca' },
+      { campo: 'poderdelrepresentanteautorizado', nombre: '03_poder_representante' },
+      { campo: 'certificado_camara_comercio', nombre: '04_certificado_camara_comercio' },
+      { campo: 'certificado_renovacion', nombre: '05_certificado_renovacion' },
+      { campo: 'documento_cesion', nombre: '06_documento_cesion' },
+      { campo: 'documentos_oposicion', nombre: '07_documentos_oposicion' },
+      { campo: 'soportes', nombre: '08_soportes' }
+    ];
+
+    // Procesar cada campo de archivo
+    for (const { campo, nombre } of camposArchivos) {
+      const valor = solicitud[campo];
+      if (valor) {
+        const infoArchivo = extraerBase64YExtension(valor);
+        if (infoArchivo) {
+          const buffer = base64ToBuffer(valor);
+          if (buffer) {
+            archivos.push({
+              nombre: `${nombre}.${infoArchivo.extension}`,
+              buffer: buffer,
+              tamaño: buffer.length
+            });
+            console.log(`✅ Archivo agregado: ${nombre}.${infoArchivo.extension} (${(buffer.length / 1024).toFixed(2)} KB)`);
+          }
+        }
+      }
+    }
+
+    // Si no hay archivos, retornar error
+    if (archivos.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "No se encontraron archivos en esta solicitud",
+        detalles: "La solicitud no contiene archivos adjuntos"
+      });
+    }
+
+    // Crear archivo ZIP
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Máxima compresión
+    });
+
+    // Configurar headers de respuesta
+    const nombreZip = `${nombreCarpeta}_archivos.zip`;
+    res.attachment(nombreZip);
+    res.setHeader('Content-Type', 'application/zip');
+
+    // Pipe del archivo ZIP a la respuesta
+    archive.pipe(res);
+
+    // Agregar cada archivo al ZIP
+    archivos.forEach(archivo => {
+      archive.append(archivo.buffer, { name: archivo.nombre });
+    });
+
+    // Agregar un archivo README con información de la solicitud
+    const readmeContent = `
+ARCHIVOS DE LA SOLICITUD
+========================
+
+Número de Expediente: ${solicitud.numero_expediente || 'N/A'}
+ID Solicitud: ${solicitud.id_orden_servicio}
+Servicio: ${solicitud.servicio?.nombre || 'N/A'}
+Fecha de Creación: ${solicitud.fecha_creacion || 'N/A'}
+Estado: ${solicitud.estado || 'N/A'}
+
+Titular: ${solicitud.cliente?.Usuario ? `${solicitud.cliente.Usuario.nombre} ${solicitud.cliente.Usuario.apellido}` : 'N/A'}
+Marca: ${solicitud.nombredelamarca || 'N/A'}
+
+ARCHIVOS INCLUIDOS:
+${archivos.map((a, i) => `${i + 1}. ${a.nombre} (${(a.tamaño / 1024).toFixed(2)} KB)`).join('\n')}
+
+Total de archivos: ${archivos.length}
+Fecha de descarga: ${new Date().toLocaleString('es-CO')}
+    `.trim();
+
+    archive.append(readmeContent, { name: 'README.txt' });
+
+    // Finalizar el archivo ZIP
+    await archive.finalize();
+
+    console.log(`✅ [API] ZIP creado exitosamente: ${nombreZip} (${archivos.length} archivos)`);
+
+    // El archivo ZIP se enviará automáticamente cuando archive.finalize() complete
+    // No necesitamos enviar una respuesta JSON aquí, el ZIP se envía directamente
+
+  } catch (error) {
+    console.error("❌ [API] Error al descargar archivos de solicitud:", error);
+    
+    // Si la respuesta ya fue enviada (por el pipe), no podemos enviar JSON
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        mensaje: "Error al generar archivo ZIP",
+        error: process.env.NODE_ENV === "development" ? error.message : "Error interno del servidor"
+      });
+    }
+  }
+};

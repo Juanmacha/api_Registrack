@@ -22,6 +22,7 @@
   "license": "ISC",
   "description": "API Registrack - Sistema de gestión de solicitudes",
   "dependencies": {
+    "archiver": "^7.0.1",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
