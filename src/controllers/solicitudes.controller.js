@@ -222,12 +222,11 @@ const requiredFields = {
     "nombre_marca",
     "numero_expediente_marca",
     "poder_autorizacion",
-    "tipo_entidad",
-    "razon_social",
-    "nit_empresa",
-    "representante_legal",
     "certificado_renovacion",
     "logotipo",
+    // ✅ Campos condicionales removidos: tipo_entidad, razon_social,
+    //    nit_empresa, representante_legal
+    //    Estos se validarán condicionalmente en el controlador según tipo_solicitante
   ],
   "Cesión de Marca": [
     "tipo_solicitante",
@@ -447,6 +446,66 @@ export const crearSolicitud = async (req, res) => {
           "nit_empresa",
           "representante_legal",
           "direccion_domicilio"
+        ];
+        
+        const camposFaltantesJuridica = camposJuridica.filter(
+          (campo) => {
+            const valor = req.body[campo];
+            // Validar que el campo existe y no está vacío
+            if (campo === "nit_empresa") {
+              // Para nit_empresa, debe ser un número válido
+              return !valor || valor === "" || isNaN(Number(valor));
+            }
+            return !valor || valor.toString().trim() === "";
+          }
+        );
+        
+        if (camposFaltantesJuridica.length > 0) {
+          return res.status(400).json({
+            mensaje: "Campos requeridos faltantes para persona jurídica",
+            camposFaltantes: camposFaltantesJuridica,
+            tipo_solicitante: tipoSolicitante,
+            camposRequeridos: camposJuridica
+          });
+        }
+        
+        // Validación adicional de NIT para jurídica
+        const nitEmpresa = Number(req.body.nit_empresa);
+        if (nitEmpresa < 1000000000 || nitEmpresa > 9999999999) {
+          return res.status(400).json({
+            mensaje: "NIT de empresa inválido",
+            error: "NIT debe tener exactamente 10 dígitos (entre 1000000000 y 9999999999)",
+            valor_recibido: req.body.nit_empresa,
+            rango_valido: "1000000000 - 9999999999"
+          });
+        }
+      }
+      // Para Natural, estos campos son opcionales (no se validan)
+    }
+    // ============================================
+
+    // ============================================
+    // VALIDACIÓN CONDICIONAL PARA RENOVACIÓN DE MARCA
+    // ============================================
+    if (servicioEncontrado.nombre === "Renovación de Marca") {
+      const tipoSolicitante = req.body.tipo_solicitante;
+      
+      // Validar que tipo_solicitante sea válido
+      if (!tipoSolicitante || (tipoSolicitante !== "Natural" && tipoSolicitante !== "Jurídica")) {
+        return res.status(400).json({
+          mensaje: "tipo_solicitante debe ser 'Natural' o 'Jurídica'",
+          valor_recibido: tipoSolicitante,
+          valores_aceptados: ["Natural", "Jurídica"]
+        });
+      }
+      
+      // Si es persona jurídica, validar campos adicionales requeridos
+      if (tipoSolicitante === "Jurídica") {
+        const camposJuridica = [
+          "tipo_entidad",
+          "razon_social",
+          "nit_empresa",
+          "representante_legal"
         ];
         
         const camposFaltantesJuridica = camposJuridica.filter(

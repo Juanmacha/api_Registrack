@@ -51,13 +51,11 @@ export const CAMPOS_OBLIGATORIOS_POR_SERVICIO = {
     "nombre_marca",
     "numero_expediente_marca",
     "poder_autorizacion",
-    // Campos para persona jurídica
-    "tipo_entidad",
-    "razon_social",
-    "nit_empresa",
-    "representante_legal",
     "certificado_renovacion",
     "logotipo",
+    // ✅ Campos condicionales removidos: tipo_entidad, razon_social,
+    //    nit_empresa, representante_legal
+    //    Estos se validarán condicionalmente en el controlador según tipo_solicitante
   ],
 
   // 4. Cesión de Marca
