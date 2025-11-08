@@ -1,6 +1,6 @@
 -- =============================================
 -- API REGISTRACK - SCHEMA OFICIAL Y COMPLETO
--- Versión: 7.0 (30 Octubre 2025)
+-- Versión: 7.1 (Enero 2026)
 -- Base de datos MySQL con todas las entidades y relaciones
 -- =============================================
 
@@ -281,8 +281,8 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     -- ✅ IMPORTANTE: poder_autorizacion del frontend SIEMPRE va a poderparaelregistrodelamarca
     -- ✅ poderdelrepresentanteautorizado SOLO para poder_representante_autorizado (Jurídica)
     -- ✅ Para personas Naturales, NO se guarda en poderdelrepresentanteautorizado
-    poderdelrepresentanteautorizado TEXT COMMENT 'Poder del representante autorizado (base64) - Solo para personas jurídicas',
-    poderparaelregistrodelamarca TEXT COMMENT 'Poder para el registro de la marca (base64) - Siempre usado',
+    poderdelrepresentanteautorizado LONGTEXT COMMENT 'Poder del representante autorizado (base64) - Solo para personas jurídicas',
+    poderparaelregistrodelamarca LONGTEXT COMMENT 'Poder para el registro de la marca (base64) - Siempre usado',
     
     -- *** FASE 1: CAMPOS CRÍTICOS ***
     -- Campos de Marca/Producto
@@ -290,18 +290,18 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     clase_niza VARCHAR(50),
     tipo_producto_servicio VARCHAR(50),
     -- Campos de Documentos
-    logotipo TEXT COMMENT 'Logotipo de la marca (base64)',
+    logotipo LONGTEXT COMMENT 'Logotipo de la marca (base64)',
     -- Campos de Representantes
     -- ✅ IMPORTANTE: representante_legal solo para personas jurídicas
     representante_legal VARCHAR(100) COMMENT 'Nombre completo del representante legal - Solo para personas jurídicas',
     -- *** FASE 2: CAMPOS IMPORTANTES ***
     -- Campos de Documentos
     -- ✅ IMPORTANTE: certificado_camara_comercio solo para personas jurídicas
-    certificado_camara_comercio TEXT COMMENT 'Certificado de cámara de comercio (base64) - Solo para personas jurídicas',
-    certificado_renovacion TEXT COMMENT 'Certificado de renovación (base64)',
-    documento_cesion TEXT COMMENT 'Documento de cesión (base64)',
-    documentos_oposicion TEXT COMMENT 'Documentos de oposición (base64)',
-    soportes TEXT COMMENT 'Documentos adicionales de soporte (base64)',
+    certificado_camara_comercio LONGTEXT COMMENT 'Certificado de cámara de comercio (base64) - Solo para personas jurídicas',
+    certificado_renovacion LONGTEXT COMMENT 'Certificado de renovación (base64)',
+    documento_cesion LONGTEXT COMMENT 'Documento de cesión (base64)',
+    documentos_oposicion LONGTEXT COMMENT 'Documentos de oposición (base64)',
+    soportes LONGTEXT COMMENT 'Documentos adicionales de soporte (base64)',
     -- Campos de Expedientes/Referencias
     numero_expediente_marca VARCHAR(50),
     marca_a_oponerse VARCHAR(100),
@@ -778,7 +778,7 @@ INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key
 -- =============================================
 
 /*
-ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.0
+ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.1
 
 ENTIDADES PRINCIPALES:
 - Sistema de autenticación y autorización (usuarios, roles, permisos, privilegios)
@@ -790,6 +790,12 @@ ENTIDADES PRINCIPALES:
 - Gestión de pagos con pasarelas de pago
 - Sistema de archivos y notificaciones
 - Dashboard administrativo con KPIs y reportes
+
+CAMBIOS EN v7.1 (Enero 2026):
+- Cambiadas columnas de archivos Base64 de TEXT a LONGTEXT para soportar archivos grandes
+- Columnas actualizadas: logotipo, poderparaelregistrodelamarca, poderdelrepresentanteautorizado,
+  certificado_camara_comercio, certificado_renovacion, documento_cesion, documentos_oposicion, soportes
+- Soluciona errores "Data too long for column" al almacenar archivos Base64 grandes
 
 CAMBIOS EN v7.0:
 - Agregado campo "id_orden_servicio" a tabla citas para asociar con solicitudes
