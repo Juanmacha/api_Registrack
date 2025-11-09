@@ -136,7 +136,12 @@ const transformarSolicitudAFrontend = (ordenServicio) => {
     id_servicio: sol.id_servicio,
     
     // Comentarios/Seguimiento
-    comentarios: sol.comentarios || []
+    comentarios: sol.comentarios || [],
+    
+    // Campos de anulación
+    motivo_anulacion: sol.motivo_anulacion || null,
+    fecha_anulacion: sol.fecha_anulacion || null,
+    anulado_por: sol.anulado_por || null
   };
 };
 
