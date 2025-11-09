@@ -1,6 +1,7 @@
 // src/controllers/dashboard.controller.js
 import { DashboardService } from "../services/dashboard.service.js";
 import { RenovationAlertService } from "../services/renovation-alert.service.js";
+import { validarPeriodo, obtenerPeriodoValido, PERIODO_DEFECTO, obtenerPeriodosDisponibles } from "../utils/periodos.dashboard.js";
 import ExcelJS from "exceljs";
 
 const dashboardService = new DashboardService();
@@ -12,22 +13,19 @@ export const DashboardController = {
    */
   async getIngresos(req, res) {
     try {
-      const { periodo = '6meses', fecha_inicio, fecha_fin } = req.query;
+      let { periodo = PERIODO_DEFECTO, fecha_inicio, fecha_fin } = req.query;
 
-      // Validar periodo
-      const periodosValidos = ['6meses', '12meses', 'custom'];
-      if (!periodosValidos.includes(periodo)) {
-        return res.status(400).json({
-          success: false,
-          error: `Periodo inválido. Debe ser: ${periodosValidos.join(', ')}`
-        });
+      // Validar y normalizar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
       }
 
       // Validar fechas para periodo custom
       if (periodo === 'custom' && (!fecha_inicio || !fecha_fin)) {
         return res.status(400).json({
           success: false,
-          error: 'Para periodo "custom" se requieren fecha_inicio y fecha_fin'
+          mensaje: 'Para periodo "custom" se requieren fecha_inicio y fecha_fin',
+          error: 'Fechas requeridas para período personalizado'
         });
       }
 
@@ -35,12 +33,17 @@ export const DashboardController = {
 
       res.json({
         success: true,
-        data
+        data: {
+          ...data,
+          periodo: periodo,
+          periodo_seleccionado: periodo
+        }
       });
     } catch (error) {
       console.error('❌ Error en getIngresos:', error);
       res.status(500).json({
         success: false,
+        mensaje: 'Error al obtener ingresos',
         error: error.message
       });
     }
@@ -52,27 +55,28 @@ export const DashboardController = {
    */
   async getServicios(req, res) {
     try {
-      const { periodo = '12meses' } = req.query;
+      let { periodo = PERIODO_DEFECTO } = req.query;
 
-      // Validar periodo
-      const periodosValidos = ['6meses', '12meses', 'todo'];
-      if (!periodosValidos.includes(periodo)) {
-        return res.status(400).json({
-          success: false,
-          error: `Periodo inválido. Debe ser: ${periodosValidos.join(', ')}`
-        });
+      // Validar y normalizar período (excluir 'custom' para servicios)
+      if (!validarPeriodo(periodo) || periodo === 'custom') {
+        periodo = PERIODO_DEFECTO;
       }
 
       const data = await dashboardService.calcularResumenServicios(periodo);
 
       res.json({
         success: true,
-        data
+        data: {
+          ...data,
+          periodo: periodo,
+          periodo_seleccionado: periodo
+        }
       });
     } catch (error) {
       console.error('❌ Error en getServicios:', error);
       res.status(500).json({
         success: false,
+        mensaje: 'Error al obtener resumen de servicios',
         error: error.message
       });
     }
@@ -84,27 +88,37 @@ export const DashboardController = {
    */
   async getResumen(req, res) {
     try {
-      const { periodo = '6meses' } = req.query;
+      let { periodo = PERIODO_DEFECTO, fecha_inicio, fecha_fin } = req.query;
 
-      // Validar periodo
-      const periodosValidos = ['6meses', '12meses', 'custom'];
-      if (!periodosValidos.includes(periodo)) {
+      // Validar y normalizar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
+      // Validar fechas para periodo custom
+      if (periodo === 'custom' && (!fecha_inicio || !fecha_fin)) {
         return res.status(400).json({
           success: false,
-          error: `Periodo inválido. Debe ser: ${periodosValidos.join(', ')}`
+          mensaje: 'Para periodo "custom" se requieren fecha_inicio y fecha_fin',
+          error: 'Fechas requeridas para período personalizado'
         });
       }
 
-      const data = await dashboardService.obtenerResumenGeneral(periodo);
+      const data = await dashboardService.obtenerResumenGeneral(periodo, fecha_inicio, fecha_fin);
 
       res.json({
         success: true,
-        data
+        data: {
+          ...data,
+          periodo: periodo,
+          periodo_seleccionado: periodo
+        }
       });
     } catch (error) {
       console.error('❌ Error en getResumen:', error);
       res.status(500).json({
         success: false,
+        mensaje: 'Error al obtener resumen general',
         error: error.message
       });
     }
@@ -631,6 +645,30 @@ export const DashboardController = {
       console.error('❌ Error en testAlertasRenovaciones:', error);
       res.status(500).json({
         success: false,
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * GET /api/dashboard/periodos
+   * Obtener lista de períodos disponibles
+   */
+  async getPeriodos(req, res) {
+    try {
+      const periodos = obtenerPeriodosDisponibles();
+
+      res.json({
+        success: true,
+        data: {
+          periodos: periodos
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error en getPeriodos:', error);
+      res.status(500).json({
+        success: false,
+        mensaje: 'Error al obtener períodos disponibles',
         error: error.message
       });
     }

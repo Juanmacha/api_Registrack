@@ -1,18 +1,24 @@
 // src/services/dashboard.service.js
 import { DashboardRepository } from "../repositories/dashboard.repository.js";
+import { calcularRangoFechas, validarPeriodo, PERIODO_DEFECTO } from "../utils/periodos.dashboard.js";
 
 export class DashboardService {
   /**
    * Calcular datos de ingresos con análisis y tendencias
-   * @param {string} periodo - '6meses', '12meses', 'custom'
+   * @param {string} periodo - Período seleccionado (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
    * @param {string} fechaInicio - Fecha inicio (YYYY-MM-DD) para periodo custom
    * @param {string} fechaFin - Fecha fin (YYYY-MM-DD) para periodo custom
    * @returns {Promise<Object>} Datos de ingresos procesados
    */
-  async calcularIngresos(periodo = '6meses', fechaInicio = null, fechaFin = null) {
+  async calcularIngresos(periodo = PERIODO_DEFECTO, fechaInicio = null, fechaFin = null) {
     try {
+      // Validar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
       // Calcular fechas según periodo
-      const { inicio, fin } = this._calcularRangoFechas(periodo, fechaInicio, fechaFin);
+      const { inicio, fin } = calcularRangoFechas(periodo, fechaInicio, fechaFin);
 
       // Obtener datos del repositorio
       const ingresos = await DashboardRepository.obtenerIngresosPorMes(inicio, fin);
@@ -62,12 +68,20 @@ export class DashboardService {
 
   /**
    * Calcular resumen de gestión de servicios
-   * @param {string} periodo - '6meses', '12meses', 'todo'
+   * @param {string} periodo - Período seleccionado (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo)
    * @returns {Promise<Object>} Resumen de servicios
    */
-  async calcularResumenServicios(periodo = '12meses') {
+  async calcularResumenServicios(periodo = PERIODO_DEFECTO) {
     try {
-      const servicios = await DashboardRepository.obtenerResumenServicios(periodo);
+      // Validar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
+      // Calcular fechas si no es "todo"
+      const { inicio, fin } = calcularRangoFechas(periodo);
+
+      const servicios = await DashboardRepository.obtenerResumenServicios(inicio, fin);
 
       if (!servicios || servicios.length === 0) {
         return {
@@ -84,19 +98,20 @@ export class DashboardService {
       const totalSolicitudes = servicios.reduce((sum, s) => sum + parseInt(s.total_solicitudes || 0), 0);
 
       // Procesar cada servicio
-      const serviciosProcesados = servicios.map(servicio => ({
-        id_servicio: servicio.id_servicio,
-        nombre: servicio.servicio,
-        total_solicitudes: parseInt(servicio.total_solicitudes || 0),
-        porcentaje_uso: parseFloat(servicio.porcentaje_uso || 0),
-        estado_distribucion: {
-          Pendiente: parseInt(servicio.pendientes || 0),
-          'En Proceso': parseInt(servicio.en_proceso || 0),
-          Finalizado: parseInt(servicio.finalizados || 0),
-          Anulado: parseInt(servicio.anulados || 0)
-        },
-        precio_base: parseFloat(servicio.precio_base || 0)
-      }));
+      const serviciosProcesados = servicios.map(servicio => {
+        // estado_distribucion ya viene del repositorio con los estados reales (process_states)
+        // El repositorio ya incluye "Anulado" si hay solicitudes anuladas
+        const estadoDistribucion = servicio.estado_distribucion || {};
+
+        return {
+          id_servicio: servicio.id_servicio,
+          nombre: servicio.servicio,
+          total_solicitudes: parseInt(servicio.total_solicitudes || 0),
+          porcentaje_uso: parseFloat(servicio.porcentaje_uso || 0),
+          estado_distribucion: estadoDistribucion, // Estados reales desde process_states + Anulado
+          precio_base: parseFloat(servicio.precio_base || 0)
+        };
+      });
 
       // Top 3 más solicitados
       const masSolicitados = [...serviciosProcesados]
@@ -111,6 +126,7 @@ export class DashboardService {
         .map(s => ({ nombre: s.nombre, cantidad: s.total_solicitudes }));
 
       return {
+        periodo: periodo,
         total_servicios: totalServicios,
         total_solicitudes: totalSolicitudes,
         servicios: serviciosProcesados,
@@ -125,15 +141,20 @@ export class DashboardService {
 
   /**
    * Obtener resumen general del dashboard con todos los KPIs
-   * @param {string} periodo - '6meses', '12meses', 'custom'
+   * @param {string} periodo - Período seleccionado (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
    * @param {string} fechaInicio - Fecha inicio (YYYY-MM-DD) para periodo custom
    * @param {string} fechaFin - Fecha fin (YYYY-MM-DD) para periodo custom
    * @returns {Promise<Object>} Resumen completo
    */
-  async obtenerResumenGeneral(periodo = '6meses', fechaInicio = null, fechaFin = null) {
+  async obtenerResumenGeneral(periodo = PERIODO_DEFECTO, fechaInicio = null, fechaFin = null) {
     try {
+      // Validar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
       // Calcular fechas según periodo
-      const { inicio, fin } = this._calcularRangoFechas(periodo, fechaInicio, fechaFin);
+      const { inicio, fin } = calcularRangoFechas(periodo, fechaInicio, fechaFin);
 
       // Obtener KPIs generales del repositorio
       const kpisData = await DashboardRepository.obtenerKPIsGenerales(inicio, fin);
@@ -284,33 +305,7 @@ export class DashboardService {
   // ========================================
   // MÉTODOS PRIVADOS (HELPERS)
   // ========================================
-
-  /**
-   * Calcular rango de fechas según periodo
-   * @private
-   */
-  _calcularRangoFechas(periodo, fechaInicio, fechaFin) {
-    const hoy = new Date();
-    let inicio, fin;
-
-    if (periodo === 'custom' && fechaInicio && fechaFin) {
-      inicio = fechaInicio;
-      fin = fechaFin;
-    } else if (periodo === '12meses') {
-      const hace12Meses = new Date(hoy);
-      hace12Meses.setMonth(hoy.getMonth() - 12);
-      inicio = hace12Meses.toISOString().split('T')[0];
-      fin = hoy.toISOString().split('T')[0];
-    } else {
-      // Default: 6 meses
-      const hace6Meses = new Date(hoy);
-      hace6Meses.setMonth(hoy.getMonth() - 6);
-      inicio = hace6Meses.toISOString().split('T')[0];
-      fin = hoy.toISOString().split('T')[0];
-    }
-
-    return { inicio, fin };
-  }
+  // Nota: _calcularRangoFechas ha sido movido a utils/periodos.dashboard.js
 
   /**
    * Agrupar ingresos por mes

@@ -112,5 +112,17 @@ router.post(
   DashboardController.testAlertasRenovaciones
 );
 
+/**
+ * GET /api/dashboard/periodos
+ * Obtener lista de períodos disponibles
+ * No requiere parámetros
+ */
+router.get(
+  "/periodos",
+  authMiddleware,
+  roleMiddleware(["administrador"]),
+  DashboardController.getPeriodos
+);
+
 export default router;
 

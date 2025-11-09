@@ -5,12 +5,21 @@ import sequelize from "../config/db.js";
 export const DashboardRepository = {
   /**
    * 📊 Obtener ingresos agrupados por mes
-   * @param {Date} fechaInicio - Fecha de inicio del periodo
-   * @param {Date} fechaFin - Fecha de fin del periodo
+   * @param {string|null} fechaInicio - Fecha de inicio del periodo (YYYY-MM-DD) o null para todos los datos
+   * @param {string|null} fechaFin - Fecha de fin del periodo (YYYY-MM-DD) o null para todos los datos
    * @returns {Promise<Array>} Ingresos por mes con desglose por método de pago
    */
   async obtenerIngresosPorMes(fechaInicio, fechaFin) {
     try {
+      // Construir condiciones WHERE dinámicamente
+      let whereClause = "WHERE estado = 'Pagado' AND fecha_pago IS NOT NULL";
+      const replacements = [];
+
+      if (fechaInicio && fechaFin) {
+        whereClause += " AND fecha_pago >= ? AND fecha_pago <= ?";
+        replacements.push(fechaInicio, fechaFin);
+      }
+
       const query = `
         SELECT 
           DATE_FORMAT(fecha_pago, '%Y-%m') AS mes,
@@ -22,16 +31,13 @@ export const DashboardRepository = {
           CAST(SUM(CASE WHEN metodo_pago = 'Tarjeta' THEN monto ELSE 0 END) AS DECIMAL(15,2)) AS tarjeta,
           CAST(SUM(CASE WHEN metodo_pago = 'Cheque' THEN monto ELSE 0 END) AS DECIMAL(15,2)) AS cheque
         FROM pagos
-        WHERE estado = 'Pagado'
-          AND fecha_pago IS NOT NULL
-          AND fecha_pago >= ?
-          AND fecha_pago <= ?
+        ${whereClause}
         GROUP BY mes
         ORDER BY mes DESC
       `;
 
       const result = await sequelize.query(query, {
-        replacements: [fechaInicio, fechaFin],
+        replacements,
         type: QueryTypes.SELECT
       });
 
@@ -44,53 +50,116 @@ export const DashboardRepository = {
 
   /**
    * 📈 Obtener resumen de servicios con estadísticas
-   * @param {string} periodo - '6meses', '12meses', 'todo'
+   * @param {string|null} fechaInicio - Fecha de inicio del periodo (YYYY-MM-DD) o null para todos los datos
+   * @param {string|null} fechaFin - Fecha de fin del periodo (YYYY-MM-DD) o null para todos los datos
    * @returns {Promise<Array>} Lista de servicios con estadísticas de uso
    */
-  async obtenerResumenServicios(periodo = '12meses') {
+  async obtenerResumenServicios(fechaInicio, fechaFin) {
     try {
-      // Calcular fecha de inicio según periodo
-      let fechaInicio = null;
-      
-      if (periodo !== 'todo') {
-        const meses = periodo === '6meses' ? 6 : 12;
-        const fecha = new Date();
-        fecha.setMonth(fecha.getMonth() - meses);
-        fechaInicio = fecha.toISOString().split('T')[0];
+      // Construir condiciones WHERE dinámicamente
+      const serviciosReplacements = [];
+      let serviciosWhereClause = "";
+      let serviciosJoinClause = "";
+
+      if (fechaInicio && fechaFin) {
+        serviciosWhereClause = "WHERE fecha_creacion >= ? AND fecha_creacion <= ?";
+        serviciosJoinClause = "AND os.fecha_creacion >= ? AND os.fecha_creacion <= ?";
+        serviciosReplacements.push(fechaInicio, fechaFin, fechaInicio, fechaFin);
       }
 
-      let query = `
+      // Query optimizada: Obtener servicios con totales y anulados
+      const queryServicios = `
         SELECT 
           s.id_servicio,
           s.nombre AS servicio,
           s.descripcion,
           s.precio_base,
-          COUNT(os.id_orden_servicio) AS total_solicitudes,
+          COUNT(DISTINCT os.id_orden_servicio) AS total_solicitudes,
           ROUND(
-            (COUNT(os.id_orden_servicio) * 100.0 / 
-              NULLIF((SELECT COUNT(*) FROM ordenes_de_servicios ${fechaInicio ? 'WHERE fecha_creacion >= ?' : ''}), 0)
+            (COUNT(DISTINCT os.id_orden_servicio) * 100.0 / 
+              NULLIF((SELECT COUNT(*) FROM ordenes_de_servicios ${serviciosWhereClause}), 0)
             ), 
             2
           ) AS porcentaje_uso,
-          SUM(CASE WHEN os.estado = 'Pendiente' THEN 1 ELSE 0 END) AS pendientes,
-          SUM(CASE WHEN os.estado = 'En Proceso' THEN 1 ELSE 0 END) AS en_proceso,
-          SUM(CASE WHEN os.estado = 'Finalizado' THEN 1 ELSE 0 END) AS finalizados,
           SUM(CASE WHEN os.estado = 'Anulado' THEN 1 ELSE 0 END) AS anulados
         FROM servicios s
         LEFT JOIN ordenes_de_servicios os ON s.id_servicio = os.id_servicio
-          ${fechaInicio ? 'AND os.fecha_creacion >= ?' : ''}
+          ${serviciosJoinClause}
         GROUP BY s.id_servicio, s.nombre, s.descripcion, s.precio_base
         ORDER BY total_solicitudes DESC
       `;
 
-      const replacements = fechaInicio ? [fechaInicio, fechaInicio] : [];
-
-      const result = await sequelize.query(query, {
-        replacements,
+      const servicios = await sequelize.query(queryServicios, {
+        replacements: serviciosReplacements,
         type: QueryTypes.SELECT
       });
 
-      return result;
+      // Query optimizada: Obtener distribución de estados reales (process_states) por servicio
+      // Usamos el estado más reciente de cada orden de servicio desde detalles_ordenes_servicio
+      let estadoDistribucionQuery = `
+        SELECT 
+          os.id_servicio,
+          estado_actual.estado,
+          COUNT(*) AS cantidad
+        FROM ordenes_de_servicios os
+        INNER JOIN (
+          -- Subquery para obtener el estado más reciente de cada orden de servicio
+          SELECT 
+            dos1.id_orden_servicio,
+            dos1.estado
+          FROM detalles_ordenes_servicio dos1
+          INNER JOIN (
+            SELECT 
+              id_orden_servicio,
+              MAX(fecha_estado) AS max_fecha
+            FROM detalles_ordenes_servicio
+            GROUP BY id_orden_servicio
+          ) dos2 ON dos1.id_orden_servicio = dos2.id_orden_servicio 
+            AND dos1.fecha_estado = dos2.max_fecha
+        ) estado_actual ON os.id_orden_servicio = estado_actual.id_orden_servicio
+        WHERE os.estado != 'Anulado'
+      `;
+
+      const estadoDistribucionParams = [];
+
+      if (fechaInicio && fechaFin) {
+        estadoDistribucionQuery += " AND os.fecha_creacion >= ? AND os.fecha_creacion <= ?";
+        estadoDistribucionParams.push(fechaInicio, fechaFin);
+      }
+
+      estadoDistribucionQuery += " GROUP BY os.id_servicio, estado_actual.estado";
+
+      const distribucionEstados = await sequelize.query(estadoDistribucionQuery, {
+        replacements: estadoDistribucionParams,
+        type: QueryTypes.SELECT
+      });
+
+      // Agrupar distribución de estados por servicio
+      const distribucionPorServicio = {};
+      distribucionEstados.forEach(item => {
+        if (!distribucionPorServicio[item.id_servicio]) {
+          distribucionPorServicio[item.id_servicio] = {};
+        }
+        distribucionPorServicio[item.id_servicio][item.estado] = parseInt(item.cantidad || 0);
+      });
+
+      // Combinar servicios con su distribución de estados
+      const serviciosConEstados = servicios.map(servicio => {
+        const estadoDistribucion = distribucionPorServicio[servicio.id_servicio] || {};
+        
+        // Agregar "Anulado" por separado (viene del campo anulados)
+        const anulados = parseInt(servicio.anulados || 0);
+        if (anulados > 0) {
+          estadoDistribucion['Anulado'] = anulados;
+        }
+
+        return {
+          ...servicio,
+          estado_distribucion: estadoDistribucion
+        };
+      });
+
+      return serviciosConEstados;
     } catch (error) {
       console.error('❌ Error en obtenerResumenServicios:', error);
       throw error;
@@ -206,12 +275,40 @@ export const DashboardRepository = {
 
   /**
    * 📊 Obtener KPIs generales para el resumen del dashboard
-   * @param {Date} fechaInicio - Fecha de inicio del periodo
-   * @param {Date} fechaFin - Fecha de fin del periodo
+   * @param {string|null} fechaInicio - Fecha de inicio del periodo (YYYY-MM-DD) o null para todos los datos
+   * @param {string|null} fechaFin - Fecha de fin del periodo (YYYY-MM-DD) o null para todos los datos
    * @returns {Promise<Object>} KPIs principales
    */
   async obtenerKPIsGenerales(fechaInicio, fechaFin) {
     try {
+      const tieneFechas = fechaInicio && fechaFin;
+      const replacements = [];
+      
+      // Construir condiciones WHERE dinámicamente
+      const fechaConditionPagos = tieneFechas 
+        ? "AND fecha_pago >= ? AND fecha_pago <= ?" 
+        : "";
+      
+      const fechaConditionOrdenes = tieneFechas 
+        ? "AND fecha_creacion >= ? AND fecha_creacion <= ?" 
+        : "";
+
+      // Agregar replacements en el orden correcto según aparecen en la query
+      if (tieneFechas) {
+        // 1. ingresos_totales: fechaInicio, fechaFin
+        // 2. total_transacciones: fechaInicio, fechaFin
+        // 3. solicitudes_totales: fechaInicio, fechaFin
+        // 4. solicitudes_finalizadas: fechaInicio, fechaFin
+        // 5. tasa_conversion (numerador - Finalizado): fechaInicio, fechaFin
+        // 6. tasa_conversion (denominador - total): fechaInicio, fechaFin
+        // 7. tiempo_promedio_resolucion: fechaInicio, fechaFin
+        // 8. clientes_unicos: fechaInicio, fechaFin
+        // Total: 16 replacements (8 condiciones * 2 valores cada una)
+        for (let i = 0; i < 8; i++) {
+          replacements.push(fechaInicio, fechaFin);
+        }
+      }
+
       const query = `
         SELECT 
           -- Ingresos
@@ -219,24 +316,24 @@ export const DashboardRepository = {
             SELECT COALESCE(SUM(monto), 0) 
             FROM pagos 
             WHERE estado = 'Pagado' 
-              AND fecha_pago >= ? 
-              AND fecha_pago <= ?
+              AND fecha_pago IS NOT NULL
+              ${fechaConditionPagos}
           ) AS ingresos_totales,
           
           (
             SELECT COUNT(*) 
             FROM pagos 
             WHERE estado = 'Pagado' 
-              AND fecha_pago >= ? 
-              AND fecha_pago <= ?
+              AND fecha_pago IS NOT NULL
+              ${fechaConditionPagos}
           ) AS total_transacciones,
           
           -- Solicitudes
           (
             SELECT COUNT(*) 
             FROM ordenes_de_servicios 
-            WHERE fecha_creacion >= ? 
-              AND fecha_creacion <= ?
+            WHERE 1=1
+              ${fechaConditionOrdenes}
           ) AS solicitudes_totales,
           
           (
@@ -256,8 +353,7 @@ export const DashboardRepository = {
             SELECT COUNT(*) 
             FROM ordenes_de_servicios 
             WHERE estado = 'Finalizado'
-              AND fecha_creacion >= ? 
-              AND fecha_creacion <= ?
+              ${fechaConditionOrdenes}
           ) AS solicitudes_finalizadas,
           
           (
@@ -272,14 +368,13 @@ export const DashboardRepository = {
               SELECT COUNT(*) 
               FROM ordenes_de_servicios 
               WHERE estado = 'Finalizado'
-                AND fecha_creacion >= ? 
-                AND fecha_creacion <= ?
+                ${fechaConditionOrdenes}
             ) * 100.0 / NULLIF(
               (
                 SELECT COUNT(*) 
                 FROM ordenes_de_servicios 
-                WHERE fecha_creacion >= ? 
-                AND fecha_creacion <= ?
+                WHERE 1=1
+                  ${fechaConditionOrdenes}
               ), 0
             ), 2
           ) AS tasa_conversion,
@@ -289,30 +384,20 @@ export const DashboardRepository = {
             SELECT COALESCE(AVG(DATEDIFF(updated_at, fecha_creacion)), 0)
             FROM ordenes_de_servicios
             WHERE estado = 'Finalizado'
-              AND fecha_creacion >= ? 
-              AND fecha_creacion <= ?
+              ${fechaConditionOrdenes}
           ) AS tiempo_promedio_resolucion,
           
           -- Clientes únicos
           (
             SELECT COUNT(DISTINCT id_cliente)
             FROM ordenes_de_servicios
-            WHERE fecha_creacion >= ? 
-              AND fecha_creacion <= ?
+            WHERE 1=1
+              ${fechaConditionOrdenes}
           ) AS clientes_unicos
       `;
 
       const result = await sequelize.query(query, {
-        replacements: [
-          fechaInicio, fechaFin, // ingresos_totales
-          fechaInicio, fechaFin, // total_transacciones
-          fechaInicio, fechaFin, // solicitudes_totales
-          fechaInicio, fechaFin, // solicitudes_finalizadas
-          fechaInicio, fechaFin, // tasa_conversion (numerador)
-          fechaInicio, fechaFin, // tasa_conversion (denominador)
-          fechaInicio, fechaFin, // tiempo_promedio_resolucion
-          fechaInicio, fechaFin  // clientes_unicos
-        ],
+        replacements,
         type: QueryTypes.SELECT
       });
 

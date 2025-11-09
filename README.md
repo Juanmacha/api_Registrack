@@ -6,7 +6,10 @@
 > 
 > **✅ Estado:** Producción Ready (98%)
 > 
-> **🔥 Nuevo:** Sistema de Pago Requerido para Activar Solicitudes - Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock.
+> **🔥 Nuevo:** 
+> - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
+> - **Sistema de Pago Requerido**: Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock
+> - **Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP comprimido
 
 ---
 
@@ -20,6 +23,8 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 📊 **Dashboard: Estados Reales (Process States)** | Corrección crítica: El dashboard de servicios ahora muestra los estados reales (process_states) de cada servicio en lugar de estados fijos genéricos. Los estados se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden. "Anulado" se maneja por separado. Estados dinámicos y precisos según los process_states definidos para cada servicio. |
+| **Ene 2026** | 📊 **Dashboard: Períodos Mejorados** | Sistema de períodos ampliado con 9 opciones (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom). Validación automática, normalización a período por defecto, soporte para período "todo" sin filtros, y nuevo endpoint para obtener períodos disponibles. Mejora significativa en flexibilidad del dashboard. |
 | **Ene 2026** | 📦 **Descarga de Archivos en ZIP** | Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP. Incluye logotipo, poderes, certificados, documentos de cesión/oposición y soportes. Detección automática de tipos MIME, nombres descriptivos y archivo README con información de la solicitud. |
 | **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
@@ -162,8 +167,10 @@ PUT  /api/gestion-solicitudes/anular/:id          # Anular (admin/empleado)
 
 #### Dashboard (Solo Admin)
 ```
-GET /api/dashboard/resumen                    # KPIs generales
-GET /api/dashboard/ingresos?periodo=6meses    # Análisis ingresos
+GET /api/dashboard/periodos                   # Períodos disponibles 📦 NUEVO
+GET /api/dashboard/resumen                    # KPIs generales (todos los períodos)
+GET /api/dashboard/ingresos?periodo=12meses   # Análisis ingresos (todos los períodos)
+GET /api/dashboard/servicios?periodo=12meses  # Resumen servicios (estados reales) ✅ CORREGIDO
 GET /api/dashboard/pendientes?format=json     # Servicios pendientes
 GET /api/dashboard/renovaciones-proximas      # Alertas renovación
 ```
@@ -1118,9 +1125,9 @@ Authorization: Bearer <token_admin>
 - Reportes en Excel con información detallada
 - CRUD completo (Crear, Leer, Actualizar, Eliminar)
 
-### 10. Dashboard Administrativo (`/api/dashboard`) ⭐ **NUEVO - 30 Oct 2025**
+### 10. Dashboard Administrativo (`/api/dashboard`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Control de Ingresos**: Análisis por mes y método de pago con tendencias
-- **Resumen de Servicios**: Estadísticas de uso, más/menos solicitados, distribución por estado
+- **Resumen de Servicios**: Estadísticas de uso, más/menos solicitados, distribución por estado real (process_states) ✅ CORREGIDO
 - **KPIs Generales**: Ingresos totales, solicitudes, tasa de finalización, clientes activos
 - **Servicios Pendientes**: Tabla filtrable con días en espera, exportación a Excel
 - **Solicitudes Inactivas**: Detección de procesos estancados (>30 días sin actualizar)
@@ -1128,15 +1135,33 @@ Authorization: Bearer <token_admin>
 - **Sistema de Alertas**: Notificaciones automáticas según umbrales
 - **Reportes Excel**: Código de colores según urgencia (amarillo, naranja, rojo)
 - **Solo Administradores**: Protegido con JWT + roleMiddleware
+- **📊 Períodos Mejorados**: Soporte para 9 períodos diferentes (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
+- **🔧 Estados Reales**: Distribución de estados basada en process_states reales de cada servicio (no estados fijos)
 
 **Funcionalidades:**
-- `GET /api/dashboard/ingresos` - Análisis de ingresos (6 meses, 12 meses, custom)
-- `GET /api/dashboard/servicios` - Resumen de servicios y estadísticas
-- `GET /api/dashboard/resumen` - Todos los KPIs en un solo endpoint
+- `GET /api/dashboard/periodos` - Obtener lista de períodos disponibles 📦 NUEVO
+- `GET /api/dashboard/ingresos` - Análisis de ingresos (todos los períodos + custom)
+- `GET /api/dashboard/servicios` - Resumen de servicios y estadísticas (todos los períodos excepto custom) ✅ CORREGIDO
+- `GET /api/dashboard/resumen` - Todos los KPIs en un solo endpoint (todos los períodos + custom)
 - `GET /api/dashboard/pendientes` - Servicios pendientes (JSON o Excel)
 - `GET /api/dashboard/inactivas` - Solicitudes sin actualizar (JSON o Excel)
 - `GET /api/dashboard/renovaciones-proximas` - Marcas próximas a vencer (JSON o Excel)
 - `POST /api/dashboard/renovaciones-proximas/test-alertas` - Probar envío de alertas manualmente
+
+**Períodos Disponibles:**
+- **Cortos**: `1mes`, `3meses`
+- **Medios**: `6meses`, `12meses` (por defecto), `18meses`
+- **Largos**: `2anos`, `3anos`, `5anos`
+- **Especiales**: `todo` (todos los datos), `custom` (rango personalizado con fechas)
+
+**Estados Reales (Process States):**
+- Los estados en `estado_distribucion` son **dinámicos** y dependen de los process_states definidos para cada servicio
+- Se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden
+- "Anulado" se maneja por separado (estado de orden, no de proceso)
+- Ejemplos de estados: "Solicitud Recibida", "Revisión de Documentos", "Publicación", "Certificado Emitido", "Finalizado", etc.
+
+**📝 Ejemplos Postman:** Ver `POSTMAN_EJEMPLOS_DASHBOARD_PERIODOS.md` para ejemplos completos de uso.
+**📝 Documentación de Corrección:** Ver `CORRECCION_DASHBOARD_SERVICIOS_ESTADOS.md` para detalles de la corrección de estados.
 
 ## 🔌 Endpoints de la API
 
@@ -1244,11 +1269,12 @@ GET /api/gestion-empleados/:id                  # Obtener empleado por ID
 PUT /api/gestion-empleados/:id                  # Actualizar empleado
 ```
 
-### Dashboard ⭐ **NUEVO - 30 Oct 2025**
+### Dashboard ⭐ **ACTUALIZADO - Ene 2026**
 ```http
-GET /api/dashboard/ingresos?periodo=6meses                    # Análisis de ingresos
-GET /api/dashboard/servicios?periodo=12meses                  # Resumen de servicios
-GET /api/dashboard/resumen?periodo=6meses                     # KPIs generales
+GET /api/dashboard/periodos                                   # Obtener períodos disponibles 📦 NUEVO
+GET /api/dashboard/ingresos?periodo=12meses                   # Análisis de ingresos (todos los períodos + custom)
+GET /api/dashboard/servicios?periodo=12meses                  # Resumen de servicios (estados reales - process_states) ✅ CORREGIDO
+GET /api/dashboard/resumen?periodo=12meses                    # KPIs generales (todos los períodos + custom)
 GET /api/dashboard/pendientes?format=json                     # Servicios pendientes (JSON)
 GET /api/dashboard/pendientes?format=excel                    # Servicios pendientes (Excel)
 GET /api/dashboard/inactivas?format=json                      # Solicitudes inactivas (JSON)
@@ -1257,6 +1283,15 @@ GET /api/dashboard/renovaciones-proximas?format=json          # Renovaciones pr�
 GET /api/dashboard/renovaciones-proximas?format=excel         # Renovaciones próximas (Excel)
 POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de alertas
 ```
+
+**Períodos Disponibles:**
+- `1mes`, `3meses`, `6meses`, `12meses` (por defecto), `18meses`, `2anos`, `3anos`, `5anos`, `todo`, `custom`
+
+**Estados Reales en Servicios:**
+- Los estados en `estado_distribucion` son **dinámicos** y provienen de los process_states reales de cada servicio
+- Se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden
+- "Anulado" se maneja por separado (estado de orden, no de proceso)
+- Ejemplos: "Solicitud Recibida", "Revisión de Documentos", "Publicación", "Certificado Emitido", "Finalizado", etc.
 
 ## 📋 Detalles de endpoints y validaciones
 
@@ -8684,6 +8719,7 @@ graph TD
 - ✅ Estados dinámicos basados en process_states del servicio
 - ✅ Historial completo de cambios
 - ✅ 📦 Descarga de archivos en ZIP (Ene 2026)
+- ✅ Campos de anulación en respuestas: motivo_anulacion, fecha_anulacion, anulado_por (Ene 2026)
 
 ### **Gestión de Empleados**
 - ✅ Creación en dos pasos (Usuario + Empleado)
@@ -8691,6 +8727,18 @@ graph TD
 - ✅ Asignación a solicitudes con notificaciones
 - ✅ Reportes Excel completos
 - ✅ Control de estados sincronizado
+
+### **Dashboard Administrativo**
+- ✅ Control de ingresos con análisis por mes y método de pago
+- ✅ Resumen de servicios con estadísticas de uso
+- ✅ KPIs generales (ingresos, solicitudes, tasa de finalización, clientes activos)
+- ✅ Servicios pendientes con filtros y exportación Excel
+- ✅ Solicitudes inactivas con detección automática
+- ✅ Renovaciones próximas a vencer con alertas
+- ✅ Reportes Excel con código de colores
+- ✅ **📊 Períodos mejorados**: 9 períodos disponibles (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom) (Ene 2026)
+- ✅ **🔧 Estados reales**: Distribución de estados basada en process_states reales de cada servicio, no estados fijos (Ene 2026)
+- ✅ Endpoint para obtener períodos disponibles (Ene 2026)
 
 ### **Sistema de Notificaciones**
 - ✅ Notificaciones automáticas por email
