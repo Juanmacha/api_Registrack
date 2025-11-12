@@ -13,6 +13,10 @@ export const PagoService = {
     return await PagoRepository.findById(id);
   },
 
+  async obtenerPagoConDetalles(id) {
+    return await PagoRepository.findByIdWithDetails(id);
+  },
+
   async crearPago(data) {
     if (!data.monto || !data.metodo_pago || !data.id_orden_servicio) {
       throw new Error("Datos incompletos");
@@ -38,13 +42,13 @@ export const PagoService = {
         };
       }
 
-      // 2. Crear registro de pago
+      // 2. Crear registro de pago - Siempre con estado "Pagado" para demo
       const pago = await this.crearPago({
         ...paymentData,
         transaction_id: paymentResult.transaction_id,
         gateway: paymentResult.gateway || 'mock',
-        estado: paymentResult.status === 'paid' ? 'Pagado' : 'Pendiente',
-        verified_at: paymentResult.verified ? new Date() : null,
+        estado: 'Pagado', // ✅ Siempre "Pagado" para demo
+        verified_at: paymentResult.verified ? new Date() : new Date(),
         verification_method: 'mock'
       });
 
@@ -77,11 +81,20 @@ export const PagoService = {
         }
       }
 
+      // 5. Obtener información completa del pago con detalles de solicitud y usuario
+      let pagoCompleto = null;
+      try {
+        pagoCompleto = await this.obtenerPagoConDetalles(pago.id_pago);
+      } catch (error) {
+        console.error('⚠️ Error al obtener detalles del pago:', error);
+        // Continuar con pago básico si falla
+      }
+
       return {
         success: true,
-        payment: pago,
+        payment: pagoCompleto || pago,
         transaction_id: paymentResult.transaction_id,
-        solicitud_activada: solicitudActivada // ⚠️ Nuevo campo
+        solicitud_activada: solicitudActivada
       };
 
     } catch (error) {

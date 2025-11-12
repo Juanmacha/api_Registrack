@@ -7,6 +7,8 @@
 > **✅ Estado:** Producción Ready (98%)
 > 
 > **🔥 Nuevo:** 
+> - **Sistema de Permisos Granular**: Control de acceso a nivel de módulo y acción. Crear roles personalizados con permisos específicos. Middleware `checkPermiso` para validación granular. Administradores tienen acceso total automático.
+> - **Creación de Usuarios con Roles Personalizados**: Los administradores pueden crear usuarios con cualquier rol existente y activo (incluye roles personalizados). Validación mejorada de roles y manejo de errores específico.
 > - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
 > - **Sistema de Pago Requerido**: Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock
 > - **Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP comprimido
@@ -23,6 +25,10 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 🔐 **Sistema de Permisos Granular Implementado** | Sistema completo de control de acceso a nivel de módulo y acción. Middleware `checkPermiso` para validación granular. Creación de roles personalizados con permisos específicos. Administradores tienen acceso total automático. JWT incluye `id_rol` para carga eficiente de permisos. Aplicado a módulos críticos: usuarios, solicitudes, citas. Scripts SQL para permisos y privilegios iniciales. |
+| **Ene 2026** | 👤 **Creación de Usuarios con Roles Personalizados** | Los administradores pueden crear usuarios con cualquier rol existente y activo (no solo roles básicos). Validación mejorada que verifica existencia y estado del rol. Manejo de errores específico para roles inactivos o no existentes. Logging detallado para depuración. Compatible con roles personalizados (id_rol > 10). |
+| **Ene 2026** | 🔒 **Mejoras en Manejo de Errores JWT** | Diferenciación clara entre `TokenExpiredError` y `JsonWebTokenError`. Mensajes de error descriptivos con detalles específicos. Información de expiración incluida en respuestas. Instrucciones para renovar token. Mejor experiencia de usuario en frontend. |
+| **Ene 2026** | 📞 **Campo Teléfono en Usuarios** | Agregado campo `telefono` opcional a la tabla usuarios. Validación de formato (7-20 caracteres, formato internacional/nacional). Disponible para todos los roles (clientes, empleados, administradores). Índice para búsquedas. Compatible con usuarios existentes (campo nullable). |
 | **Ene 2026** | 📊 **Dashboard: Estados Reales (Process States)** | Corrección crítica: El dashboard de servicios ahora muestra los estados reales (process_states) de cada servicio en lugar de estados fijos genéricos. Los estados se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden. "Anulado" se maneja por separado. Estados dinámicos y precisos según los process_states definidos para cada servicio. |
 | **Ene 2026** | 📊 **Dashboard: Períodos Mejorados** | Sistema de períodos ampliado con 9 opciones (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom). Validación automática, normalización a período por defecto, soporte para período "todo" sin filtros, y nuevo endpoint para obtener períodos disponibles. Mejora significativa en flexibilidad del dashboard. |
 | **Ene 2026** | 📦 **Descarga de Archivos en ZIP** | Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP. Incluye logotipo, poderes, certificados, documentos de cesión/oposición y soportes. Detección automática de tipos MIME, nombres descriptivos y archivo README con información de la solicitud. |
@@ -63,7 +69,9 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 - **17 módulos** principales completamente implementados
 - **7 tipos de servicios** configurados con formularios dinámicos y precios
 - **14 tipos de notificaciones** por email automáticas (solicitudes, citas directas, citas desde solicitudes con empleado asignado - envío en background garantizado, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita - cliente y empleado)
-- **3 roles de usuario** con permisos granulares
+- **Sistema de permisos granular** con control a nivel de módulo y acción (18 módulos, 4 acciones)
+- **Roles personalizables** con permisos específicos (sin límite de roles)
+- **3 roles básicos** (administrador, empleado, cliente) + roles personalizados ilimitados
 - **100% cobertura** de funcionalidades documentadas
 - **Sistema de pagos** con mock integrado + Dashboard administrativo + Alertas automáticas + Asociación de citas
 
@@ -188,11 +196,11 @@ GET /api/dashboard/renovaciones-proximas      # Alertas renovación
 
 ## 📊 Schema de Base de Datos
 
-### ✅ **Archivo Oficial:** `database/database_official_complete.sql` (v6.0)
+### ✅ **Archivo Oficial:** `database/database_official_complete.sql` (v7.3)
 
 El proyecto incluye un schema completo y actualizado con todas las funcionalidades implementadas.
 
-#### 🎯 **Características del Schema v6.0:**
+#### 🎯 **Características del Schema v7.3:**
 - **22 tablas** completamente configuradas
 - **50+ campos editables** en órdenes de servicio
 - **Sistema de pagos** con pasarela de pago integrada
@@ -202,6 +210,10 @@ El proyecto incluye un schema completo y actualizado con todas las funcionalidad
 - **Notificaciones automáticas** por email
 - **Process states** dinámicos por servicio
 - **Todos los servicios** incluyen estado "Finalizado"
+- **Sistema de permisos granular** con 18 módulos y 4 acciones
+- **Tabla de permisos y privilegios** con datos iniciales
+- **Campo telefono** en tabla usuarios
+- **Relaciones roles-permisos-privilegios** completas
 
 #### 📋 **Instalación:**
 ```bash
@@ -349,7 +361,7 @@ npm run seed-roles
 npm run create-admin
 ```
 
-**📊 Ver Documentación:** [Schema Oficial Completo v6.0](DATABASE_SCHEMA_COMPLETO.md) ⭐ **NUEVO**
+**📊 Ver Documentación:** [Schema Oficial Completo v7.3](DATABASE_SCHEMA_COMPLETO.md) ⭐ **NUEVO**
 
 ### 5. Iniciar el servidor
 ```bash
@@ -425,7 +437,7 @@ api_Registrack/
 │       ├── solicitudes.service.js
 │       └── ...
 ├── 📁 database/
-│   ├── database_official_complete.sql  # ⭐ Schema oficial completo (v6.0)
+│   ├── database_official_complete.sql  # ⭐ Schema oficial completo (v7.3)
 │   ├── schema_completo.sql          # Esquema básico (legacy v4)
 │   ├── seed-data.sql               # Datos de ejemplo
 │   └── 📁 migrations/              # Migraciones SQL individuales
@@ -569,24 +581,134 @@ npm run sync-db:force
 
 ### Sistema de autenticación JWT
 - **Tokens JWT** con expiración de 1 hora
-- **Payload del token**: `{ id_usuario, rol }`
+- **Payload del token**: `{ id_usuario, rol, id_rol }` (incluye `id_rol` para carga eficiente de permisos)
 - **Header requerido**: `Authorization: Bearer <token>`
+- **Manejo de errores mejorado**: Diferenciación entre `TokenExpiredError` y `JsonWebTokenError`
 
-### Sistema de roles
+### Sistema de roles y permisos granular
+
+El sistema implementa un **control de acceso granular** basado en roles, permisos (módulos) y privilegios (acciones). Esto permite crear roles personalizados con permisos específicos para cada módulo del sistema.
+
+#### Roles Básicos
+
 1. **Administrador**: Acceso completo al sistema
+   - **Bypass automático**: Tiene acceso total a todos los módulos y acciones
    - Gestión de usuarios, servicios, procesos
    - Acceso a todos los reportes
    - Configuración del sistema
+   - **No requiere validación de permisos**: El middleware `checkPermiso` permite automáticamente todas las acciones
 
 2. **Empleado**: Acceso operativo limitado
-   - Gestión de citas y seguimiento
-   - Procesamiento de solicitudes
-   - Acceso a datos según permisos
+   - Gestión de citas y seguimiento (según permisos asignados)
+   - Procesamiento de solicitudes (según permisos asignados)
+   - Acceso a datos según permisos específicos del rol
 
 3. **Cliente**: Acceso a datos propios
    - Consulta de sus solicitudes
    - Gestión de citas propias
    - Acceso a archivos relacionados
+
+#### Sistema de Permisos Granular
+
+**Estructura:**
+- **Módulos (Permisos)**: 18 módulos disponibles (usuarios, empleados, clientes, empresas, servicios, solicitudes, citas, pagos, roles, permisos, privilegios, seguimiento, archivos, tipo_archivos, formularios, detalles_orden, detalles_procesos, servicios_procesos)
+- **Acciones (Privilegios)**: 4 acciones disponibles (crear, leer, actualizar, eliminar)
+- **Combinaciones**: Cada rol puede tener combinaciones específicas de módulo + acción
+
+**Middleware de Validación:**
+- **`checkPermiso(modulo, accion)`**: Valida que el usuario tenga el permiso específico para realizar una acción en un módulo
+- **Bypass para administradores**: Los administradores tienen acceso automático sin validación
+- **Carga eficiente**: Los permisos se cargan una vez desde la base de datos y se almacenan en `req.user.permisos`
+
+**Ejemplo de Uso:**
+```javascript
+// Validar que el usuario puede crear usuarios
+router.post('/crear', 
+  authMiddleware, 
+  checkPermiso('gestion_usuarios', 'crear'),
+  createUser
+);
+
+// Validar que el usuario puede leer solicitudes
+router.get('/', 
+  authMiddleware, 
+  checkPermiso('gestion_solicitudes', 'leer'),
+  getSolicitudes
+);
+```
+
+#### Creación de Roles Personalizados
+
+Los administradores pueden crear roles personalizados con permisos específicos:
+
+```json
+{
+  "nombre": "Supervisor de Ventas",
+  "permisos": {
+    "usuarios": {
+      "crear": false,
+      "leer": true,
+      "actualizar": false,
+      "eliminar": false
+    },
+    "solicitudes": {
+      "crear": true,
+      "leer": true,
+      "actualizar": true,
+      "eliminar": false
+    }
+  }
+}
+```
+
+**Características:**
+- **Sin límite de roles**: Puedes crear tantos roles personalizados como necesites
+- **Permisos específicos**: Define exactamente qué puede hacer cada rol en cada módulo
+- **Estado activo/inactivo**: Controla qué roles están disponibles
+- **Validaciones**: No se pueden eliminar roles básicos ni roles con usuarios asignados
+
+#### Creación de Usuarios con Roles Personalizados
+
+Los administradores pueden crear usuarios asignándoles cualquier rol existente y activo:
+
+```json
+{
+  "nombre": "Juan",
+  "apellido": "Pérez",
+  "correo": "juan@example.com",
+  "documento": "1234567890",
+  "tipo_documento": "CC",
+  "contraseña": "Password123!",
+  "id_rol": 11  // Puede ser cualquier rol existente y activo
+}
+```
+
+**Validaciones:**
+- El rol debe existir en la base de datos
+- El rol debe estar activo (`estado: true`)
+- No hay límite de `id_rol` (puede ser > 10)
+- Mensajes de error específicos para roles inactivos o no existentes
+
+#### Mejoras en Manejo de Errores JWT
+
+El sistema ahora diferencia claramente entre diferentes tipos de errores JWT:
+
+- **Token Expirado**: Retorna `expiredAt` y mensaje específico
+- **Token Inválido**: Mensaje claro de token inválido
+- **Token No Proporcionado**: Mensaje específico para token faltante
+
+**Ejemplo de Respuesta (Token Expirado):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Token expirado",
+    "code": "TOKEN_EXPIRED",
+    "expiredAt": "2025-01-11T23:00:00.000Z",
+    "details": "El token JWT ha expirado. Por favor, inicia sesión nuevamente."
+  }
+}
+```
 
 ### Flujo de autenticación
 ```mermaid
@@ -1304,13 +1426,21 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - **POST /crear** (crear usuario por admin)
 
 **Body requerido para crear usuario:**
-- `tipo_documento`: String
+- `tipo_documento`: String (CC, CE, TI, RC, NIT, PAS)
 - `documento`: Número (6-10 dígitos)
-- `nombre`: String
-- `apellido`: String
+- `nombre`: String (2-50 caracteres)
+- `apellido`: String (2-50 caracteres)
 - `correo`: Email válido
-- `contrasena`: Contraseña fuerte
-- `id_rol`: Número > 0 (debe existir y pertenecer a [administrador, empleado, cliente])
+- `contrasena`: Contraseña fuerte (mínimo 8 caracteres, una mayúscula, un número y un carácter especial)
+- `telefono`: String opcional (7-20 caracteres, formato: `+57 300 123 4567` o `3001234567`) 📞 NUEVO
+- `id_rol`: Número ≥ 1 (debe existir en la base de datos y estar activo) - Solo para creación por admin 🔐 **ACTUALIZADO: Ahora acepta cualquier rol existente y activo, incluyendo roles personalizados (id_rol > 10)**
+
+**🔐 Validaciones de Rol (Enero 2026):**
+- ✅ El rol debe existir en la base de datos
+- ✅ El rol debe estar activo (`estado: true`)
+- ✅ No hay límite de `id_rol` (puede ser > 10 para roles personalizados)
+- ✅ Mensajes de error específicos para roles inactivos o no existentes
+- ✅ Logging detallado para depuración
 
 ### Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO - Enero 2025**
 - **POST /crear/:servicio** (crear solicitud dinámica con creación automática de entidades)
@@ -2222,6 +2352,8 @@ curl -X POST "http://localhost:3000/api/usuarios/reset-password" \
 ### 🏢 Gestión de Usuarios (Solo Administradores)
 
 #### 5. Crear usuario por administrador
+
+**Crear usuario con rol básico (empleado):**
 ```bash
 curl -X POST "http://localhost:3000/api/usuarios/crear" \
   -H "Content-Type: application/json" \
@@ -2236,6 +2368,30 @@ curl -X POST "http://localhost:3000/api/usuarios/crear" \
     "id_rol": 2
   }'
 ```
+
+**Crear usuario con rol personalizado (ej: id_rol = 11):**
+```bash
+curl -X POST "http://localhost:3000/api/usuarios/crear" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -d '{
+    "tipo_documento": "CC",
+    "documento": "1234567890",
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "correo": "juan@example.com",
+    "contrasena": "Password123!",
+    "telefono": "3001234567",
+    "id_rol": 11
+  }'
+```
+
+**🔐 Notas sobre creación de usuarios (Enero 2026):**
+- ✅ Puedes usar cualquier `id_rol` existente y activo (no solo 1, 2, 3)
+- ✅ El sistema valida que el rol exista y esté activo
+- ✅ Si el rol no existe o está inactivo, recibirás un error descriptivo
+- ✅ El campo `telefono` es opcional
+- ✅ Ver [POSTMAN_EJEMPLOS_ROLES_PERMISOS.md](POSTMAN_EJEMPLOS_ROLES_PERMISOS.md) para ejemplos completos
 
 #### 6. Obtener todos los usuarios
 ```bash
@@ -2895,13 +3051,33 @@ curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 🔐 Gestión de Roles y Permisos ⭐ **ACTUALIZADO - FORMATO GRANULAR**
+### 🔐 Gestión de Roles y Permisos ⭐ **ACTUALIZADO - SISTEMA GRANULAR IMPLEMENTADO**
 
-> **⚠️ IMPORTANTE**: Los endpoints de roles ahora utilizan un **formato granular** compatible con frontends modernos. Los permisos se envían como objetos anidados por módulo y acción, y las respuestas devuelven el mismo formato para facilitar la integración con el frontend.
+> **⚠️ IMPORTANTE**: El sistema ahora utiliza un **control de acceso granular** basado en módulos y acciones. Los endpoints de roles utilizan un formato granular compatible con frontends modernos. Los permisos se envían como objetos anidados por módulo y acción, y las respuestas devuelven el mismo formato para facilitar la integración con el frontend.
 
-**Módulos disponibles**: `usuarios`, `empleados`, `clientes`, `empresas`, `servicios`, `solicitudes`, `citas`, `pagos`, `roles`, `permisos`, `privilegios`, `seguimiento`, `archivos`, `tipo_archivos`, `formularios`, `detalles_orden`, `detalles_procesos`, `servicios_procesos`
+**🔐 Sistema de Permisos Granular (Enero 2026):**
+- **Middleware `checkPermiso`**: Valida permisos específicos antes de ejecutar acciones
+- **Bypass automático para administradores**: Los administradores tienen acceso total sin validación adicional
+- **Aplicado en módulos críticos**: usuarios, solicitudes, citas
+- **Carga eficiente**: Los permisos se cargan una vez desde la base de datos y se almacenan en `req.user.permisos`
+
+**Módulos disponibles**: `gestion_usuarios`, `gestion_empleados`, `gestion_clientes`, `gestion_empresas`, `gestion_servicios`, `gestion_solicitudes`, `gestion_citas`, `gestion_pagos`, `gestion_roles`, `gestion_permisos`, `gestion_privilegios`, `gestion_seguimiento`, `gestion_archivos`, `gestion_tipo_archivos`, `gestion_formularios`, `gestion_detalles_orden`, `gestion_detalles_procesos`, `gestion_servicios_procesos`
 
 **Acciones disponibles**: `crear`, `leer`, `actualizar`, `eliminar`
+
+**Ejemplo de uso del middleware:**
+```javascript
+// Ruta protegida con permiso específico
+router.post('/crear', 
+  authMiddleware, 
+  checkPermiso('gestion_usuarios', 'crear'),
+  createUser
+);
+
+// Los administradores tienen acceso automático (bypass)
+// Los usuarios con el permiso específico pueden acceder
+// Los usuarios sin el permiso reciben error 403
+```
 
 #### 37. Obtener todos los roles
 ```bash
@@ -3383,11 +3559,74 @@ curl -X DELETE "http://localhost:3000/api/gestion-roles/4" \
 ```
 
 **Notas importantes:**
-- ✅ **Solo administradores**: Todos los endpoints requieren rol de administrador
-- ✅ **Sistema de permisos**: Los roles se crean con permisos y privilegios específicos
+- ✅ **Solo administradores**: Todos los endpoints requieren rol de administrador (o permiso `gestion_roles` con la acción correspondiente)
+- ✅ **Sistema de permisos granular**: Los roles se crean con permisos y privilegios específicos a nivel de módulo y acción
 - ✅ **Validaciones robustas**: Validación de nombre único y campos requeridos
-- ✅ **Relaciones complejas**: Incluye permisos y privilegios asociados
+- ✅ **Relaciones complejas**: Incluye permisos y privilegios asociados en formato granular
 - ✅ **Estado del rol**: Permite activar/desactivar roles sin eliminarlos
+- ✅ **Roles personalizados**: Puedes crear roles con cualquier combinación de permisos y privilegios
+- ✅ **Sin límite de roles**: No hay restricción en el número de roles que puedes crear
+- ✅ **Validación de eliminación**: No se pueden eliminar roles básicos (administrador, empleado, cliente) ni roles con usuarios asignados
+
+**🔐 Sistema de Permisos Granular en Rutas (Enero 2026):**
+
+Las rutas ahora utilizan el middleware `checkPermiso` para validar permisos específicos:
+
+**Ejemplo en rutas de usuarios:**
+```javascript
+// Crear usuario - requiere permiso 'gestion_usuarios' + acción 'crear'
+router.post('/crear', 
+  authMiddleware, 
+  checkPermiso('gestion_usuarios', 'crear'),
+  createUserByAdmin
+);
+
+// Obtener usuarios - requiere permiso 'gestion_usuarios' + acción 'leer'
+router.get('/', 
+  authMiddleware, 
+  checkPermiso('gestion_usuarios', 'leer'),
+  getAllUsers
+);
+```
+
+**Ejemplo en rutas de solicitudes:**
+```javascript
+// Crear solicitud - requiere permiso 'gestion_solicitudes' + acción 'crear'
+router.post('/crear/:servicio', 
+  authMiddleware, 
+  checkPermiso('gestion_solicitudes', 'crear'),
+  createSolicitud
+);
+
+// Actualizar solicitud - requiere permiso 'gestion_solicitudes' + acción 'actualizar'
+router.put('/:id', 
+  authMiddleware, 
+  checkPermiso('gestion_solicitudes', 'actualizar'),
+  updateSolicitud
+);
+```
+
+**Ejemplo en rutas de citas:**
+```javascript
+// Crear cita - requiere permiso 'gestion_citas' + acción 'crear'
+router.post('/', 
+  authMiddleware, 
+  checkPermiso('gestion_citas', 'crear'),
+  createCita
+);
+
+// Finalizar cita - requiere permiso 'gestion_citas' + acción 'actualizar'
+router.patch('/:id/finalizar', 
+  authMiddleware, 
+  checkPermiso('gestion_citas', 'actualizar'),
+  finalizarCita
+);
+```
+
+**Bypass automático para administradores:**
+- Los administradores tienen acceso total a todas las rutas sin necesidad de permisos específicos
+- El middleware `checkPermiso` detecta automáticamente si el usuario es administrador y permite el acceso
+- Esto garantiza que los administradores siempre tengan control total del sistema
 
 ---
 
@@ -5836,6 +6075,288 @@ Implementar funcionalidad completa para actualizar datos de empresas y usuarios 
 - ✅ **Campo origen**: Agregado a tabla clientes
 - ✅ **Índice creado**: Para consultas eficientes por origen
 - ✅ **Datos existentes**: Actualizados con origen 'directo'
+
+---
+
+## 🚀 Sistema de Permisos Granular - Implementación Completa
+
+### **📅 Fecha de Implementación:** Enero 2026
+
+### **🎯 Objetivo:**
+Implementar un sistema completo de control de acceso granular que permite crear roles personalizados con permisos específicos a nivel de módulo y acción, reemplazando el sistema anterior basado únicamente en nombres de roles.
+
+### **🔥 Características Principales:**
+
+#### **1. Control de Acceso Granular**
+- **18 módulos** disponibles para control de acceso
+- **4 acciones** por módulo (crear, leer, actualizar, eliminar)
+- **72 combinaciones posibles** de permisos por rol
+- **Validación en tiempo real** mediante middleware `checkPermiso`
+
+#### **2. Middleware de Validación**
+- **`checkPermiso(modulo, accion)`**: Valida permisos específicos antes de ejecutar acciones
+- **Bypass automático para administradores**: Acceso total sin validación adicional
+- **Carga eficiente de permisos**: Se cargan una vez desde la base de datos y se almacenan en `req.user.permisos`
+- **Validación en rutas**: Aplicado a módulos críticos (usuarios, solicitudes, citas)
+
+#### **3. JWT Mejorado**
+- **Payload ampliado**: Incluye `id_rol` para carga eficiente de permisos
+- **Carga de permisos**: Los permisos se cargan automáticamente en `authMiddleware`
+- **Almacenamiento en `req.user`**: Permisos disponibles en todas las rutas protegidas
+
+#### **4. Creación de Roles Personalizados**
+- **Sin límite de roles**: Puedes crear tantos roles como necesites
+- **Permisos específicos**: Define exactamente qué puede hacer cada rol
+- **Estado activo/inactivo**: Control de disponibilidad de roles
+- **Validaciones robustas**: No se pueden eliminar roles básicos ni roles con usuarios asignados
+
+#### **5. Creación de Usuarios con Roles Personalizados**
+- **Cualquier rol existente y activo**: No hay límite en `id_rol` (puede ser > 10)
+- **Validación mejorada**: Verifica existencia y estado del rol
+- **Manejo de errores específico**: Mensajes claros para roles inactivos o no existentes
+- **Logging detallado**: Facilita la depuración
+
+#### **6. Mejoras en Manejo de Errores JWT**
+- **Diferenciación de errores**: `TokenExpiredError` vs `JsonWebTokenError`
+- **Mensajes descriptivos**: Información específica sobre el error
+- **Información de expiración**: Incluye `expiredAt` en respuestas
+- **Instrucciones claras**: Guía al usuario sobre cómo resolver el problema
+
+### **📊 Módulos Implementados:**
+
+| Módulo | Descripción | Estado |
+|--------|-------------|--------|
+| `gestion_usuarios` | Gestión de usuarios del sistema | ✅ Implementado |
+| `gestion_solicitudes` | Gestión de solicitudes de servicios | ✅ Implementado |
+| `gestion_citas` | Gestión de citas y agendamientos | ✅ Implementado |
+| `gestion_empleados` | Gestión de empleados | 🔄 Pendiente |
+| `gestion_clientes` | Gestión de clientes | 🔄 Pendiente |
+| `gestion_empresas` | Gestión de empresas | 🔄 Pendiente |
+| `gestion_servicios` | Gestión de servicios | 🔄 Pendiente |
+| `gestion_pagos` | Gestión de pagos | 🔄 Pendiente |
+| `gestion_roles` | Gestión de roles | 🔄 Pendiente |
+| `gestion_permisos` | Gestión de permisos | 🔄 Pendiente |
+| `gestion_privilegios` | Gestión de privilegios | 🔄 Pendiente |
+| `gestion_seguimiento` | Gestión de seguimiento | 🔄 Pendiente |
+| `gestion_archivos` | Gestión de archivos | 🔄 Pendiente |
+| `gestion_tipo_archivos` | Gestión de tipos de archivo | 🔄 Pendiente |
+| `gestion_formularios` | Gestión de formularios | 🔄 Pendiente |
+| `gestion_detalles_orden` | Gestión de detalles de orden | 🔄 Pendiente |
+| `gestion_detalles_procesos` | Gestión de detalles de procesos | 🔄 Pendiente |
+| `gestion_servicios_procesos` | Gestión de servicios y procesos | 🔄 Pendiente |
+
+### **🔧 Archivos Modificados:**
+
+#### **1. `src/services/auth.services.js`**
+- ✅ Modificado `loginUser` para incluir `id_rol` en el JWT
+- ✅ Modificado `createUserWithRole` para validar cualquier rol existente y activo
+- ✅ Eliminada restricción de roles básicos (`administrador`, `empleado`, `cliente`)
+
+#### **2. `src/middlewares/auth.middleware.js`**
+- ✅ Modificado para cargar permisos y privilegios desde la base de datos
+- ✅ Almacenamiento de permisos en `req.user.permisos`
+- ✅ Mejoras en manejo de errores JWT (diferenciación de `TokenExpiredError` y `JsonWebTokenError`)
+
+#### **3. `src/middlewares/permiso.middleware.js`** (Nuevo)
+- ✅ Creado middleware `checkPermiso(modulo, accion)`
+- ✅ Validación de permisos específicos por módulo y acción
+- ✅ Bypass automático para administradores
+- ✅ Validaciones para creación, actualización y eliminación de permisos
+
+#### **4. `src/routes/usuario.routes.js`**
+- ✅ Reemplazado `roleMiddleware` con `checkPermiso('gestion_usuarios', 'accion')`
+- ✅ Aplicado a todas las rutas de usuarios
+
+#### **5. `src/routes/solicitudes.routes.js`**
+- ✅ Reemplazado `roleMiddleware` con `checkPermiso('gestion_solicitudes', 'accion')`
+- ✅ Aplicado a rutas de administradores/empleados
+
+#### **6. `src/routes/citas.routes.js`**
+- ✅ Reemplazado `roleMiddleware` con `checkPermiso('gestion_citas', 'accion')`
+- ✅ Aplicado a todas las rutas de citas
+
+#### **7. `src/middlewares/validation/auth.validation.js`**
+- ✅ Eliminado límite máximo de `id_rol` (antes `max: 10`)
+- ✅ Validación solo de `min: 1` para `id_rol`
+
+#### **8. `src/middlewares/validarUsuarioAdmin.js`**
+- ✅ Eliminada restricción de roles básicos
+- ✅ Validación contra base de datos (rol debe existir y estar activo)
+- ✅ Mensajes de error específicos para roles inactivos o no existentes
+- ✅ Logging detallado para depuración
+
+#### **9. `src/controllers/user.controller.js`**
+- ✅ Mejoras en manejo de errores para creación de usuarios
+- ✅ Mensajes de error específicos para validaciones fallidas
+- ✅ Logging detallado
+
+### **📋 Scripts SQL Implementados:**
+
+#### **1. `database/migrations/001_crear_permisos_privilegios_basicos.sql`**
+- ✅ Inserción de 18 permisos (módulos): `gestion_usuarios`, `gestion_empleados`, `gestion_clientes`, `gestion_empresas`, `gestion_servicios`, `gestion_solicitudes`, `gestion_citas`, `gestion_pagos`, `gestion_roles`, `gestion_permisos`, `gestion_privilegios`, `gestion_seguimiento`, `gestion_archivos`, `gestion_tipo_archivos`, `gestion_formularios`, `gestion_detalles_orden`, `gestion_detalles_procesos`, `gestion_servicios_procesos`
+- ✅ Inserción de 4 privilegios (acciones): `crear`, `leer`, `actualizar`, `eliminar`
+- ✅ Script idempotente (puede ejecutarse múltiples veces sin duplicar datos)
+- ✅ Compatible con MySQL 8.0+
+
+**Ejecución del script:**
+```bash
+# Opción 1: Desde línea de comandos
+mysql -u root -p nombre_base_datos < database/migrations/001_crear_permisos_privilegios_basicos.sql
+
+# Opción 2: Desde MySQL Workbench
+# Abrir el archivo y ejecutar el script completo
+```
+
+#### **2. `database/migrations/002_asignar_permisos_rol_empleado_ejemplo.sql`**
+- ✅ Ejemplo de asignación de permisos a rol empleado
+- ✅ Asigna permisos específicos: `gestion_solicitudes` (crear, leer, actualizar), `gestion_citas` (crear, leer, actualizar), `gestion_clientes` (leer)
+- ✅ Script idempotente (puede ejecutarse múltiples veces sin duplicar datos)
+- ✅ Compatible con MySQL 8.0+
+
+**Ejecución del script:**
+```bash
+# Opción 1: Desde línea de comandos
+mysql -u root -p nombre_base_datos < database/migrations/002_asignar_permisos_rol_empleado_ejemplo.sql
+
+# Opción 2: Desde MySQL Workbench
+# Abrir el archivo y ejecutar el script completo
+```
+
+**⚠️ Importante:**
+- Estos scripts deben ejecutarse después de crear la base de datos con `database_official_complete.sql`
+- El script `001_crear_permisos_privilegios_basicos.sql` debe ejecutarse primero
+- El script `002_asignar_permisos_rol_empleado_ejemplo.sql` es opcional y solo es un ejemplo
+- Los scripts son idempotentes, por lo que pueden ejecutarse múltiples veces sin causar errores
+
+### **🚀 Beneficios Implementados:**
+
+#### **Para Administradores:**
+- ✅ **Control total**: Pueden crear roles personalizados con permisos específicos
+- ✅ **Flexibilidad**: Sin límite de roles ni de `id_rol`
+- ✅ **Validaciones robustas**: Previene errores comunes (roles inactivos, no existentes)
+- ✅ **Logging detallado**: Facilita la depuración
+
+#### **Para Desarrolladores:**
+- ✅ **Middleware simple**: `checkPermiso(modulo, accion)` es fácil de usar
+- ✅ **Bypass automático**: Los administradores no requieren configuración adicional
+- ✅ **Carga eficiente**: Los permisos se cargan una vez por request
+- ✅ **Mensajes de error claros**: Facilita la depuración
+
+#### **Para el Sistema:**
+- ✅ **Seguridad mejorada**: Control de acceso granular en lugar de solo nombres de roles
+- ✅ **Escalabilidad**: Fácil agregar nuevos módulos y acciones
+- ✅ **Mantenibilidad**: Código organizado y documentado
+- ✅ **Compatibilidad**: Compatible con el sistema anterior (roles básicos siguen funcionando)
+
+### **📚 Documentación Adicional:**
+
+- **Guía Completa**: Ver [GUIA_SISTEMA_ROLES_PERMISOS_PRIVILEGIOS.md](GUIA_SISTEMA_ROLES_PERMISOS_PRIVILEGIOS.md) - Documentación detallada del sistema de roles, permisos y privilegios
+- **Plan de Implementación**: Ver [PLAN_IMPLEMENTACION_PERMISOS_PRAGMATICO.md](PLAN_IMPLEMENTACION_PERMISOS_PRAGMATICO.md) - Plan pragmático y gradual de implementación
+- **Ejemplos Postman**: Ver [POSTMAN_EJEMPLOS_ROLES_PERMISOS.md](POSTMAN_EJEMPLOS_ROLES_PERMISOS.md) - Ejemplos completos de uso de la API con Postman, incluyendo creación de usuarios con roles personalizados
+- **Mapeo de Módulos**: Ver [MAPEO_COMPLETO_MODULOS_ACCIONES.md](MAPEO_COMPLETO_MODULOS_ACCIONES.md) - Mapeo completo de todos los módulos y sus acciones
+- **Resumen Ejecutivo**: Ver [RESUMEN_MODULOS_ACCIONES.md](RESUMEN_MODULOS_ACCIONES.md) - Resumen ejecutivo del mapeo de módulos y acciones
+- **Ejemplo Funcionando**: Ver [EJEMPLO_ROLES_PERMISOS_FUNCIONANDO.md](EJEMPLO_ROLES_PERMISOS_FUNCIONANDO.md) - Ejemplo práctico del sistema funcionando
+- **Guía Rápida Postman**: Ver [GUIA_RAPIDA_POSTMAN_ROLES.md](GUIA_RAPIDA_POSTMAN_ROLES.md) - Guía rápida para importar y usar la colección de Postman
+
+### **🚀 Próximos Pasos Recomendados:**
+
+1. **Ejecutar Scripts SQL**: Ejecutar los scripts de migración para crear permisos y privilegios iniciales
+2. **Crear Roles Personalizados**: Crear roles con permisos específicos según las necesidades del negocio
+3. **Asignar Roles a Usuarios**: Asignar roles personalizados a usuarios mediante el endpoint de creación de usuarios
+4. **Probar Permisos**: Probar que los permisos funcionan correctamente en las rutas protegidas
+5. **Implementar en Más Módulos**: Aplicar el sistema de permisos granular a los módulos pendientes (empleados, clientes, empresas, etc.)
+
+### **📊 Estado de Implementación:**
+
+| Módulo | Estado | Middleware Aplicado |
+|--------|--------|---------------------|
+| `gestion_usuarios` | ✅ Implementado | `checkPermiso('gestion_usuarios', 'accion')` |
+| `gestion_solicitudes` | ✅ Implementado | `checkPermiso('gestion_solicitudes', 'accion')` |
+| `gestion_citas` | ✅ Implementado | `checkPermiso('gestion_citas', 'accion')` |
+| `gestion_empleados` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_clientes` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_empresas` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_servicios` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_pagos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_roles` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_permisos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_privilegios` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_seguimiento` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_archivos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_tipo_archivos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_formularios` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_detalles_orden` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_detalles_procesos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+| `gestion_servicios_procesos` | 🔄 Pendiente | `roleMiddleware` (temporal) |
+
+### **🐛 Errores Comunes y Soluciones:**
+
+#### **1. Error: "No tienes permiso para realizar esta acción" (403)**
+**Causa:** El usuario no tiene el permiso específico requerido para la acción.
+**Solución:**
+- Verificar que el rol del usuario tenga el permiso necesario
+- Verificar que el permiso esté activo
+- Verificar que se esté usando el módulo y acción correctos
+- Los administradores tienen acceso automático (bypass)
+
+#### **2. Error: "Token expirado" (401)**
+**Causa:** El token JWT ha expirado (expiración de 1 hora).
+**Solución:**
+- Iniciar sesión nuevamente para obtener un nuevo token
+- El sistema ahora proporciona información sobre cuándo expiró el token
+- Verificar la configuración de expiración del token en las variables de entorno
+
+#### **3. Error: "Rol no válido. Solo se pueden asignar roles: administrador, empleado, cliente"**
+**Causa:** El sistema estaba usando validación antigua que solo permitía roles básicos.
+**Solución:**
+- ✅ **RESUELTO (Enero 2026)**: El sistema ahora permite cualquier rol existente y activo
+- Verificar que el rol exista en la base de datos
+- Verificar que el rol esté activo (`estado: true`)
+- No hay límite de `id_rol` (puede ser > 10)
+
+#### **4. Error: "Valores inválidos en los campos: id_rol" (id_rol out of range)**
+**Causa:** El sistema tenía un límite máximo de `id_rol` (antes `max: 10`).
+**Solución:**
+- ✅ **RESUELTO (Enero 2026)**: El límite máximo fue eliminado
+- Verificar que el `id_rol` sea ≥ 1
+- Verificar que el rol exista en la base de datos
+- Verificar que el rol esté activo
+
+#### **5. Error: "Rol no encontrado" o "Rol inactivo"**
+**Causa:** El rol no existe en la base de datos o está inactivo.
+**Solución:**
+- Verificar que el rol exista en la tabla `roles`
+- Verificar que el rol esté activo (`estado: true`)
+- Activar el rol si está inactivo usando `PATCH /api/gestion-roles/:id/state`
+- Crear el rol si no existe usando `POST /api/gestion-roles`
+
+#### **6. Error: "No se puede eliminar el rol. Tiene usuarios asignados"**
+**Causa:** El rol tiene usuarios asignados y no se puede eliminar por integridad de datos.
+**Solución:**
+- Reasignar los usuarios a otro rol antes de eliminar
+- Desactivar el rol en lugar de eliminarlo usando `PATCH /api/gestion-roles/:id/state`
+- Verificar qué usuarios tienen el rol asignado
+
+#### **7. Error: "No se puede eliminar el rol. Es un rol básico"**
+**Causa:** Se está intentando eliminar un rol básico (administrador, empleado, cliente).
+**Solución:**
+- Los roles básicos no se pueden eliminar por seguridad
+- Desactivar el rol en lugar de eliminarlo si es necesario
+- Usar roles personalizados para casos específicos
+
+### **📝 Notas de Migración:**
+
+#### **Migración desde Sistema Antiguo:**
+1. **Ejecutar Scripts SQL**: Ejecutar los scripts de migración para crear permisos y privilegios
+2. **Actualizar Roles Existentes**: Los roles existentes seguirán funcionando, pero se recomienda actualizarlos con permisos específicos
+3. **Actualizar Rutas**: Las rutas que usan `roleMiddleware` deben actualizarse para usar `checkPermiso`
+4. **Probar Permisos**: Probar que los permisos funcionan correctamente después de la migración
+
+#### **Compatibilidad:**
+- ✅ **Roles básicos**: Los roles básicos (administrador, empleado, cliente) siguen funcionando
+- ✅ **Rutas antiguas**: Las rutas que usan `roleMiddleware` siguen funcionando temporalmente
+- ✅ **Usuarios existentes**: Los usuarios existentes siguen funcionando sin cambios
+- ✅ **Migración gradual**: El sistema permite migración gradual sin romper funcionalidades existentes
 
 ---
 
@@ -8701,6 +9222,8 @@ graph TD
 - ✅ 3 roles: Administrador, Empleado, Cliente
 - ✅ Middleware de autenticación y autorización
 - ✅ Recuperación de contraseñas por email
+- ✅ Campo teléfono opcional en usuarios (Ene 2026) 📞
+- ✅ Validación de formato de teléfono (7-20 caracteres, formato internacional/nacional)
 
 ### **Gestión de Servicios**
 - ✅ 7 tipos de servicios configurados

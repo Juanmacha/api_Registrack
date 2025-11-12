@@ -21,125 +21,132 @@ import {
 //  Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { roleMiddleware } from "../middlewares/role.middleware.js";
+import { checkPermiso } from "../middlewares/permiso.middleware.js";
 
 const router = Router();
 
-// Ruta para crear solicitud con validación dinámica según el servicio en la URL
+// ✅ RUTAS PARA CLIENTES (Mantienen lógica actual)
+// POST /crear/:servicio - Crear solicitud (cliente, admin, empleado)
 router.post(
   "/crear/:servicio",
-  roleMiddleware(["cliente", "administrador", "empleado"]),
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'crear'),
   crearSolicitud
 );
 
-//  Cliente puede ver solo las suyas (endpoint general)
+// GET /mias - Ver mis solicitudes (solo cliente)
 router.get(
   "/mias",
+  authMiddleware,
   roleMiddleware(["cliente"]),
   listarSolicitudes
 );
 
-//  Nuevos endpoints para clientes - separar en proceso y finalizadas
-// Ruta eliminada: no existe la función listarMisSolicitudesEnProceso en el controlador
-
-// Ruta eliminada: no existe la función listarMiHistorial en el controlador
-
-//  Admin y empleado pueden gestionar todas
-router.get(
-  "/",
-  roleMiddleware(["administrador", "empleado"]),
-  listarSolicitudes
-);
-
-//  Nuevos endpoints para separar solicitudes en proceso y finalizadas
-// Ruta eliminada: no existe la función listarSolicitudesEnProceso en el controlador
-// router.get(
-//   "/proceso",
-//   authMiddleware,
-//   roleMiddleware(["administrador", "empleado"]),
-//   listarSolicitudesEnProceso
-// );
-// Ruta eliminada: no existe la función listarSolicitudesFinalizadas en el controlador
-// router.get(
-//   "/fin",
-//   authMiddleware,
-//   roleMiddleware(["administrador", "empleado"]),
-//   listarSolicitudesFinalizadas
-// );
-router.get(
-  "/buscar",
-  roleMiddleware(["administrador", "empleado"]),
-  validateSearch,
-  buscarSolicitud
-);
-router.get(
-  "/:id",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  verDetalleSolicitud
-);
-router.put(
-  "/anular/:id",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  anularSolicitud
-);
-router.put(
-  "/editar/:id",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  validateEdicionSolicitud,
-  editarSolicitud
-);
-
-// 🚀 NUEVAS RUTAS: Para manejo de estados
-router.get(
-  "/:id/estados-disponibles",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  obtenerEstadosDisponibles
-);
-
-router.get(
-  "/:id/estado-actual",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  obtenerEstadoActual
-);
-
-// 🚀 RUTAS PARA CLIENTES: Para consultar sus propias solicitudes
+// GET /mis/:id/estados-disponibles - Estados disponibles (solo cliente)
 router.get(
   "/mis/:id/estados-disponibles",
+  authMiddleware,
   roleMiddleware(["cliente"]),
   validateId,
   obtenerEstadosDisponibles
 );
 
+// GET /mis/:id/estado-actual - Estado actual (solo cliente)
 router.get(
   "/mis/:id/estado-actual",
+  authMiddleware,
   roleMiddleware(["cliente"]),
   validateId,
   obtenerEstadoActual
 );
 
-// 🚀 RUTAS PARA ASIGNACIÓN DE EMPLEADOS
-router.put(
-  "/asignar-empleado/:id",
-  roleMiddleware(["administrador", "empleado"]),
-  validateId,
-  asignarEmpleado
-);
-
+// GET /mis/:id/empleado-asignado - Ver empleado asignado (solo cliente)
 router.get(
   "/mis/:id/empleado-asignado",
+  authMiddleware,
   roleMiddleware(["cliente"]),
   validateId,
   verEmpleadoAsignado
 );
 
-// 🚀 RUTA: Descargar todos los archivos de una solicitud en ZIP
+// ✅ RUTAS PARA ADMIN/EMPLEADO (Validación granular)
+// GET / - Listar todas las solicitudes: requiere gestion_solicitudes + leer
+router.get(
+  "/",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
+  listarSolicitudes
+);
+
+// GET /buscar - Buscar solicitudes: requiere gestion_solicitudes + leer
+router.get(
+  "/buscar",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
+  validateSearch,
+  buscarSolicitud
+);
+
+// GET /:id - Ver detalle solicitud: requiere gestion_solicitudes + leer
+router.get(
+  "/:id",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
+  validateId,
+  verDetalleSolicitud
+);
+
+// PUT /anular/:id - Anular solicitud: requiere gestion_solicitudes + eliminar
+router.put(
+  "/anular/:id",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'eliminar'),
+  validateId,
+  anularSolicitud
+);
+
+// PUT /editar/:id - Editar solicitud: requiere gestion_solicitudes + actualizar
+router.put(
+  "/editar/:id",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'actualizar'),
+  validateId,
+  validateEdicionSolicitud,
+  editarSolicitud
+);
+
+// GET /:id/estados-disponibles - Estados disponibles: requiere gestion_solicitudes + leer
+router.get(
+  "/:id/estados-disponibles",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
+  validateId,
+  obtenerEstadosDisponibles
+);
+
+// GET /:id/estado-actual - Estado actual: requiere gestion_solicitudes + leer
+router.get(
+  "/:id/estado-actual",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
+  validateId,
+  obtenerEstadoActual
+);
+
+// PUT /asignar-empleado/:id - Asignar empleado: requiere gestion_solicitudes + actualizar
+router.put(
+  "/asignar-empleado/:id",
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'actualizar'),
+  validateId,
+  asignarEmpleado
+);
+
+// GET /:id/descargar-archivos - Descargar archivos: requiere gestion_solicitudes + leer
 router.get(
   "/:id/descargar-archivos",
-  roleMiddleware(["administrador", "empleado", "cliente"]),
+  authMiddleware,
+  checkPermiso('gestion_solicitudes', 'leer'),
   validateId,
   descargarArchivosSolicitud
 );

@@ -3,11 +3,30 @@
  */
 
 // Módulos disponibles en el sistema (basados en la API real)
+// ✅ Módulos completos: tienen crear, leer, actualizar, eliminar
+// ⚠️ Módulos parciales: tienen solo algunas acciones
+// ❌ Módulos públicos: no requieren permisos (formularios)
 const MODULOS_DISPONIBLES = [
-  'usuarios', 'empleados', 'clientes', 'empresas', 'servicios',
-  'solicitudes', 'citas', 'pagos', 'roles', 'permisos', 'privilegios',
-  'seguimiento', 'archivos', 'tipo_archivos', 'formularios',
-  'detalles_orden', 'detalles_procesos', 'servicios_procesos'
+  'usuarios',           // ✅ Completo: crear, leer, actualizar, eliminar
+  'empleados',          // ✅ Completo: crear, leer, actualizar, eliminar
+  'clientes',           // ✅ Completo: crear, leer, actualizar, eliminar
+  'empresas',           // ⚠️ Parcial: crear, leer (falta actualizar, eliminar)
+  'servicios',          // ⚠️ Parcial: leer, actualizar (falta crear, eliminar)
+  'solicitudes',        // ✅ Completo: crear, leer, actualizar, eliminar
+  'citas',              // ✅ Completo: crear, leer, actualizar, eliminar
+  'pagos',              // ⚠️ Parcial: crear, leer, actualizar (falta eliminar)
+  'roles',              // ✅ Completo: crear, leer, actualizar, eliminar
+  'permisos',           // ✅ Completo: crear, leer, actualizar, eliminar
+  'privilegios',        // ✅ Completo: crear, leer, actualizar, eliminar
+  'seguimiento',        // ✅ Completo: crear, leer, actualizar, eliminar
+  'archivos',           // ⚠️ Parcial: crear, leer (falta actualizar, eliminar)
+  'tipo_archivos',      // ✅ Completo: crear, leer, actualizar, eliminar
+  'solicitud_cita',     // ⚠️ Parcial: crear, leer, actualizar (falta eliminar)
+  'detalles_orden',     // ⚠️ Parcial: crear, leer, actualizar (falta eliminar)
+  'detalles_procesos',  // ✅ Completo: crear, leer, actualizar, eliminar
+  'servicios_procesos', // ⚠️ Parcial: crear, leer, eliminar (falta actualizar)
+  'dashboard'           // ⚠️ Parcial: solo leer (correcto, es solo lectura)
+  // 'formularios' - ❌ Público, no requiere permisos
 ];
 
 // Acciones disponibles para cada módulo
@@ -51,7 +70,7 @@ export const validateFrontendPermissions = (permisos) => {
 /**
  * Transforma permisos del frontend al formato de la API
  * @param {Object} permisosFrontend - Permisos en formato del frontend
- * @returns {Object} Objeto con permisos y privilegios para la API
+ * @returns {Object} Objeto con combinaciones específicas de permisos y privilegios
  */
 export const transformPermisosToAPI = (permisosFrontend) => {
   console.log('🔄 [Backend] Transformando permisos del frontend:', JSON.stringify(permisosFrontend, null, 2));
@@ -59,22 +78,37 @@ export const transformPermisosToAPI = (permisosFrontend) => {
   // Validar estructura de permisos
   validateFrontendPermissions(permisosFrontend);
   
-  const permisos = [];
-  const privilegios = [];
+  // ✅ NUEVO: Crear combinaciones específicas (permiso + privilegio)
+  // Formato: [{ permiso: 'gestion_usuarios', privilegio: 'leer' }, ...]
+  const combinaciones = [];
   
   MODULOS_DISPONIBLES.forEach(modulo => {
-    if (permisosFrontend[modulo] && Object.values(permisosFrontend[modulo]).some(perm => perm === true)) {
-      permisos.push(`gestion_${modulo}`);
+    if (permisosFrontend[modulo]) {
+      const nombrePermiso = `gestion_${modulo}`;
       
+      // Recorrer cada acción (privilegio) del módulo
       Object.keys(permisosFrontend[modulo]).forEach(accion => {
-        if (permisosFrontend[modulo][accion] === true && !privilegios.includes(accion)) {
-          privilegios.push(accion);
+        // Solo agregar si la acción está en true
+        if (permisosFrontend[modulo][accion] === true) {
+          combinaciones.push({
+            permiso: nombrePermiso,
+            privilegio: accion
+          });
         }
       });
     }
   });
   
-  const result = { permisos, privilegios };
+  // Mantener compatibilidad: también devolver arrays de permisos y privilegios únicos
+  const permisos = [...new Set(combinaciones.map(c => c.permiso))];
+  const privilegios = [...new Set(combinaciones.map(c => c.privilegio))];
+  
+  const result = { 
+    permisos, 
+    privilegios,
+    combinaciones  // ✅ NUEVO: Combinaciones específicas
+  };
+  
   console.log('✅ [Backend] Permisos transformados a API:', JSON.stringify(result, null, 2));
   
   return result;

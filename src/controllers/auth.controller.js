@@ -26,6 +26,7 @@ export const register = async (req, res) => {
           nombre: nuevoUsuario.nombre,
           apellido: nuevoUsuario.apellido,
           correo: nuevoUsuario.correo,
+          telefono: nuevoUsuario.telefono || null,
           id_rol: nuevoUsuario.id_rol,
           estado: nuevoUsuario.estado,
           fecha_creacion: nuevoUsuario.fecha_creacion
@@ -107,6 +108,7 @@ export const login = async (req, res) => {
           nombre: usuario.nombre,
           apellido: usuario.apellido,
           correo: usuario.correo,
+          telefono: usuario.telefono || null,
           rol: usuario.rol,
           estado: usuario.estado
         },

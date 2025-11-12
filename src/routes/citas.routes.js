@@ -4,6 +4,7 @@ import { getCitas, createCita, reprogramarCita, anularCita, finalizarCita, desca
 // Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { roleMiddleware } from "../middlewares/role.middleware.js";
+import { checkPermiso } from "../middlewares/permiso.middleware.js";
 
 // Middlewares de validación mejorados
 import { 
@@ -15,13 +16,14 @@ import {
 
 const router = Router();
 
-// Rutas con middlewares de autenticación y autorización
-router.get("/", roleMiddleware(["administrador", "empleado", "cliente"]), getCitas);
+// ✅ RUTAS PARA TODOS LOS ROLES (Clientes ven solo las suyas, validación en controlador)
+// GET / - Listar citas: requiere gestion_citas + leer
+router.get("/", authMiddleware, checkPermiso('gestion_citas', 'leer'), getCitas);
 
-// Crear cita con validaciones mejoradas
-// ✅ NOTA: validateAllowedValues se removió porque createCita normaliza y valida el tipo internamente
+// POST / - Crear cita: requiere gestion_citas + crear
 router.post("/", 
-  roleMiddleware(["administrador", "empleado", "cliente"]),
+  authMiddleware,
+  checkPermiso('gestion_citas', 'crear'),
   validateRequiredFields(['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_empleado']),
   validateFieldTypes({
     fecha: 'date',
@@ -34,15 +36,15 @@ router.post("/",
     observacion: 'string'
   }),
   validateAllowedValues({
-    // Solo validar modalidad aquí, tipo se normaliza en createCita
     modalidad: ['Presencial', 'Virtual']
   }),
   createCita
 );
 
-// Reprogramar cita
+// PUT /:id/reprogramar - Reprogramar cita: requiere gestion_citas + actualizar
 router.put("/:id/reprogramar", 
-  roleMiddleware(["administrador", "empleado", "cliente"]),
+  authMiddleware,
+  checkPermiso('gestion_citas', 'actualizar'),
   validateFieldTypes({
     fecha: 'date',
     hora_inicio: 'string',
@@ -51,9 +53,10 @@ router.put("/:id/reprogramar",
   reprogramarCita
 );
 
-// Anular cita
+// PUT /:id/anular - Anular cita: requiere gestion_citas + eliminar
 router.put("/:id/anular", 
-  roleMiddleware(["administrador", "empleado", "cliente"]),
+  authMiddleware,
+  checkPermiso('gestion_citas', 'eliminar'),
   validateRequiredFields(['observacion']),
   validateFieldTypes({
     observacion: 'string'
@@ -61,49 +64,39 @@ router.put("/:id/anular",
   anularCita
 );
 
-// Finalizar cita ⭐ NUEVO
+// ✅ RUTAS SOLO PARA ADMIN/EMPLEADO
+// PUT /:id/finalizar - Finalizar cita: requiere gestion_citas + actualizar
 router.put("/:id/finalizar", 
-  roleMiddleware(["administrador", "empleado"]),
+  authMiddleware,
+  checkPermiso('gestion_citas', 'actualizar'),
   finalizarCita
 );
 
-// Ruta para descargar reporte Excel de citas
-router.get("/reporte/excel", roleMiddleware(["administrador", "empleado"]), descargarReporteCitas);
+// GET /reporte/excel - Descargar reporte Excel: requiere gestion_citas + leer
+router.get("/reporte/excel", authMiddleware, checkPermiso('gestion_citas', 'leer'), descargarReporteCitas);
 
-// ✅ NUEVAS RUTAS: Citas asociadas a solicitudes
-/**
- * POST /api/gestion-citas/desde-solicitud/:idOrdenServicio
- * Crear cita asociada a una solicitud de servicio
- * Solo Admin/Empleado
- */
+// POST /desde-solicitud/:idOrdenServicio - Crear cita desde solicitud: requiere gestion_citas + crear
 router.post(
   "/desde-solicitud/:idOrdenServicio",
   authMiddleware,
-  roleMiddleware(["administrador", "empleado"]),
+  checkPermiso('gestion_citas', 'crear'),
   crearCitaDesdeSolicitud
 );
 
-/**
- * GET /api/gestion-citas/solicitud/:id
- * Obtener citas asociadas a una solicitud
- */
-router.get(
-  "/solicitud/:id",
-  authMiddleware,
-  roleMiddleware(["administrador", "empleado", "cliente"]),
-  obtenerCitasDeSolicitud
-);
-
-/**
- * GET /api/gestion-citas/buscar-usuario/:documento
- * Buscar usuario por documento y retornar sus datos para autocompletar
- * Solo Admin/Empleado
- */
+// GET /buscar-usuario/:documento - Buscar usuario: requiere gestion_citas + leer
 router.get(
   "/buscar-usuario/:documento",
   authMiddleware,
-  roleMiddleware(["administrador", "empleado"]),
+  checkPermiso('gestion_citas', 'leer'),
   buscarUsuarioPorDocumento
+);
+
+// GET /solicitud/:id - Ver citas de solicitud: requiere gestion_citas + leer
+router.get(
+  "/solicitud/:id",
+  authMiddleware,
+  checkPermiso('gestion_citas', 'leer'),
+  obtenerCitasDeSolicitud
 );
 
 export default router;

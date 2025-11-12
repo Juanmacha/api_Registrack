@@ -19,12 +19,14 @@ export const validateUserRegistration = [
     nombre: 'string',
     apellido: 'string',
     correo: 'email',
+    telefono: 'phone',  // Opcional
     contrasena: 'password'
   }),
   validateFieldRanges({
     documento: { minLength: 6, maxLength: 10 },
     nombre: { minLength: 2, maxLength: 50 },
     apellido: { minLength: 2, maxLength: 50 },
+    telefono: { minLength: 7, maxLength: 20 },  // Opcional
     contrasena: { minLength: 8, maxLength: 128 }
   }),
   validateAllowedValues({
@@ -70,6 +72,7 @@ export const validateCreateUserByAdmin = [
     nombre: 'string',
     apellido: 'string',
     correo: 'email',
+    telefono: 'phone',  // Opcional
     contrasena: 'password',
     id_rol: 'number'
   }),
@@ -77,8 +80,11 @@ export const validateCreateUserByAdmin = [
     documento: { minLength: 6, maxLength: 10 },
     nombre: { minLength: 2, maxLength: 50 },
     apellido: { minLength: 2, maxLength: 50 },
+    telefono: { minLength: 7, maxLength: 20 },  // Opcional
     contrasena: { minLength: 8, maxLength: 128 },
-    id_rol: { min: 1, max: 10 }
+    // ✅ id_rol: NO limitamos el rango máximo porque los IDs se generan automáticamente con AUTO_INCREMENT
+    // La validación real es que el rol exista en la base de datos (se hace en validarCrearUsuarioPorAdmin)
+    id_rol: { min: 1 }  // Solo validamos que sea mayor a 0
   }),
   validateAllowedValues({
     tipo_documento: ['CC', 'CE', 'TI', 'RC', 'NIT', 'PAS']
@@ -92,6 +98,7 @@ export const validateUpdateUser = [
     documento: 'document',
     nombre: 'string',
     apellido: 'string',
+    telefono: 'phone',  // Opcional
     id_rol: 'number',
     estado: 'boolean'
   }),
@@ -99,7 +106,10 @@ export const validateUpdateUser = [
     documento: { minLength: 6, maxLength: 10 },
     nombre: { minLength: 2, maxLength: 50 },
     apellido: { minLength: 2, maxLength: 50 },
-    id_rol: { min: 1, max: 10 }
+    telefono: { minLength: 7, maxLength: 20 },  // Opcional
+    // ✅ id_rol: NO limitamos el rango máximo porque los IDs se generan automáticamente con AUTO_INCREMENT
+    // La validación real es que el rol exista en la base de datos (se hace en el controlador)
+    id_rol: { min: 1 }  // Solo validamos que sea mayor a 0
   }),
   validateAllowedValues({
     tipo_documento: ['CC', 'CE', 'TI', 'RC', 'NIT', 'PAS']

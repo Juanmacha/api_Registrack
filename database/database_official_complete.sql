@@ -1,6 +1,6 @@
 -- =============================================
 -- API REGISTRACK - SCHEMA OFICIAL Y COMPLETO
--- Versión: 7.1 (Enero 2026)
+-- Versión: 7.3 (Enero 2026)
 -- Base de datos MySQL con todas las entidades y relaciones
 -- =============================================
 
@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
     correo VARCHAR(225) NOT NULL UNIQUE,
+    telefono VARCHAR(20) NULL COMMENT 'Teléfono de contacto del usuario (opcional)',
     contrasena VARCHAR(225) NOT NULL,
     resetPasswordToken VARCHAR(255) NULL,
     resetPasswordExpires DATETIME NULL,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     
     INDEX idx_usuarios_correo (correo),
     INDEX idx_usuarios_documento (documento),
+    INDEX idx_usuarios_telefono (telefono),
     INDEX idx_usuarios_rol (id_rol),
     INDEX idx_usuarios_estado (estado)
 );
@@ -570,6 +572,7 @@ SELECT
     u.nombre,
     u.apellido,
     u.correo,
+    u.telefono,
     u.estado as usuario_activo,
     r.nombre as rol_nombre,
     r.descripcion as rol_descripcion,
@@ -778,7 +781,7 @@ INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key
 -- =============================================
 
 /*
-ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.1
+ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.3
 
 ENTIDADES PRINCIPALES:
 - Sistema de autenticación y autorización (usuarios, roles, permisos, privilegios)
@@ -790,6 +793,19 @@ ENTIDADES PRINCIPALES:
 - Gestión de pagos con pasarelas de pago
 - Sistema de archivos y notificaciones
 - Dashboard administrativo con KPIs y reportes
+
+CAMBIOS EN v7.3 (Enero 2026):
+- Agregados datos iniciales de privilegios (crear, leer, actualizar, eliminar)
+- Agregados datos iniciales de permisos (19 permisos por módulo)
+- Sistema de permisos granular implementado
+- Permisos y privilegios listos para asignación a roles
+- Tabla rol_permisos_privilegios lista para uso
+
+CAMBIOS EN v7.2 (Enero 2026):
+- Agregado campo telefono a tabla usuarios (VARCHAR(20) NULL, opcional)
+- Índice agregado para búsquedas por teléfono (idx_usuarios_telefono)
+- Campo telefono disponible para todos los usuarios (clientes, empleados, administradores)
+- Validación de formato de teléfono implementada en modelo y middlewares
 
 CAMBIOS EN v7.1 (Enero 2026):
 - Cambiadas columnas de archivos Base64 de TEXT a LONGTEXT para soportar archivos grandes
@@ -846,6 +862,49 @@ INSERT INTO roles (id_rol, nombre, descripcion) VALUES
 (1, 'cliente', 'Cliente externo con acceso a sus propios datos'),
 (2, 'administrador', 'Administrador del sistema con acceso completo'),
 (3, 'empleado', 'Empleado de la empresa con acceso limitado')
+ON DUPLICATE KEY UPDATE nombre=nombre;
+
+-- =============================================
+-- DATOS INICIALES: PRIVILEGIOS
+-- =============================================
+-- Los privilegios son acciones genéricas que se pueden aplicar a cualquier módulo
+INSERT INTO privilegios (nombre, descripcion) VALUES
+('crear', 'Permite crear nuevos registros'),
+('leer', 'Permite leer/listar registros'),
+('actualizar', 'Permite actualizar registros existentes'),
+('eliminar', 'Permite eliminar registros')
+ON DUPLICATE KEY UPDATE nombre=nombre;
+
+-- =============================================
+-- DATOS INICIALES: PERMISOS
+-- =============================================
+-- Los permisos son módulos específicos del sistema
+-- Formato: gestion_<modulo>
+INSERT INTO permisos (nombre, descripcion) VALUES
+-- Módulos Completos (tienen todas las acciones)
+('gestion_usuarios', 'Gestión de usuarios del sistema'),
+('gestion_empleados', 'Gestión de empleados'),
+('gestion_clientes', 'Gestión de clientes'),
+('gestion_solicitudes', 'Gestión de solicitudes de servicio'),
+('gestion_citas', 'Gestión de citas'),
+('gestion_seguimiento', 'Gestión de seguimiento de solicitudes'),
+('gestion_roles', 'Gestión de roles del sistema'),
+('gestion_permisos', 'Gestión de permisos del sistema'),
+('gestion_privilegios', 'Gestión de privilegios del sistema'),
+('gestion_tipo_archivos', 'Gestión de tipos de archivos'),
+('gestion_detalles_procesos', 'Gestión de detalles de procesos'),
+
+-- Módulos Parciales (tienen solo algunas acciones)
+('gestion_empresas', 'Gestión de empresas (crear, leer)'),
+('gestion_servicios', 'Gestión de servicios (leer, actualizar)'),
+('gestion_pagos', 'Gestión de pagos (crear, leer, actualizar)'),
+('gestion_archivos', 'Gestión de archivos (crear, leer)'),
+('gestion_solicitud_cita', 'Gestión de solicitudes de cita (crear, leer, actualizar)'),
+('gestion_detalles_orden', 'Gestión de detalles de orden (crear, leer, actualizar)'),
+('gestion_servicios_procesos', 'Gestión de servicios y procesos (crear, leer, eliminar)'),
+
+-- Módulos de Solo Lectura
+('gestion_dashboard', 'Acceso al dashboard administrativo (solo lectura)')
 ON DUPLICATE KEY UPDATE nombre=nombre;
 
 -- =============================================

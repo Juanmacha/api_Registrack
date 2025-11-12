@@ -113,13 +113,16 @@ export const PagoController = {
 
   /**
    * ✅ NUEVO: Procesar pago con mock
+   * Incluye información completa de la solicitud, servicio, usuario y precios reales
    */
   async procesarPagoMock(req, res) {
     try {
       const { monto, metodo_pago, id_orden_servicio } = req.body;
+      const usuarioQuePago = req.user; // Usuario autenticado que realiza el pago
 
       if (!monto || !metodo_pago || !id_orden_servicio) {
         return res.status(400).json({ 
+          success: false,
           error: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio" 
         });
       }
@@ -128,19 +131,83 @@ export const PagoController = {
         monto: parseFloat(monto),
         metodo_pago,
         id_orden_servicio: parseInt(id_orden_servicio),
-        gateway: 'mock'
+        gateway: 'mock',
+        id_usuario_pago: usuarioQuePago?.id_usuario || null // Usuario que realizó el pago
       });
 
       if (resultado.success) {
+        // Estructurar respuesta con información completa
+        const responseData = {
+          pago: {
+            id_pago: resultado.payment?.id_pago,
+            monto_pagado: resultado.payment?.monto_pagado || resultado.payment?.monto,
+            metodo_pago: resultado.payment?.metodo_pago,
+            estado: resultado.payment?.estado_pago || resultado.payment?.estado || 'Pagado',
+            transaction_id: resultado.transaction_id,
+            gateway: resultado.payment?.gateway || 'mock',
+            comprobante_url: resultado.payment?.comprobante_url,
+            numero_comprobante: resultado.payment?.numero_comprobante,
+            fecha_pago: resultado.payment?.fecha_pago || resultado.payment?.created_at,
+            verified_at: resultado.payment?.verified_at
+          },
+          solicitud: {
+            id_orden_servicio: resultado.payment?.id_orden_servicio,
+            numero_expediente: resultado.payment?.numero_expediente,
+            fecha_creacion: resultado.payment?.fecha_creacion_solicitud,
+            estado: resultado.payment?.estado_solicitud,
+            total_orden_servicio: parseFloat(resultado.payment?.total_orden_servicio || 0),
+            pais: resultado.payment?.pais,
+            ciudad: resultado.payment?.ciudad,
+            codigo_postal: resultado.payment?.codigo_postal
+          },
+          servicio: {
+            id_servicio: resultado.payment?.id_servicio,
+            nombre: resultado.payment?.nombre_servicio,
+            descripcion: resultado.payment?.descripcion_servicio,
+            precio_base: parseFloat(resultado.payment?.precio_base_servicio || 0)
+          },
+          usuario: {
+            id_usuario: resultado.payment?.id_usuario,
+            nombre: resultado.payment?.nombre_usuario,
+            apellido: resultado.payment?.apellido_usuario,
+            correo: resultado.payment?.correo_usuario,
+            telefono: resultado.payment?.telefono_usuario,
+            tipo_documento: resultado.payment?.tipo_documento_usuario,
+            documento: resultado.payment?.documento_usuario
+          },
+          empresa: resultado.payment?.id_empresa ? {
+            id_empresa: resultado.payment?.id_empresa,
+            nombre: resultado.payment?.nombre_empresa,
+            nit: resultado.payment?.nit_empresa,
+            tipo_empresa: resultado.payment?.tipo_empresa,
+            direccion: resultado.payment?.direccion_empresa,
+            telefono: resultado.payment?.telefono_empresa,
+            email: resultado.payment?.email_empresa,
+            ciudad: resultado.payment?.ciudad_empresa,
+            pais: resultado.payment?.pais_empresa
+          } : null,
+          precios: {
+            precio_base_servicio: parseFloat(resultado.payment?.precio_base_servicio || 0),
+            total_orden_servicio: parseFloat(resultado.payment?.total_orden_servicio || 0),
+            monto_pagado: parseFloat(resultado.payment?.monto_pagado || resultado.payment?.monto || 0),
+            diferencia: parseFloat(resultado.payment?.total_orden_servicio || 0) - parseFloat(resultado.payment?.monto_pagado || resultado.payment?.monto || 0)
+          },
+          solicitud_activada: resultado.solicitud_activada || false,
+          usuario_que_pago: {
+            id_usuario: usuarioQuePago?.id_usuario,
+            nombre: usuarioQuePago?.nombre,
+            apellido: usuarioQuePago?.apellido,
+            correo: usuarioQuePago?.correo,
+            rol: usuarioQuePago?.rol
+          }
+        };
+
         res.status(201).json({
           success: true,
           message: resultado.solicitud_activada 
             ? 'Pago procesado exitosamente. Solicitud activada.' 
             : 'Pago procesado exitosamente',
-          data: {
-            ...resultado,
-            solicitud_activada: resultado.solicitud_activada || false
-          }
+          data: responseData
         });
       } else {
         res.status(400).json({
@@ -151,7 +218,10 @@ export const PagoController = {
       }
     } catch (err) {
       console.error('Error en procesarPagoMock:', err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ 
+        success: false,
+        error: err.message 
+      });
     }
   },
 

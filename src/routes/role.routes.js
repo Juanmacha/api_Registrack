@@ -10,6 +10,7 @@ import { validationResult } from 'express-validator';
 //  Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { roleMiddleware } from "../middlewares/role.middleware.js";
+import { checkPermiso } from "../middlewares/permiso.middleware.js";
 
 const router = express.Router();
 
@@ -20,12 +21,23 @@ const validateResults = (req, res, next) => {
   next();
 };
 
-//  Solo ADMIN puede gestionar roles
-router.get('/', authMiddleware, roleMiddleware(["administrador"]), getRoles);
-router.post('/', authMiddleware, roleMiddleware(["administrador"]), createRoleValidation, validateResults, createRole);
-router.get('/:id', authMiddleware, roleMiddleware(["administrador"]), getRoleById);
-router.put('/:id', authMiddleware, roleMiddleware(["administrador"]), updateRoleValidation, validateResults, updateRole);
-router.patch('/:id/state', authMiddleware, roleMiddleware(["administrador"]), validateResults, changeRoleState);
-router.delete('/:id', authMiddleware, roleMiddleware(["administrador"]), deleteRoleValidation, validateResults, deleteRole);
+// ✅ Rutas de gestión de roles - Con validación granular de permisos
+// GET / - Listar roles: requiere gestion_roles + leer
+router.get('/', authMiddleware, checkPermiso('gestion_roles', 'leer'), getRoles);
+
+// POST / - Crear rol: requiere gestion_roles + crear
+router.post('/', authMiddleware, checkPermiso('gestion_roles', 'crear'), createRoleValidation, validateResults, createRole);
+
+// GET /:id - Ver rol: requiere gestion_roles + leer
+router.get('/:id', authMiddleware, checkPermiso('gestion_roles', 'leer'), getRoleById);
+
+// PUT /:id - Actualizar rol: requiere gestion_roles + actualizar
+router.put('/:id', authMiddleware, checkPermiso('gestion_roles', 'actualizar'), updateRoleValidation, validateResults, updateRole);
+
+// PATCH /:id/state - Cambiar estado: requiere gestion_roles + actualizar
+router.patch('/:id/state', authMiddleware, checkPermiso('gestion_roles', 'actualizar'), validateResults, changeRoleState);
+
+// DELETE /:id - Eliminar rol: requiere gestion_roles + eliminar
+router.delete('/:id', authMiddleware, checkPermiso('gestion_roles', 'eliminar'), deleteRoleValidation, validateResults, deleteRole);
 
 export default router;

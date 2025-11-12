@@ -26,15 +26,17 @@ export const createRole = async (req, res) => {
     }
     
     // Transformar permisos del frontend al formato de la API
-    const { permisos: permisosAPI, privilegios } = transformPermisosToAPI(permisos);
+    // ✅ Devuelve: { permisos, privilegios, combinaciones }
+    const { permisos: permisosAPI, privilegios, combinaciones } = transformPermisosToAPI(permisos);
     
-    console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios });
+    console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios, combinaciones });
     
     // Crear el rol con los datos transformados
     const rolData = {
       nombre: nombre.toLowerCase().trim(),
       permisos: permisosAPI,
-      privilegios: privilegios
+      privilegios: privilegios,
+      combinaciones: combinaciones  // ✅ NUEVO: Combinaciones específicas
     };
     
     const result = await roleService.createRoleWithDetails(rolData);
@@ -169,10 +171,14 @@ export const updateRole = async (req, res) => {
       }
 
       // Transformar permisos del frontend al formato de la API
-      const { permisos: permisosAPI, privilegios } = transformPermisosToAPI(permisos);
+      // ✅ Devuelve: { permisos, privilegios, combinaciones }
+      const { permisos: permisosAPI, privilegios, combinaciones } = transformPermisosToAPI(permisos);
       
-      console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios });
+      console.log('🔄 [Backend] Permisos transformados para la API:', { permisos: permisosAPI, privilegios, combinaciones });
       
+      // ✅ Usar combinaciones específicas (método preferido)
+      updateData.combinaciones = combinaciones;
+      // Mantener arrays para compatibilidad
       updateData.permisos = permisosAPI;
       updateData.privilegios = privilegios;
     }
@@ -266,13 +272,93 @@ export const changeRoleState = async (req, res) => {
 // Eliminar un rol
 export const deleteRole = async (req, res) => {
   try {
+    console.log('🗑️ [Backend] Eliminando rol...');
+    console.log('📥 [Backend] ID del rol:', req.params.id);
+    
     const rol = await Role.findByPk(req.params.id);
-    if (!rol) return res.status(404).json({ error: 'Rol no encontrado' });
+    if (!rol) {
+      console.log('❌ [Backend] Rol no encontrado:', req.params.id);
+      return res.status(404).json({ 
+        success: false,
+        error: 'Rol no encontrado',
+        details: { id: req.params.id }
+      });
+    }
 
+    // ✅ VALIDAR: Prevenir eliminar roles básicos del sistema
+    const rolesBasicos = ['cliente', 'administrador', 'empleado'];
+    if (rolesBasicos.includes(rol.nombre.toLowerCase())) {
+      console.log('❌ [Backend] Intento de eliminar rol básico:', rol.nombre);
+      return res.status(400).json({ 
+        success: false,
+        error: `No se puede eliminar el rol "${rol.nombre}" porque es un rol básico del sistema`,
+        detalles: {
+          rol: rol.nombre,
+          roles_basicos: rolesBasicos,
+          mensaje: 'Los roles básicos (cliente, administrador, empleado) no pueden ser eliminados por seguridad del sistema.'
+        }
+      });
+    }
+
+    // ✅ VALIDAR: Verificar si el rol está siendo usado por usuarios
+    const { User } = await import('../models/index.js');
+    const usuariosConRol = await User.count({
+      where: { id_rol: req.params.id }
+    });
+
+    if (usuariosConRol > 0) {
+      console.log('❌ [Backend] Rol está siendo usado por usuarios:', usuariosConRol);
+      return res.status(400).json({ 
+        success: false,
+        error: `No se puede eliminar el rol "${rol.nombre}" porque está siendo usado por ${usuariosConRol} usuario(s)`,
+        detalles: {
+          rol: rol.nombre,
+          id_rol: req.params.id,
+          usuarios_asignados: usuariosConRol,
+          mensaje: 'Debes reasignar los usuarios a otro rol antes de eliminar este rol.',
+          accion_requerida: 'Reasigna los usuarios a otro rol y luego intenta eliminar este rol nuevamente.'
+        }
+      });
+    }
+
+    // ✅ ELIMINAR: Las relaciones de permisos/privilegios se eliminan automáticamente por ON DELETE CASCADE
+    // Pero las eliminamos explícitamente para ser claros
+    await RolPermisoPrivilegio.destroy({
+      where: { id_rol: req.params.id }
+    });
+
+    // ✅ ELIMINAR: El rol (las relaciones ya fueron eliminadas)
     await rol.destroy();
-    res.json({ message: 'Rol eliminado correctamente' });
+
+    console.log('✅ [Backend] Rol eliminado correctamente:', rol.nombre);
+
+    res.json({ 
+      success: true,
+      message: 'Rol eliminado correctamente',
+      data: {
+        id_rol: req.params.id,
+        nombre: rol.nombre
+      }
+    });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
+    console.error('❌ [Backend] Error al eliminar rol:', error);
+    
+    // Manejar error de foreign key constraint (usuarios usando el rol)
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({ 
+        success: false,
+        error: 'No se puede eliminar el rol porque está siendo usado por usuarios',
+        detalles: {
+          mensaje: 'El rol está siendo referenciado por usuarios en el sistema. Debes reasignar los usuarios a otro rol primero.',
+          accion_requerida: 'Reasigna los usuarios a otro rol y luego intenta eliminar este rol nuevamente.'
+        }
+      });
+    }
+
+    res.status(400).json({ 
+      success: false,
+      error: error.message,
+      detalles: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };

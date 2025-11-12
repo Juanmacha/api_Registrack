@@ -41,12 +41,16 @@ export const loginUser = async (correo, contrasena) => {
 
   // asegurarse que el rol está disponible
   const rolUsuario = usuario.rol ? usuario.rol.nombre : null; // 🔹 aquí usamos el alias "rol"
+  
+  // ✅ Obtener id_rol (disponible directamente en usuario.id_rol o desde usuario.rol.id_rol)
+  const idRol = usuario.id_rol || (usuario.rol ? usuario.rol.id_rol : null);
 
   // generar token JWT
   const token = jwt.sign(
     {
       id_usuario: usuario.id_usuario,
-      rol: rolUsuario
+      rol: rolUsuario,
+      id_rol: idRol  // ✅ NUEVO: Incluir id_rol para cargar permisos después
     },
     process.env.JWT_SECRET,
     { expiresIn: "1h" }
@@ -118,16 +122,15 @@ export const createUserWithRole = async (datos) => {
     throw new Error("El campo id_rol es requerido para crear usuarios por administrador");
   }
   
-  // Verificar que el rol existe
+  // Verificar que el rol existe y esté activo
   const rolExistente = await Rol.findByPk(id_rol);
   if (!rolExistente) {
     throw new Error("El rol especificado no existe");
   }
   
-  // Validar que el rol sea válido (solo admin, empleado, cliente)
-  const rolesValidos = ['administrador', 'empleado', 'cliente'];
-  if (!rolesValidos.includes(rolExistente.nombre)) {
-    throw new Error("Rol no válido. Solo se pueden crear usuarios con roles: administrador, empleado, cliente");
+  // ✅ Validar que el rol esté activo (permite cualquier rol existente y activo, no solo los básicos)
+  if (rolExistente.estado === false || rolExistente.estado === 0) {
+    throw new Error(`El rol "${rolExistente.nombre}" está inactivo. Solo se pueden asignar roles activos a los usuarios.`);
   }
   
   // Verificar duplicados por correo

@@ -122,6 +122,70 @@ export const getCitas = async (req, res) => {
     }
 };
 
+// ✅ Función para validar que los datos enviados coincidan con los datos reales del usuario
+const validarDatosUsuarioConDocumento = (usuario, datosEnviados) => {
+    const discrepancias = [];
+    
+    // Validar nombre (si se envía)
+    if (datosEnviados.nombre && datosEnviados.nombre.trim().toLowerCase() !== usuario.nombre.trim().toLowerCase()) {
+        discrepancias.push({
+            campo: 'nombre',
+            valor_enviado: datosEnviados.nombre,
+            valor_real: usuario.nombre,
+            mensaje: `El nombre enviado "${datosEnviados.nombre}" no coincide con el nombre registrado "${usuario.nombre}"`
+        });
+    }
+    
+    // Validar apellido (si se envía)
+    if (datosEnviados.apellido && datosEnviados.apellido.trim().toLowerCase() !== usuario.apellido.trim().toLowerCase()) {
+        discrepancias.push({
+            campo: 'apellido',
+            valor_enviado: datosEnviados.apellido,
+            valor_real: usuario.apellido,
+            mensaje: `El apellido enviado "${datosEnviados.apellido}" no coincide con el apellido registrado "${usuario.apellido}"`
+        });
+    }
+    
+    // Validar correo (si se envía)
+    if (datosEnviados.correo && datosEnviados.correo.trim().toLowerCase() !== usuario.correo.trim().toLowerCase()) {
+        discrepancias.push({
+            campo: 'correo',
+            valor_enviado: datosEnviados.correo,
+            valor_real: usuario.correo,
+            mensaje: `El correo enviado "${datosEnviados.correo}" no coincide con el correo registrado "${usuario.correo}"`
+        });
+    }
+    
+    // Validar tipo_documento (si se envía)
+    if (datosEnviados.tipo_documento && datosEnviados.tipo_documento.trim() !== usuario.tipo_documento.trim()) {
+        discrepancias.push({
+            campo: 'tipo_documento',
+            valor_enviado: datosEnviados.tipo_documento,
+            valor_real: usuario.tipo_documento,
+            mensaje: `El tipo de documento enviado "${datosEnviados.tipo_documento}" no coincide con el tipo registrado "${usuario.tipo_documento}"`
+        });
+    }
+    
+    // Validar telefono (si se envía y existe en BD)
+    if (datosEnviados.telefono && usuario.telefono) {
+        // Normalizar teléfonos (remover espacios, guiones, paréntesis)
+        const normalizarTelefono = (tel) => tel.replace(/[\s\-\(\)]/g, '');
+        const telefonoEnviadoNormalizado = normalizarTelefono(datosEnviados.telefono);
+        const telefonoRealNormalizado = normalizarTelefono(usuario.telefono);
+        
+        if (telefonoEnviadoNormalizado !== telefonoRealNormalizado) {
+            discrepancias.push({
+                campo: 'telefono',
+                valor_enviado: datosEnviados.telefono,
+                valor_real: usuario.telefono,
+                mensaje: `El teléfono enviado "${datosEnviados.telefono}" no coincide con el teléfono registrado "${usuario.telefono}"`
+            });
+        }
+    }
+    
+    return discrepancias;
+};
+
 // ✅ Función para normalizar tipos de cita (mapea variaciones comunes a valores exactos)
 const normalizarTipoCita = (tipo) => {
     if (!tipo || typeof tipo !== 'string') return tipo;
@@ -196,7 +260,7 @@ export const createCita = async (req, res) => {
         req.body.tipo = tipoNormalizado; // Actualizar el body con el valor normalizado
     }
     
-    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion, documento } = req.body;
+    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion, documento, nombre, apellido, correo, tipo_documento, telefono } = req.body;
     let { estado } = req.body;
 
     // 1. Field Validation - Modificado para aceptar documento o id_cliente
@@ -303,8 +367,36 @@ export const createCita = async (req, res) => {
                 });
             }
             
+            // ✅ VALIDAR INTEGRIDAD DE DATOS: Verificar que los datos enviados coincidan con los datos reales
+            const datosEnviados = {
+                nombre: nombre || null,
+                apellido: apellido || null,
+                correo: correo || null,
+                tipo_documento: tipo_documento || null,
+                telefono: telefono || null
+            };
+            
+            const discrepancias = validarDatosUsuarioConDocumento(usuario, datosEnviados);
+            
+            if (discrepancias.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Los datos enviados no coinciden con los datos registrados del usuario",
+                    documento: documento.toString(),
+                    discrepancias: discrepancias,
+                    datos_reales: {
+                        nombre: usuario.nombre,
+                        apellido: usuario.apellido,
+                        correo: usuario.correo,
+                        tipo_documento: usuario.tipo_documento,
+                        telefono: usuario.telefono || null
+                    },
+                    instrucciones: "Por favor, verifique los datos y vuelva a intentar. Los datos deben coincidir exactamente con los registrados en el sistema."
+                });
+            }
+            
             clienteId = usuario.id_usuario;
-            console.log('✅ Usuario encontrado:', usuario.nombre, usuario.apellido, 'ID:', clienteId);
+            console.log('✅ Usuario encontrado y datos validados:', usuario.nombre, usuario.apellido, 'ID:', clienteId);
         }
 
         if (!clienteId) {
@@ -1375,6 +1467,7 @@ export const buscarUsuarioPorDocumento = async (req, res) => {
           nombre: usuario.nombre,
           apellido: usuario.apellido,
           correo: usuario.correo,
+          telefono: usuario.telefono || null,
           id_rol: usuario.id_rol,
           rol: rolUsuario?.nombre || null,
           estado: usuario.estado

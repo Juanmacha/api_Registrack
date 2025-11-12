@@ -4,36 +4,66 @@ const roleService = {
   // Crear rol con permisos y privilegios
   createRoleWithDetails: async (data) => {
     if (!data.nombre) throw new Error('El nombre del rol es obligatorio');
-    if (!Array.isArray(data.permisos) || data.permisos.length === 0) 
-      throw new Error('Debe especificar al menos un permiso');
-    if (!Array.isArray(data.privilegios) || data.privilegios.length === 0) 
-      throw new Error('Debe especificar al menos un privilegio');
+    
+    // ✅ Validar que haya combinaciones o permisos/privilegios
+    if (!data.combinaciones && (!data.permisos || !data.privilegios || data.permisos.length === 0 || data.privilegios.length === 0)) {
+      throw new Error('Debe especificar al menos una combinación de permiso y privilegio');
+    }
 
     // Crear el rol
     const nuevoRol = await Role.create({ nombre: data.nombre });
 
-    // Crear o buscar permisos
-    const permisosCreados = [];
-    for (const nombrePermiso of data.permisos) {
-      const [permiso] = await Permiso.findOrCreate({ where: { nombre: nombrePermiso } });
-      permisosCreados.push(permiso);
-    }
+    // ✅ Usar combinaciones específicas si están disponibles (método preferido)
+    if (data.combinaciones && Array.isArray(data.combinaciones) && data.combinaciones.length > 0) {
+      // Crear relaciones específicas usando combinaciones
+      for (const comb of data.combinaciones) {
+        const permiso = await Permiso.findOne({ where: { nombre: comb.permiso } });
+        if (!permiso) {
+          throw new Error(`Permiso "${comb.permiso}" no encontrado en la base de datos`);
+        }
 
-    // Crear o buscar privilegios
-    const privilegiosCreados = [];
-    for (const nombrePrivilegio of data.privilegios) {
-      const [privilegio] = await Privilegio.findOrCreate({ where: { nombre: nombrePrivilegio } });
-      privilegiosCreados.push(privilegio);
-    }
+        const privilegio = await Privilegio.findOne({ where: { nombre: comb.privilegio } });
+        if (!privilegio) {
+          throw new Error(`Privilegio "${comb.privilegio}" no encontrado en la base de datos`);
+        }
 
-    // Insertar en tabla intermedia
-    for (const permiso of permisosCreados) {
-      for (const privilegio of privilegiosCreados) {
         await RolPermisoPrivilegio.create({
           id_rol: nuevoRol.id_rol,
           id_permiso: permiso.id_permiso,
           id_privilegio: privilegio.id_privilegio
         });
+      }
+    } else {
+      // ✅ Fallback: Usar arrays de permisos y privilegios (crear todas las combinaciones)
+      // Crear o buscar permisos
+      const permisosCreados = [];
+      for (const nombrePermiso of data.permisos) {
+        const permiso = await Permiso.findOne({ where: { nombre: nombrePermiso } });
+        if (!permiso) {
+          throw new Error(`Permiso "${nombrePermiso}" no encontrado en la base de datos`);
+        }
+        permisosCreados.push(permiso);
+      }
+
+      // Crear o buscar privilegios
+      const privilegiosCreados = [];
+      for (const nombrePrivilegio of data.privilegios) {
+        const privilegio = await Privilegio.findOne({ where: { nombre: nombrePrivilegio } });
+        if (!privilegio) {
+          throw new Error(`Privilegio "${nombrePrivilegio}" no encontrado en la base de datos`);
+        }
+        privilegiosCreados.push(privilegio);
+      }
+
+      // Insertar en tabla intermedia (todas las combinaciones)
+      for (const permiso of permisosCreados) {
+        for (const privilegio of privilegiosCreados) {
+          await RolPermisoPrivilegio.create({
+            id_rol: nuevoRol.id_rol,
+            id_permiso: permiso.id_permiso,
+            id_privilegio: privilegio.id_privilegio
+          });
+        }
       }
     }
 
@@ -97,66 +127,103 @@ const roleService = {
       await rolExistente.save({ transaction });
 
       // Si se proporcionan permisos, actualizar las relaciones
-      if (data.permisos !== undefined || data.privilegios !== undefined) {
-        // Validar que sean arrays (pueden estar vacíos para quitar todos los permisos)
-        if (data.permisos !== undefined && !Array.isArray(data.permisos)) {
-          await transaction.rollback();
-          throw new Error('Los permisos deben ser un array');
-        }
-        if (data.privilegios !== undefined && !Array.isArray(data.privilegios)) {
-          await transaction.rollback();
-          throw new Error('Los privilegios deben ser un array');
-        }
-
-        // Usar arrays proporcionados o vacíos por defecto
-        const permisosArray = data.permisos || [];
-        const privilegiosArray = data.privilegios || [];
-
-        // Eliminar todas las relaciones existentes
+      // ✅ data.permisos y data.privilegios vienen del controlador después de transformPermisosToAPI
+      // data.combinaciones contiene las combinaciones específicas (permiso + privilegio)
+      if (data.permisos !== undefined || data.privilegios !== undefined || data.combinaciones !== undefined) {
+        // ✅ ELIMINAR: Todas las relaciones existentes
         await RolPermisoPrivilegio.destroy({ 
           where: { id_rol: id },
           transaction 
         });
 
-        // Si hay permisos y privilegios, crear nuevas relaciones
-        if (permisosArray.length > 0 && privilegiosArray.length > 0) {
-          // Crear o buscar permisos
-          const permisosCreados = [];
-          for (const nombrePermiso of permisosArray) {
-            const [permiso] = await Permiso.findOrCreate({ 
-              where: { nombre: nombrePermiso },
-              transaction
-            });
-            permisosCreados.push(permiso);
-          }
-
-          // Crear o buscar privilegios
-          const privilegiosCreados = [];
-          for (const nombrePrivilegio of privilegiosArray) {
-            const [privilegio] = await Privilegio.findOrCreate({ 
-              where: { nombre: nombrePrivilegio },
-              transaction
-            });
-            privilegiosCreados.push(privilegio);
-          }
-
-          // Crear nuevas relaciones
+        // ✅ CREAR: Nuevas relaciones específicas usando combinaciones
+        // Si hay combinaciones específicas, usarlas (más preciso)
+        // Si no, usar arrays de permisos y privilegios (compatibilidad)
+        if (data.combinaciones && Array.isArray(data.combinaciones) && data.combinaciones.length > 0) {
+          // ✅ Usar combinaciones específicas (método preferido)
           const relaciones = [];
-          for (const permiso of permisosCreados) {
-            for (const privilegio of privilegiosCreados) {
-              relaciones.push({
-                id_rol: id,
-                id_permiso: permiso.id_permiso,
-                id_privilegio: privilegio.id_privilegio
-              });
+          
+          for (const comb of data.combinaciones) {
+            const permiso = await Permiso.findOne({ 
+              where: { nombre: comb.permiso },
+              transaction
+            });
+            if (!permiso) {
+              await transaction.rollback();
+              throw new Error(`Permiso "${comb.permiso}" no encontrado en la base de datos`);
             }
+
+            const privilegio = await Privilegio.findOne({ 
+              where: { nombre: comb.privilegio },
+              transaction
+            });
+            if (!privilegio) {
+              await transaction.rollback();
+              throw new Error(`Privilegio "${comb.privilegio}" no encontrado en la base de datos`);
+            }
+
+            relaciones.push({
+              id_rol: id,
+              id_permiso: permiso.id_permiso,
+              id_privilegio: privilegio.id_privilegio
+            });
           }
 
           if (relaciones.length > 0) {
             await RolPermisoPrivilegio.bulkCreate(relaciones, { transaction });
           }
+        } else if (data.permisos && data.privilegios && Array.isArray(data.permisos) && Array.isArray(data.privilegios)) {
+          // ✅ Fallback: Usar arrays de permisos y privilegios (crear todas las combinaciones)
+          // NOTA: Esto crea TODAS las combinaciones posibles entre permisos y privilegios
+          // Se usa solo si no hay combinaciones específicas (compatibilidad hacia atrás)
+          const permisosArray = data.permisos || [];
+          const privilegiosArray = data.privilegios || [];
+
+          if (permisosArray.length > 0 && privilegiosArray.length > 0) {
+            const permisosCreados = [];
+            for (const nombrePermiso of permisosArray) {
+              const permiso = await Permiso.findOne({ 
+                where: { nombre: nombrePermiso },
+                transaction
+              });
+              if (!permiso) {
+                await transaction.rollback();
+                throw new Error(`Permiso "${nombrePermiso}" no encontrado en la base de datos`);
+              }
+              permisosCreados.push(permiso);
+            }
+
+            const privilegiosCreados = [];
+            for (const nombrePrivilegio of privilegiosArray) {
+              const privilegio = await Privilegio.findOne({ 
+                where: { nombre: nombrePrivilegio },
+                transaction
+              });
+              if (!privilegio) {
+                await transaction.rollback();
+                throw new Error(`Privilegio "${nombrePrivilegio}" no encontrado en la base de datos`);
+              }
+              privilegiosCreados.push(privilegio);
+            }
+
+            // Crear todas las combinaciones posibles
+            const relaciones = [];
+            for (const permiso of permisosCreados) {
+              for (const privilegio of privilegiosCreados) {
+                relaciones.push({
+                  id_rol: id,
+                  id_permiso: permiso.id_permiso,
+                  id_privilegio: privilegio.id_privilegio
+                });
+              }
+            }
+
+            if (relaciones.length > 0) {
+              await RolPermisoPrivilegio.bulkCreate(relaciones, { transaction });
+            }
+          }
         }
-        // Si los arrays están vacíos, simplemente no se crean relaciones (rol sin permisos)
+        // ✅ Si no hay combinaciones ni arrays, no se crean relaciones (rol sin permisos)
       }
 
       await transaction.commit();

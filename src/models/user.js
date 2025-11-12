@@ -30,6 +30,14 @@ const User = sequelize.define("User", {
     allowNull: false,
     unique: true
   },
+  telefono: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    validate: {
+      len: [7, 20],
+      is: /^[\+]?[1-9][\d\s\-\(\)]{6,18}$/
+    }
+  },
   contrasena: {
     type: DataTypes.STRING(225),
     allowNull: false

@@ -4,7 +4,7 @@ import Role from "../models/Role.js";
 
 // Middleware para validar el registro de un nuevo usuario
 export const validarNuevoUsuario = async (req, res, next) => {
-  const { tipo_documento, documento, nombre, apellido, correo, contrasena } =
+  const { tipo_documento, documento, nombre, apellido, correo, telefono, contrasena } =
     req.body;
 
   // Validar campos obligatorios (id_rol se asigna automáticamente)
@@ -19,6 +19,13 @@ export const validarNuevoUsuario = async (req, res, next) => {
     return res
       .status(400)
       .json({ mensaje: "Todos los campos son obligatorios" });
+  }
+
+  // Validar teléfono si se proporciona (opcional)
+  if (telefono && !/^[\+]?[1-9][\d\s\-\(\)]{6,18}$/.test(telefono)) {
+    return res
+      .status(400)
+      .json({ mensaje: "El formato del teléfono no es válido. Debe tener entre 7 y 20 caracteres y comenzar con un dígito diferente de 0" });
   }
 
   // Validar documento entre 6 y 10 dígitos
@@ -65,8 +72,17 @@ export const validarNuevoUsuario = async (req, res, next) => {
 
 // Middleware para validar actualización de usuario
 export const validarActualizarUsuario = async (req, res, next) => {
-  const { correo, documento, id_rol } = req.body;
+  const { correo, documento, telefono, id_rol } = req.body;
   const { id } = req.params;
+
+  // Validar teléfono si se proporciona (opcional)
+  if (telefono !== undefined && telefono !== null && telefono !== '') {
+    if (!/^[\+]?[1-9][\d\s\-\(\)]{6,18}$/.test(telefono)) {
+      return res
+        .status(400)
+        .json({ mensaje: "El formato del teléfono no es válido. Debe tener entre 7 y 20 caracteres y comenzar con un dígito diferente de 0" });
+    }
+  }
 
   // Si se actualiza el correo, validar formato y unicidad
   if (correo) {

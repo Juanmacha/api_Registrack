@@ -1,0 +1,431 @@
+{
+  "info": {
+    "name": "API Registrack - Gestión de Roles y Permisos",
+    "description": "Colección completa de endpoints para gestionar roles, permisos y privilegios",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "registrack-api"
+  },
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"admin@example.com\",\n  \"contrasena\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.environment.set(\"token\", jsonData.data.token);",
+                  "        console.log(\"Token guardado:\", jsonData.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Obtener Todos los Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles"]
+            }
+          }
+        },
+        {
+          "name": "Obtener Rol por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear Rol",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"empleado_lector\",\n  \"estado\": true,\n  \"permisos\": {\n    \"usuarios\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": false,\n      \"eliminar\": false\n    },\n    \"solicitudes\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": false,\n      \"eliminar\": false\n    },\n    \"citas\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    },\n    \"seguimiento\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    },\n    \"dashboard\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": false,\n      \"eliminar\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.environment.set(\"rol_id\", jsonData.data.id);",
+                  "        console.log(\"Rol creado con ID:\", jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar Rol (Nombre)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"empleado_lector_actualizado\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Rol (Estado)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Rol (Permisos)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permisos\": {\n    \"usuarios\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": false,\n      \"eliminar\": false\n    },\n    \"solicitudes\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": false,\n      \"eliminar\": false\n    },\n    \"citas\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Rol (Todo)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"empleado_avanzado\",\n  \"estado\": true,\n  \"permisos\": {\n    \"usuarios\": {\n      \"crear\": false,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    },\n    \"solicitudes\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    },\n    \"citas\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    },\n    \"seguimiento\": {\n      \"crear\": true,\n      \"leer\": true,\n      \"actualizar\": true,\n      \"eliminar\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eliminar Permisos del Rol",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permisos\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cambiar Estado del Rol",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id/state",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id", "state"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eliminar Rol",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{rol_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Errores",
+      "item": [
+        {
+          "name": "Error - Eliminar Rol Básico",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", "2"]
+            }
+          }
+        },
+        {
+          "name": "Error - Rol No Encontrado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles/999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles", "999"]
+            }
+          }
+        },
+        {
+          "name": "Error - Sin Permisos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"nuevo_rol\",\n  \"permisos\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/gestion-roles",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gestion-roles"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rol_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
+

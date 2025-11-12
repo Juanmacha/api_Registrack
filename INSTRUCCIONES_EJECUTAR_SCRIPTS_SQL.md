@@ -1,258 +1,235 @@
 # 📋 Instrucciones para Ejecutar Scripts SQL
 
 **Fecha:** Enero 2026  
-**Objetivo:** Corregir columnas de archivos base64 en la base de datos
+**Objetivo:** Ejecutar scripts SQL necesarios para el sistema de permisos granular
 
 ---
 
-## 🚀 Pasos para Ejecutar los Scripts
+## ⚠️ IMPORTANTE
 
-### **Paso 1: Hacer Backup de la Base de Datos**
+**Estos scripts DEBEN ejecutarse ANTES de probar el sistema de permisos.**
 
-**⚠️ IMPORTANTE: Siempre hacer backup antes de modificar la base de datos**
+---
+
+## 📁 Scripts Disponibles
+
+### **1. Script: Crear Permisos y Privilegios Básicos**
+📁 `database/migrations/001_crear_permisos_privilegios_basicos.sql`
+
+**Qué hace:**
+- Inserta 4 privilegios básicos: `crear`, `leer`, `actualizar`, `eliminar`
+- Inserta 19 permisos por módulo: `gestion_usuarios`, `gestion_solicitudes`, `gestion_citas`, etc.
+
+**Estado:** ✅ Idempotente (se puede ejecutar múltiples veces sin problemas)
+
+---
+
+### **2. Script: Asignar Permisos al Rol Empleado (Ejemplo)**
+📁 `database/migrations/002_asignar_permisos_rol_empleado_ejemplo.sql`
+
+**Qué hace:**
+- Asigna permisos específicos al rol `empleado` como ejemplo
+- Permisos asignados:
+  - `gestion_usuarios` + `leer`
+  - `gestion_solicitudes` + `leer`
+  - `gestion_citas` + `crear`, `leer`
+  - `gestion_seguimiento` + `leer`, `crear`, `actualizar`
+  - `gestion_dashboard` + `leer`
+
+**Estado:** ⚠️ Ejemplo - Ajusta los permisos según tus necesidades
+
+---
+
+## 🚀 Cómo Ejecutar los Scripts
+
+### **Opción 1: MySQL Command Line**
 
 ```bash
-# Backup completo de la base de datos
-mysqldump -u usuario -p registrack_db > backup_registrack_$(date +%Y%m%d_%H%M%S).sql
+# 1. Conectar a MySQL
+mysql -u root -p
 
-# O usando MySQL Workbench:
-# 1. Click derecho en la base de datos
-# 2. Data Export
-# 3. Seleccionar todas las tablas
-# 4. Export to Self-Contained File
-```
-
----
-
-### **Paso 2: Ejecutar Script de Corrección (TEXT)**
-
-**Opción A: Desde línea de comandos**
-
-```bash
-# Conectar a MySQL
-mysql -u usuario -p
-
-# Seleccionar base de datos
+# 2. Seleccionar la base de datos
 USE registrack_db;
 
-# Copiar y pegar el contenido del archivo:
-# database/migrations/fix_file_columns_to_text.sql
+# 3. Ejecutar Script 1: Crear Permisos y Privilegios
+SOURCE database/migrations/001_crear_permisos_privilegios_basicos.sql;
 
-# O ejecutar directamente:
-mysql -u usuario -p registrack_db < database/migrations/fix_file_columns_to_text.sql
-```
+# 4. Verificar que se insertaron correctamente
+SELECT 'Privilegios:' as tipo, nombre, descripcion FROM privilegios ORDER BY nombre;
+SELECT 'Permisos:' as tipo, nombre, descripcion FROM permisos ORDER BY nombre;
 
-**Opción B: Desde MySQL Workbench**
+# 5. Ejecutar Script 2: Asignar Permisos al Rol Empleado (Opcional)
+SOURCE database/migrations/002_asignar_permisos_rol_empleado_ejemplo.sql;
 
-1. Abrir MySQL Workbench
-2. Conectar a la base de datos
-3. Abrir el archivo: `database/migrations/fix_file_columns_to_text.sql`
-4. Ejecutar el script (⚡ Execute o F5)
-
-**Opción C: Script SQL Directo (Copiar y Pegar)**
-
-```sql
-USE registrack_db;
-
--- Cambiar poderparaelregistrodelamarca a TEXT
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN poderparaelregistrodelamarca TEXT NULL 
-COMMENT 'Poder para el registro de la marca (base64)';
-
--- Cambiar poderdelrepresentanteautorizado a TEXT
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN poderdelrepresentanteautorizado TEXT NULL 
-COMMENT 'Poder del representante autorizado (base64) - Solo para personas jurídicas';
-
--- Cambiar certificado_camara_comercio a TEXT
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN certificado_camara_comercio TEXT NULL 
-COMMENT 'Certificado de cámara de comercio (base64)';
-
--- Cambiar logotipo a TEXT
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN logotipo TEXT NULL 
-COMMENT 'Logotipo de la marca (base64)';
-
--- Cambiar otros campos de documentos a TEXT
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN certificado_renovacion TEXT NULL 
-COMMENT 'Certificado de renovación (base64)';
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN documento_cesion TEXT NULL 
-COMMENT 'Documento de cesión (base64)';
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN documentos_oposicion TEXT NULL 
-COMMENT 'Documentos de oposición (base64)';
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN soportes TEXT NULL 
-COMMENT 'Documentos adicionales de soporte (base64)';
-```
-
----
-
-### **Paso 3: Verificar Cambios**
-
-```sql
--- Verificar estructura de columnas modificadas
+# 6. Verificar permisos asignados al rol empleado
 SELECT 
-    COLUMN_NAME,
-    DATA_TYPE,
-    CHARACTER_MAXIMUM_LENGTH,
-    COLUMN_TYPE,
-    COLUMN_COMMENT
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'registrack_db'
-  AND TABLE_NAME = 'ordenes_de_servicios'
-  AND COLUMN_NAME IN (
-    'poderparaelregistrodelamarca',
-    'poderdelrepresentanteautorizado',
-    'certificado_camara_comercio',
-    'logotipo',
-    'certificado_renovacion',
-    'documento_cesion',
-    'documentos_oposicion',
-    'soportes'
-  )
-ORDER BY COLUMN_NAME;
-```
-
-**Resultado esperado:**
-- Todas las columnas deben ser `DATA_TYPE = 'text'`
-- `CHARACTER_MAXIMUM_LENGTH` debe ser `NULL` (TEXT no tiene límite fijo)
-
----
-
-### **Paso 4: (Opcional) Cambiar a LONGTEXT**
-
-**Solo ejecutar si necesitas soportar archivos muy grandes (> 5MB)**
-
-```sql
-USE registrack_db;
-
--- Cambiar a LONGTEXT (hasta 4GB)
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN poderparaelregistrodelamarca LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN poderdelrepresentanteautorizado LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN certificado_camara_comercio LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN logotipo LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN certificado_renovacion LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN documento_cesion LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN documentos_oposicion LONGTEXT NULL;
-
-ALTER TABLE ordenes_de_servicios 
-MODIFY COLUMN soportes LONGTEXT NULL;
+    r.nombre as rol,
+    p.nombre as permiso,
+    pr.nombre as privilegio
+FROM rol_permisos_privilegios rpp
+JOIN roles r ON rpp.id_rol = r.id_rol
+JOIN permisos p ON rpp.id_permiso = p.id_permiso
+JOIN privilegios pr ON rpp.id_privilegio = pr.id_privilegio
+WHERE r.nombre = 'empleado'
+ORDER BY p.nombre, pr.nombre;
 ```
 
 ---
 
-## ✅ Verificación Post-Ejecución
+### **Opción 2: MySQL Workbench / phpMyAdmin**
 
-### **1. Verificar Estructura de Tabla**
+1. **Abrir MySQL Workbench o phpMyAdmin**
+2. **Seleccionar la base de datos `registrack_db`**
+3. **Ejecutar Script 1:**
+   - Abrir el archivo `001_crear_permisos_privilegios_basicos.sql`
+   - Ejecutar el script completo
+   - Verificar que se insertaron los datos
 
-```sql
-DESCRIBE ordenes_de_servicios;
-```
-
-### **2. Probar Inserción de Datos**
-
-```sql
--- Probar con un registro de prueba (opcional)
--- Esto verifica que los cambios funcionan correctamente
-```
-
-### **3. Probar desde el Backend**
-
-1. Reiniciar el servidor Node.js
-2. Probar crear una solicitud de Persona Natural
-3. Verificar que no hay errores de "Data too long"
+4. **Ejecutar Script 2 (Opcional):**
+   - Abrir el archivo `002_asignar_permisos_rol_empleado_ejemplo.sql`
+   - Ejecutar el script completo
+   - Verificar que se asignaron los permisos
 
 ---
 
-## 🔍 Troubleshooting
+### **Opción 3: Desde el Código (Node.js)**
 
-### **Error: "Table doesn't exist"**
+```javascript
+// Ejecutar scripts SQL desde Node.js
+import fs from 'fs';
+import mysql from 'mysql2/promise';
 
-```sql
--- Verificar que la tabla existe
-SHOW TABLES LIKE 'ordenes_de_servicios';
+const connection = await mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: 'password',
+  database: 'registrack_db'
+});
 
--- Verificar nombre exacto de la tabla (puede tener prefijo)
-SHOW TABLES;
-```
+// Ejecutar Script 1
+const script1 = fs.readFileSync('database/migrations/001_crear_permisos_privilegios_basicos.sql', 'utf8');
+await connection.query(script1);
 
-### **Error: "Column doesn't exist"**
+// Ejecutar Script 2 (Opcional)
+const script2 = fs.readFileSync('database/migrations/002_asignar_permisos_rol_empleado_ejemplo.sql', 'utf8');
+await connection.query(script2);
 
-```sql
--- Verificar nombres de columnas
-SHOW COLUMNS FROM ordenes_de_servicios;
-```
-
-### **Error: "Access denied"**
-
-- Verificar que el usuario tiene permisos de ALTER TABLE
-- Conectar con un usuario administrador
-
-```sql
--- Verificar permisos
-SHOW GRANTS;
+await connection.end();
 ```
 
 ---
 
-## 📊 Resumen de Cambios
+## ✅ Verificación
 
-| Columna | Tipo Anterior | Tipo Nuevo | Tamaño Máximo |
-|---------|---------------|------------|---------------|
-| `poderparaelregistrodelamarca` | VARCHAR(?) | TEXT | 64KB |
-| `poderdelrepresentanteautorizado` | VARCHAR(?) | TEXT | 64KB |
-| `certificado_camara_comercio` | VARCHAR(?) | TEXT | 64KB |
-| `logotipo` | VARCHAR(?) | TEXT | 64KB |
-| `certificado_renovacion` | VARCHAR(?) | TEXT | 64KB |
-| `documento_cesion` | VARCHAR(?) | TEXT | 64KB |
-| `documentos_oposicion` | VARCHAR(?) | TEXT | 64KB |
-| `soportes` | VARCHAR(?) | TEXT | 64KB |
+### **Verificar que se insertaron los Privilegios:**
+```sql
+SELECT * FROM privilegios;
+```
 
-**Nota:** Si necesitas más espacio, usar LONGTEXT (hasta 4GB).
+**Resultado esperado:** 4 privilegios
+- `crear`
+- `leer`
+- `actualizar`
+- `eliminar`
+
+---
+
+### **Verificar que se insertaron los Permisos:**
+```sql
+SELECT * FROM permisos ORDER BY nombre;
+```
+
+**Resultado esperado:** 19 permisos
+- `gestion_archivos`
+- `gestion_citas`
+- `gestion_clientes`
+- `gestion_dashboard`
+- `gestion_detalles_orden`
+- `gestion_detalles_procesos`
+- `gestion_empleados`
+- `gestion_empresas`
+- `gestion_pagos`
+- `gestion_permisos`
+- `gestion_privilegios`
+- `gestion_roles`
+- `gestion_seguimiento`
+- `gestion_servicios`
+- `gestion_servicios_procesos`
+- `gestion_solicitudes`
+- `gestion_solicitud_cita`
+- `gestion_tipo_archivos`
+- `gestion_usuarios`
+
+---
+
+### **Verificar Permisos Asignados al Rol Empleado (si ejecutaste Script 2):**
+```sql
+SELECT 
+    r.nombre as rol,
+    p.nombre as permiso,
+    pr.nombre as privilegio
+FROM rol_permisos_privilegios rpp
+JOIN roles r ON rpp.id_rol = r.id_rol
+JOIN permisos p ON rpp.id_permiso = p.id_permiso
+JOIN privilegios pr ON rpp.id_privilegio = pr.id_privilegio
+WHERE r.nombre = 'empleado'
+ORDER BY p.nombre, pr.nombre;
+```
+
+**Resultado esperado:** Permisos asignados al rol empleado (según el script de ejemplo)
+
+---
+
+## 🔧 Personalizar Permisos del Rol Empleado
+
+Si quieres asignar permisos diferentes al rol empleado, puedes modificar el Script 2 o ejecutar consultas SQL manuales:
+
+### **Ejemplo: Asignar todos los permisos a un rol**
+```sql
+-- Asignar todos los permisos a un rol específico
+SET @id_rol = (SELECT id_rol FROM roles WHERE nombre = 'empleado' LIMIT 1);
+
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT @id_rol, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre LIKE 'gestion_%' 
+  AND pr.nombre IN ('crear', 'leer', 'actualizar', 'eliminar')
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+```
+
+### **Ejemplo: Asignar solo permisos de lectura**
+```sql
+-- Asignar solo permisos de lectura a un rol específico
+SET @id_rol = (SELECT id_rol FROM roles WHERE nombre = 'empleado' LIMIT 1);
+
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT @id_rol, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre LIKE 'gestion_%' 
+  AND pr.nombre = 'leer'
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+```
 
 ---
 
 ## ⚠️ Notas Importantes
 
-1. **Backup obligatorio:** Siempre hacer backup antes de ejecutar scripts
-2. **Horario de mantenimiento:** Ejecutar en horario de bajo tráfico si es posible
-3. **Tiempo de ejecución:** Los scripts son rápidos (< 1 segundo normalmente)
-4. **No hay pérdida de datos:** Los cambios solo modifican el tipo de columna, no eliminan datos
-5. **Reiniciar servidor:** Después de los cambios, reiniciar el servidor Node.js
+1. **Scripts Idempotentes:** Los scripts son idempotentes (se pueden ejecutar múltiples veces sin problemas)
+2. **Rol Administrador:** El rol `administrador` NO necesita permisos (tiene bypass automático)
+3. **Rol Cliente:** El rol `cliente` mantiene su lógica actual (no requiere permisos aquí)
+4. **Rol Empleado:** El rol `empleado` SÍ requiere permisos asignados para funcionar correctamente
 
 ---
 
-## 📞 Soporte
+## 🚀 Después de Ejecutar los Scripts
 
-Si encuentras problemas al ejecutar los scripts:
-
-1. Verificar que tienes permisos de ALTER TABLE
-2. Verificar que la base de datos existe y está activa
-3. Revisar los logs de MySQL para ver errores específicos
-4. Verificar que el nombre de la tabla es correcto
+1. **Reiniciar el servidor** (si está corriendo)
+2. **Hacer login nuevamente** para obtener tokens con `id_rol`
+3. **Probar el sistema** con diferentes roles
+4. **Verificar que los permisos funcionan correctamente**
 
 ---
 
-**Última actualización:** Enero 2026  
-**Versión:** 1.0
-
+**Documento creado:** Enero 2026  
+**Versión:** 1.0  
+**Estado:** ✅ Listo para ejecutar

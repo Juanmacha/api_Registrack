@@ -5,6 +5,7 @@ import { validarNuevoUsuario, validarActualizarUsuario } from '../middlewares/va
 import { validarCrearUsuarioPorAdmin } from '../middlewares/validarUsuarioAdmin.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { roleMiddleware } from '../middlewares/role.middleware.js';
+import { checkPermiso } from '../middlewares/permiso.middleware.js';
 import { validarForgotPassword, validarResetPassword } from '../middlewares/validarAuth.js';
 
 // Importar nuevos middlewares de validación
@@ -28,18 +29,24 @@ router.post('/login', validateUserLogin, login);
 router.post('/forgot-password', validateForgotPassword, validarForgotPassword, forgotPassword);
 router.post('/reset-password', validateResetPassword, validarResetPassword, resetPassword);
 
-// Rutas protegidas - Solo administradores y empleados
-router.get('/', authMiddleware, roleMiddleware(["administrador", "empleado"]), getUsuarios);
-router.get('/:id', authMiddleware, roleMiddleware(["administrador", "empleado"]), getUsuarioPorId);
-router.delete('/:id', authMiddleware, roleMiddleware(["administrador", "empleado"]), deleteUsuario);
+// Rutas protegidas - Con validación granular de permisos
+// ✅ GET / - Listar usuarios: requiere gestion_usuarios + leer
+router.get('/', authMiddleware, checkPermiso('gestion_usuarios', 'leer'), getUsuarios);
 
-// Ruta de actualización - Todos los roles autenticados (con validación en controlador)
-router.put('/:id', authMiddleware, validateUpdateUser, validarActualizarUsuario, updateUsuario);
+// ✅ GET /:id - Ver usuario: requiere gestion_usuarios + leer
+router.get('/:id', authMiddleware, checkPermiso('gestion_usuarios', 'leer'), getUsuarioPorId);
 
-// Cambiar estado de usuario - Solo administradores
-router.put('/cambiar-estado/:id', authMiddleware, roleMiddleware(["administrador"]), validateChangeUserStatus, changeUserStatus);
+// ✅ DELETE /:id - Eliminar usuario: requiere gestion_usuarios + eliminar
+router.delete('/:id', authMiddleware, checkPermiso('gestion_usuarios', 'eliminar'), deleteUsuario);
 
-// Ruta para crear usuarios con rol específico - Solo administradores
-router.post('/crear', authMiddleware, roleMiddleware(["administrador"]), validateCreateUserByAdmin, validarCrearUsuarioPorAdmin, createUserByAdmin);
+// ✅ PUT /:id - Actualizar usuario: requiere gestion_usuarios + actualizar
+// Nota: Los usuarios pueden actualizar sus propios datos (validación en controlador)
+router.put('/:id', authMiddleware, checkPermiso('gestion_usuarios', 'actualizar'), validateUpdateUser, validarActualizarUsuario, updateUsuario);
+
+// ✅ PUT /cambiar-estado/:id - Cambiar estado: requiere gestion_usuarios + actualizar
+router.put('/cambiar-estado/:id', authMiddleware, checkPermiso('gestion_usuarios', 'actualizar'), validateChangeUserStatus, changeUserStatus);
+
+// ✅ POST /crear - Crear usuario: requiere gestion_usuarios + crear
+router.post('/crear', authMiddleware, checkPermiso('gestion_usuarios', 'crear'), validateCreateUserByAdmin, validarCrearUsuarioPorAdmin, createUserByAdmin);
 
 export default router;

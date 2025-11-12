@@ -99,6 +99,7 @@ export const getAllEmpleados = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         correo: usuario.correo,
+        telefono: usuario.telefono || null,
         tipo_documento: usuario.tipo_documento,
         documento: usuario.documento,
         rol: usuario.rol?.nombre || 'Sin rol',
