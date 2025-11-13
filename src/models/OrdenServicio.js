@@ -220,9 +220,9 @@ const OrdenServicio = sequelize.define(
       comment: 'NIT del cesionario'
     },
     tipo_documento_cesionario: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.STRING(50),
       allowNull: true,
-      comment: 'Tipo documento cesionario'
+      comment: 'Tipo de documento del cesionario (CC, CE, NIT, etc.) - Aumentado a VARCHAR(50) para soportar "Cédula de Ciudadanía"'
     },
     numero_documento_cesionario: {
       type: DataTypes.STRING(20),

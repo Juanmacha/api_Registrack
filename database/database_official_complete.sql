@@ -1,6 +1,6 @@
 -- =============================================
 -- API REGISTRACK - SCHEMA OFICIAL Y COMPLETO
--- Versión: 7.3 (Enero 2026)
+-- Versión: 7.4 (Enero 2026)
 -- Base de datos MySQL con todas las entidades y relaciones
 -- =============================================
 
@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS ordenes_de_servicios (
     
     -- Campos editables para información del solicitante
     tipodepersona VARCHAR(20),
-    tipodedocumento VARCHAR(10),
+    tipodedocumento VARCHAR(50) COMMENT 'Tipo de documento del solicitante (CC, CE, NIT, etc.)',
     numerodedocumento VARCHAR(20),
     nombrecompleto VARCHAR(100),
     correoelectronico VARCHAR(100),
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS citas (
     hora_fin TIME NOT NULL,
     tipo ENUM('General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion') NOT NULL,
     modalidad ENUM('Virtual', 'Presencial') NOT NULL,
-    estado ENUM('Programada', 'Reprogramada', 'Anulada') DEFAULT 'Programada',
+    estado ENUM('Programada', 'Reprogramada', 'Anulada', 'Finalizada') DEFAULT 'Programada',
     observacion VARCHAR(200),
     id_cliente INT NOT NULL,
     id_empleado INT,
@@ -781,7 +781,7 @@ INSERT INTO procesos (servicio_id, nombre, descripcion, order_number, status_key
 -- =============================================
 
 /*
-ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.3
+ESTRUCTURA DE LA BASE DE DATOS API REGISTRACK v7.4
 
 ENTIDADES PRINCIPALES:
 - Sistema de autenticación y autorización (usuarios, roles, permisos, privilegios)
@@ -793,6 +793,13 @@ ENTIDADES PRINCIPALES:
 - Gestión de pagos con pasarelas de pago
 - Sistema de archivos y notificaciones
 - Dashboard administrativo con KPIs y reportes
+
+CAMBIOS EN v7.4 (Enero 2026):
+- Agregado estado "Finalizada" al ENUM de estados de citas
+- Corregido tamaño de tipodedocumento de VARCHAR(10) a VARCHAR(50) para soportar valores completos
+- Actualizado modelo Notificacion para incluir 'anulacion_solicitud' en tipo_notificacion
+- SQL principal ahora incluye todas las correcciones de migraciones anteriores
+- Base de datos completamente sincronizada con modelos de Sequelize
 
 CAMBIOS EN v7.3 (Enero 2026):
 - Agregados datos iniciales de privilegios (crear, leer, actualizar, eliminar)

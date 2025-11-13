@@ -17,7 +17,7 @@ const Notificacion = sequelize.define('Notificacion', {
     }
   },
   tipo_notificacion: {
-    type: DataTypes.ENUM('asignacion_empleado', 'nueva_solicitud', 'cambio_estado'),
+    type: DataTypes.ENUM('asignacion_empleado', 'nueva_solicitud', 'cambio_estado', 'anulacion_solicitud'),
     allowNull: false
   },
   destinatario_email: {
