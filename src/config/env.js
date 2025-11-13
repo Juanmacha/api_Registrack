@@ -13,9 +13,16 @@ const envPath = path.resolve(__dirname, "../../.env");
 // Verificar si el archivo existe
 const envExists = fs.existsSync(envPath);
 
+// En Render, las variables de entorno se cargan desde el panel, no desde archivo .env
+// Esto es normal y esperado
 if (!envExists) {
-  console.error('❌ [ENV] El archivo .env NO existe en:', envPath);
-  console.error('   Por favor, crea el archivo .env en la raíz del proyecto (api_Registrack/.env)');
+  if (process.env.RENDER) {
+    console.log('ℹ️ [ENV] Render detectado - usando variables de entorno del panel (no archivo .env)');
+  } else {
+    console.warn('⚠️ [ENV] El archivo .env NO existe en:', envPath);
+    console.warn('   Por favor, crea el archivo .env en la raíz del proyecto (api_Registrack/.env)');
+    console.warn('   O configura las variables de entorno en tu sistema');
+  }
 } else {
   console.log('✅ [ENV] Archivo .env encontrado en:', envPath);
 }

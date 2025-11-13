@@ -61,29 +61,46 @@ if (!useMailgun) {
     const socketTimeout = isRender ? 120000 : (isProduction ? 90000 : 30000); // 120s en Render, 90s en producción, 30s en desarrollo
     const greetingTimeout = isRender ? 30000 : (isProduction ? 25000 : 10000); // 30s en Render, 25s en producción, 10s en desarrollo
 
-    transporter = nodemailer.createTransport({
-      service: "gmail",
+    // En Render, usar configuración SMTP directa (más confiable que service: "gmail")
+    // En desarrollo, usar service: "gmail" (más simple)
+    const transportConfig = isRender ? {
+      // Configuración SMTP directa para Render (más confiable)
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true para 465, false para otros puertos
+      requireTLS: true,
       auth: {
-        user: emailUser, // correo desde el .env
-        pass: emailPass, // contraseña de aplicación
+        user: emailUser,
+        pass: emailPass,
       },
-      // Configuración de timeout y conexión mejorada (adaptativa)
+      // Timeouts optimizados para Render
       connectionTimeout: connectionTimeout,
       socketTimeout: socketTimeout,
       greetingTimeout: greetingTimeout,
-      // En Render, desactivar pool para evitar problemas de conexión
-      pool: !isRender, // Pool solo en desarrollo/producción local
-      maxConnections: isRender ? 1 : 5, // 1 conexión en Render para evitar timeouts
-      maxMessages: isRender ? 1 : 100, // 1 mensaje por conexión en Render
-      rateDelta: 1000, // Ventana de tiempo para rate limiting
-      rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
-      // Configuración adicional para Render/producción
-      ...(isProduction && {
-        // En producción, usar más reintentos
-        logger: false, // Desactivar logs verbose en producción
-        debug: false, // Desactivar debug en producción
-      }),
-    });
+      // No usar pool en Render
+      pool: false,
+      // Configuración TLS adicional para Render
+      tls: {
+        rejectUnauthorized: false, // Aceptar certificados autofirmados si es necesario (solo en Render)
+      },
+    } : {
+      // Configuración simple para desarrollo/producción local
+      service: "gmail",
+      auth: {
+        user: emailUser,
+        pass: emailPass,
+      },
+      connectionTimeout: connectionTimeout,
+      socketTimeout: socketTimeout,
+      greetingTimeout: greetingTimeout,
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      rateDelta: 1000,
+      rateLimit: 14,
+    };
+
+    transporter = nodemailer.createTransport(transportConfig);
 
     console.log('✅ [EMAIL] Configurado Gmail como proveedor de email');
     console.log(`   Email remitente: ${emailUser}`);
