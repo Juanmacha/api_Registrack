@@ -1,55 +1,110 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import formData from 'form-data';
+import Mailgun from 'mailgun.js';
+// Cargar .env desde el archivo centralizado
+import "../config/env.js";
 
 // ---------------------------
-// CONFIGURACIÓN DE NODEMAILER
+// CONFIGURACIÓN DE PROVEEDOR DE EMAIL
 // ---------------------------
-// Validar variables de entorno
-const emailUser = process.env.EMAIL_USER;
-const emailPass = process.env.EMAIL_PASS;
-
-if (!emailUser || !emailPass) {
-  console.error('❌ ERROR: Variables de entorno EMAIL_USER o EMAIL_PASS no están definidas');
-  console.error('   Por favor, verifica tu archivo .env');
-}
-
-// Configuración adaptativa según el entorno
+// Determinar qué proveedor usar (Mailgun o Gmail)
+const emailProvider = process.env.EMAIL_PROVIDER || 'gmail'; // Por defecto Gmail para compatibilidad
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
 const isRender = process.env.RENDER === 'true' || process.env.RENDER;
 
-// Timeouts más largos para producción/Render (mayor latencia)
-const connectionTimeout = isProduction ? 30000 : 10000; // 30s en producción, 10s en desarrollo
-const socketTimeout = isProduction ? 60000 : 30000; // 60s en producción, 30s en desarrollo
-const greetingTimeout = isProduction ? 20000 : 10000; // 20s en producción, 10s en desarrollo
+// Variables de entorno
+const emailUser = process.env.EMAIL_USER;
+const emailPass = process.env.EMAIL_PASS;
+const mailgunApiKey = process.env.MAILGUN_API_KEY;
+const mailgunDomain = process.env.MAILGUN_DOMAIN;
+const mailgunFromEmail = process.env.MAILGUN_FROM_EMAIL || `noreply@${mailgunDomain}`;
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: emailUser, // correo desde el .env
-    pass: emailPass, // contraseña de aplicación
-  },
-  // Configuración de timeout y conexión mejorada (adaptativa)
-  connectionTimeout: connectionTimeout,
-  socketTimeout: socketTimeout,
-  greetingTimeout: greetingTimeout,
-  pool: true, // Usar pool de conexiones para mejor rendimiento
-  maxConnections: 5, // Máximo de conexiones simultáneas
-  maxMessages: 100, // Máximo de mensajes por conexión
-  rateDelta: 1000, // Ventana de tiempo para rate limiting
-  rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
-  // Configuración adicional para Render/producción
-  ...(isProduction && {
-    // En producción, usar más reintentos
-    logger: false, // Desactivar logs verbose en producción
-    debug: false, // Desactivar debug en producción
-  }),
-});
+// Log de depuración para ver qué variables están configuradas
+console.log('🔍 [EMAIL] Variables de entorno detectadas:');
+console.log(`   EMAIL_PROVIDER: ${emailProvider}`);
+console.log(`   MAILGUN_API_KEY: ${mailgunApiKey ? '✅ Configurado' : '❌ No configurado'}`);
+console.log(`   MAILGUN_DOMAIN: ${mailgunDomain || '❌ No configurado'}`);
+console.log(`   MAILGUN_FROM_EMAIL: ${mailgunFromEmail || '❌ No configurado'}`);
+
+// Configuración de Mailgun
+let mailgunClient = null;
+let useMailgun = false;
+if (emailProvider === 'mailgun' && mailgunApiKey && mailgunDomain) {
+  useMailgun = true;
+  const mailgun = new Mailgun(formData);
+  mailgunClient = mailgun.client({
+    username: 'api',
+    key: mailgunApiKey,
+  });
+  console.log('✅ [EMAIL] Configurado Mailgun como proveedor de email');
+  console.log(`   Dominio: ${mailgunDomain}`);
+  console.log(`   Email remitente: ${mailgunFromEmail}`);
+} else if (emailProvider === 'mailgun' && (!mailgunApiKey || !mailgunDomain)) {
+  console.warn('⚠️ [EMAIL] EMAIL_PROVIDER=mailgun pero faltan variables:');
+  if (!mailgunApiKey) console.warn('   ❌ MAILGUN_API_KEY no está definido');
+  if (!mailgunDomain) console.warn('   ❌ MAILGUN_DOMAIN no está definido');
+  console.warn('   Cambiando a Gmail como fallback');
+} else if (emailProvider !== 'mailgun') {
+  console.log(`ℹ️ [EMAIL] EMAIL_PROVIDER=${emailProvider || 'no definido'} - Usando Gmail por defecto`);
+}
+
+// Configuración de Nodemailer (Gmail)
+let transporter = null;
+if (!useMailgun) {
+  if (!emailUser || !emailPass) {
+    console.error('❌ ERROR: Variables de entorno EMAIL_USER o EMAIL_PASS no están definidas');
+    console.error('   Por favor, verifica tu archivo .env');
+  } else {
+    // Timeouts más largos para producción/Render (mayor latencia)
+    const connectionTimeout = isProduction ? 30000 : 10000; // 30s en producción, 10s en desarrollo
+    const socketTimeout = isProduction ? 60000 : 30000; // 60s en producción, 30s en desarrollo
+    const greetingTimeout = isProduction ? 20000 : 10000; // 20s en producción, 10s en desarrollo
+
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: emailUser, // correo desde el .env
+        pass: emailPass, // contraseña de aplicación
+      },
+      // Configuración de timeout y conexión mejorada (adaptativa)
+      connectionTimeout: connectionTimeout,
+      socketTimeout: socketTimeout,
+      greetingTimeout: greetingTimeout,
+      pool: true, // Usar pool de conexiones para mejor rendimiento
+      maxConnections: 5, // Máximo de conexiones simultáneas
+      maxMessages: 100, // Máximo de mensajes por conexión
+      rateDelta: 1000, // Ventana de tiempo para rate limiting
+      rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
+      // Configuración adicional para Render/producción
+      ...(isProduction && {
+        // En producción, usar más reintentos
+        logger: false, // Desactivar logs verbose en producción
+        debug: false, // Desactivar debug en producción
+      }),
+    });
+
+    console.log('✅ [EMAIL] Configurado Gmail como proveedor de email');
+    console.log(`   Email remitente: ${emailUser}`);
+  }
+}
 
 // Verificar conexión del transporter al inicializar (NO BLOQUEANTE)
-// En Render/producción, la verificación puede fallar por timeout pero no debe detener el servidor
+// Solo para Gmail (Mailgun no requiere verificación previa)
 const verifyEmailConnection = () => {
+  if (useMailgun) {
+    console.log('✅ [EMAIL] Mailgun configurado correctamente (no requiere verificación previa)');
+    console.log(`   Entorno: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'}`);
+    if (isRender) {
+      console.log('   Plataforma: Render');
+    }
+    return;
+  }
+
+  if (!transporter) {
+    console.warn('⚠️ [EMAIL] No se puede verificar conexión: transporter no configurado');
+    return;
+  }
+
   const timeout = setTimeout(() => {
     console.warn('⚠️ [EMAIL] Verificación de conexión tardando más de lo esperado...');
     console.warn('   Esto es normal en Render/producción. Los emails funcionarán cuando se necesiten.');
@@ -67,6 +122,7 @@ const verifyEmailConnection = () => {
         
         if (isRender) {
           console.warn('   💡 En Render, la verificación puede fallar por timeout pero los emails funcionarán.');
+          console.warn('   💡 Considera usar Mailgun para mejor rendimiento en Render.');
           console.warn('   💡 Verifica que EMAIL_USER y EMAIL_PASS estén correctamente configurados en las variables de entorno.');
         }
       } else {
@@ -77,6 +133,7 @@ const verifyEmailConnection = () => {
         console.error('   2. Que uses una contraseña de aplicación de Gmail (no tu contraseña normal)');
         console.error('   3. Que tengas 2FA habilitado en tu cuenta de Gmail');
         console.error('   4. Que la contraseña de aplicación no haya expirado');
+        console.error('   💡 Alternativa: Usa Mailgun configurando EMAIL_PROVIDER=mailgun, MAILGUN_API_KEY y MAILGUN_DOMAIN');
       }
     } else {
       console.log('✅ [EMAIL] Configuración de email verificada correctamente');
@@ -94,6 +151,58 @@ const verifyEmailConnection = () => {
 setTimeout(() => {
   verifyEmailConnection();
 }, 1000); // Esperar 1 segundo después del inicio para verificar
+
+// ---------------------------
+// FUNCIÓN UNIFICADA PARA ENVIAR EMAILS
+// ---------------------------
+const sendEmail = async (mailOptions) => {
+  if (useMailgun) {
+    // Usar Mailgun
+    try {
+      const messageData = {
+        from: mailOptions.from || mailgunFromEmail,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        text: mailOptions.text || mailOptions.html.replace(/<[^>]*>/g, ''), // Convertir HTML a texto plano
+      };
+
+      await mailgunClient.messages.create(mailgunDomain, messageData);
+      console.log(`✅ [EMAIL] Email enviado exitosamente con Mailgun a: ${mailOptions.to}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [EMAIL] Error al enviar email con Mailgun a ${mailOptions.to}:`, error.message);
+      if (error.details) {
+        console.error('   Detalles:', error.details);
+      }
+      if (error.status) {
+        console.error('   Status:', error.status);
+      }
+      throw error;
+    }
+  } else {
+    // Usar Gmail (Nodemailer)
+    if (!transporter) {
+      throw new Error('Transporter no configurado. Verifica EMAIL_USER y EMAIL_PASS en .env');
+    }
+
+    try {
+      // Asegurar que el from esté configurado
+      const finalMailOptions = {
+        ...mailOptions,
+        from: mailOptions.from || `"Registrack" <${emailUser}>`,
+      };
+
+      await transporter.sendMail(finalMailOptions);
+      console.log(`✅ [EMAIL] Email enviado exitosamente con Gmail a: ${mailOptions.to}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [EMAIL] Error al enviar email con Gmail a ${mailOptions.to}:`, error.message);
+      console.error(`   Código de error: ${error.code}`);
+      throw error;
+    }
+  }
+};
 
 // ---------------------------
 // FUNCIÓN AUXILIAR PARA VALIDAR EMAIL
@@ -181,7 +290,7 @@ export const sendPasswordResetEmail = async (to, resetCode, userName) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Código de restablecimiento enviado a: ${to}`);
     return resetCode; // lo devuelves para guardarlo en la BD
   } catch (error) {
@@ -284,7 +393,7 @@ export const sendNuevaSolicitudCliente = async (clienteEmail, clienteNombre, sol
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de nueva solicitud enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -343,7 +452,7 @@ export const sendAsignacionCliente = async (clienteEmail, clienteNombre, solicit
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de asignación enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -402,7 +511,7 @@ export const sendNuevaAsignacionEmpleado = async (empleadoEmail, empleadoNombre,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de nueva asignación enviado a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
@@ -458,7 +567,7 @@ export const sendReasignacionEmpleado = async (empleadoEmail, empleadoNombre, so
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de reasignación enviado a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
@@ -523,7 +632,7 @@ export const sendCambioEstadoCliente = async (clienteEmail, clienteNombre, solic
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de cambio de estado enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -682,7 +791,7 @@ export const sendAnulacionSolicitudCliente = async (clienteEmail, clienteNombre,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de anulación enviado a cliente: ${clienteEmail}`);
     
     // Opcional: Registrar notificación en BD
@@ -832,7 +941,7 @@ export const sendAnulacionSolicitudEmpleado = async (empleadoEmail, empleadoNomb
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de anulación enviado a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
@@ -896,7 +1005,7 @@ export const sendPaymentConfirmationEmail = async (clienteEmail, clienteNombre, 
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de confirmación de pago enviado a: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -972,7 +1081,7 @@ export const sendRenovationAlertEmpleado = async (empleadoEmail, nombreEmpleado,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Alerta de renovación enviada a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
@@ -1036,7 +1145,7 @@ export const sendRenovationAlertCliente = async (clienteEmail, nombreCliente, da
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Alerta de renovación enviada a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -1132,7 +1241,7 @@ export const sendRenovationAlertAdmin = async (adminEmail, datosResumen) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Alerta resumen enviada a administrador: ${adminEmail}`);
     return true;
   } catch (error) {
@@ -1196,7 +1305,7 @@ export const sendCitaProgramadaCliente = async (clienteEmail, clienteNombre, cit
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de cita programada enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -1251,7 +1360,7 @@ export const sendCitaProgramadaEmpleado = async (empleadoEmail, empleadoNombre, 
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de cita programada enviado a empleado: ${empleadoEmail}`);
     return true;
   } catch (error) {
@@ -1306,7 +1415,7 @@ export const sendSolicitudCitaCreada = async (clienteEmail, clienteNombre, solic
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de solicitud de cita creada enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -1368,7 +1477,7 @@ export const sendSolicitudCitaAprobada = async (clienteEmail, clienteNombre, cit
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de solicitud de cita aprobada enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {
@@ -1424,7 +1533,7 @@ export const sendSolicitudCitaRechazada = async (clienteEmail, clienteNombre, so
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`✅ Email de solicitud de cita rechazada enviado a cliente: ${clienteEmail}`);
     return true;
   } catch (error) {

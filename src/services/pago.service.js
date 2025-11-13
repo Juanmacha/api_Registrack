@@ -9,6 +9,13 @@ export const PagoService = {
     return await PagoRepository.findAll();
   },
 
+  /**
+   * ✅ NUEVO: Listar pagos con información completa
+   */
+  async listarPagosConDetalles() {
+    return await PagoRepository.findAllWithDetails();
+  },
+
   async obtenerPago(id) {
     return await PagoRepository.findById(id);
   },

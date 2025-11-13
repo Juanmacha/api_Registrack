@@ -1,14 +1,6 @@
-import dotenv from "dotenv";
 import { Sequelize } from "sequelize";
-import { fileURLToPath } from "url";
-import path from "path";
-
-// Asegurar que .env se cargue desde la raíz del proyecto (api_Registrack/api_Registrack)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const envPath = path.resolve(__dirname, "../../.env");
-
-dotenv.config({ path: envPath });
+// Cargar .env desde el archivo centralizado
+import "./env.js";
 
 console.log("Conectando a MySQL con:", {
   database: process.env.DB_NAME,

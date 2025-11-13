@@ -10,7 +10,7 @@
 > - **Sistema de Permisos Granular**: Control de acceso a nivel de módulo y acción. Crear roles personalizados con permisos específicos. Middleware `checkPermiso` para validación granular. Administradores tienen acceso total automático.
 > - **Creación de Usuarios con Roles Personalizados**: Los administradores pueden crear usuarios con cualquier rol existente y activo (incluye roles personalizados). Validación mejorada de roles y manejo de errores específico.
 > - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
-> - **Sistema de Pago Requerido**: Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock
+> - **Sistema de Pago Mejorado**: Monto automático desde el servicio (opcional), validación de monto, fecha de pago automática, y endpoints GET con información completa de usuario, solicitud, servicio, cliente y empresa
 > - **Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP comprimido
 
 ---
@@ -34,6 +34,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 | **Ene 2026** | 📦 **Descarga de Archivos en ZIP** | Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP. Incluye logotipo, poderes, certificados, documentos de cesión/oposición y soportes. Detección automática de tipos MIME, nombres descriptivos y archivo README con información de la solicitud. |
 | **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
+| **Ene 2026** | 💳 **Sistema de Pagos Mejorado: Monto Automático e Información Completa** | **Monto Automático:** El campo `monto` es opcional en el procesamiento de pagos. El sistema toma automáticamente el `total_estimado` de la orden de servicio. Si se proporciona `monto`, se valida que coincida exactamente con el `total_estimado`. **Fecha Automática:** La `fecha_pago` se establece automáticamente cuando el estado es "Pagado". **Información Completa:** Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devuelven información completa de usuario, solicitud, servicio, cliente y empresa asociados en una estructura JSON organizada. Mejora significativa en la experiencia de consulta de pagos. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
 | **4 Nov 2025** | 📧 **Solución de Timeouts en Emails + Render** | Envío de emails en background después de responder HTTP. Timeouts adaptativos según entorno (30s/60s en producción). Verificación no bloqueante. Funciona correctamente en Render con manejo inteligente de timeouts. |
 | **4 Nov 2025** | 📧 **Emails Mejorados en Citas desde Solicitudes** | Sistema completo de notificaciones: emails al cliente y al empleado asignado a la solicitud cuando se crea una cita. Prevención de duplicados inteligente. |
@@ -1185,7 +1186,7 @@ Authorization: Bearer <token_admin>
 - **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
 - **Datos completos**: Información completa del usuario y empresa asociada
 
-### 8. Sistema de Pagos (`/api/gestion-pagos`) ⭐ **ACTUALIZADO - Enero 2025**
+### 8. Sistema de Pagos (`/api/gestion-pagos`) ⭐ **ACTUALIZADO - Enero 2026**
 - **Procesamiento con Mock**: Simula pasarelas de pago (PayPal, Stripe, Wompi)
 - **Comprobantes automáticos**: Generación de número único (formato: RC-YYYYMM-XXXX)
 - **Emails de confirmación**: Notificación automática al procesar pago
@@ -1197,11 +1198,15 @@ Authorization: Bearer <token_admin>
 - **Precios configurados**: Servicios con precio_base en BD
 - **7 campos nuevos**: transaction_id, gateway, gateway_data, verified_at, verified_by, verification_method, numero_comprobante
 - **🔄 Activación Automática de Solicitudes**: Al procesar un pago exitoso, la solicitud asociada se activa automáticamente con el primer estado del proceso
+- **💰 Monto Automático**: El monto se toma automáticamente del `total_estimado` de la orden de servicio (el campo `monto` es opcional)
+- **✅ Validación de Monto**: Si se proporciona `monto`, debe coincidir exactamente con el `total_estimado` de la orden
+- **📅 Fecha de Pago Automática**: La `fecha_pago` se establece automáticamente cuando el estado es "Pagado"
+- **📊 Información Completa en GET**: Los endpoints GET devuelven información completa de usuario, solicitud, servicio, cliente y empresa asociados
 
 **Funcionalidades:**
-- `POST /api/gestion-pagos/process-mock` - Procesar pago simulado **y activar solicitud automáticamente**
-- `GET /api/gestion-pagos` - Ver todos los pagos (admin)
-- `GET /api/gestion-pagos/:id` - Ver pago específico
+- `POST /api/gestion-pagos/process-mock` - Procesar pago simulado **y activar solicitud automáticamente** (monto opcional, se toma del servicio)
+- `GET /api/gestion-pagos` - Ver todos los pagos con información completa (admin)
+- `GET /api/gestion-pagos/:id` - Ver pago específico con información completa
 - `GET /api/gestion-pagos/:id/comprobante/download` - Descargar comprobante
 - `GET /api/gestion-pagos/:id/comprobante` - Generar PDF
 - `GET /api/gestion-pagos/reporte/excel` - Reporte Excel
@@ -1214,6 +1219,17 @@ Authorization: Bearer <token_admin>
 
 1. **Cliente crea solicitud** → Estado: "Pendiente de Pago"
 2. **Cliente procesa pago** con `POST /api/gestion-pagos/process-mock`:
+   
+   **Opción 1: Monto Automático (Recomendado)**
+   ```json
+   {
+     "metodo_pago": "Tarjeta",
+     "id_orden_servicio": 123
+   }
+   ```
+   El sistema toma automáticamente el `total_estimado` de la orden de servicio.
+   
+   **Opción 2: Monto Manual (Validado)**
    ```json
    {
      "monto": 500000.00,
@@ -1221,6 +1237,8 @@ Authorization: Bearer <token_admin>
      "id_orden_servicio": 123
    }
    ```
+   Si se proporciona `monto`, debe coincidir exactamente con el `total_estimado` de la orden.
+
 3. **Respuesta exitosa** incluye `solicitud_activada: true`:
    ```json
    {
@@ -1234,10 +1252,65 @@ Authorization: Bearer <token_admin>
    ```
 4. La solicitud se activa automáticamente con el primer estado del proceso del servicio.
 
+**📊 Respuesta de GET con Información Completa:**
+
+Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devuelven información completa:
+
+```json
+{
+  "success": true,
+  "data": {
+    "pago": {
+      "id_pago": 1,
+      "monto": 500000.00,
+      "metodo_pago": "Tarjeta",
+      "estado": "Pagado",
+      "fecha_pago": "2025-01-13T10:00:00.000Z",
+      "transaction_id": "RC-202501-0001",
+      ...
+    },
+    "solicitud": {
+      "id_orden_servicio": 123,
+      "numero_expediente": "EXP-2025-001",
+      "estado": "En Proceso",
+      "total_estimado": 500000.00,
+      ...
+    },
+    "servicio": {
+      "id_servicio": 1,
+      "nombre": "Búsqueda de Antecedentes",
+      "precio_base": 500000.00,
+      ...
+    },
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "correo": "juan.perez@example.com",
+      ...
+    },
+    "cliente": {
+      "id_cliente": 1,
+      "marca": "Mi Marca",
+      "tipo_persona": "Natural",
+      ...
+    },
+    "empresa": {
+      "id_empresa": 1,
+      "nombre": "Mi Empresa",
+      "nit": "1234567890",
+      ...
+    }
+  }
+}
+```
+
 **👨‍💼 Para Administradores/Empleados:**
 - Las solicitudes se activan **automáticamente** al crearlas
 - No requieren procesamiento de pago por API
 - El pago puede gestionarse físicamente después si es necesario
+
+**📝 Documentación Completa:** Ver `EJEMPLO_POSTMAN_PAGO_MOCK.md` para ejemplos detallados de uso, incluyendo registro, login, creación de solicitudes y procesamiento de pagos.
 
 
 ### 9. Gestión de Empleados (`/api/gestion-empleados`)
@@ -1333,8 +1406,8 @@ Ver sección de **Pagos** para más detalles sobre el flujo de pago de clientes.
 ### Pagos 💰 **ACTUALIZADO - Enero 2026**
 ```http
 POST /api/gestion-pagos/process-mock           # Procesar pago y activar solicitud automáticamente 💰 NUEVO
-GET /api/gestion-pagos                          # Ver todos los pagos (admin)
-GET /api/gestion-pagos/:id                      # Ver pago específico
+GET /api/gestion-pagos                          # Ver todos los pagos con información completa (admin) 📊 ACTUALIZADO
+GET /api/gestion-pagos/:id                      # Ver pago específico con información completa 📊 ACTUALIZADO
 GET /api/gestion-pagos/:id/comprobante          # Generar comprobante PDF
 GET /api/gestion-pagos/:id/comprobante/download # Descargar comprobante
 GET /api/gestion-pagos/reporte/excel            # Reporte Excel de pagos
@@ -1345,7 +1418,18 @@ POST /api/gestion-pagos/simular                # Simular pago para testing
 **💰 Flujo de Activación:**
 1. Crear solicitud → Estado: "Pendiente de Pago"
 2. Procesar pago con `POST /api/gestion-pagos/process-mock` → Activa solicitud automáticamente
+   - **Monto automático**: El `monto` es opcional, se toma del `total_estimado` de la orden
+   - **Validación**: Si se proporciona `monto`, debe coincidir con el `total_estimado`
 3. Respuesta incluye `solicitud_activada: true` si fue exitoso
+
+**📊 Información Completa en GET:**
+- Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` devuelven información completa:
+  - Datos del pago (monto, método, estado, fecha_pago, transaction_id, etc.)
+  - Información de la solicitud asociada (número de expediente, estado, total, etc.)
+  - Información del servicio (nombre, precio_base, descripción, etc.)
+  - Información del usuario/cliente (nombre, correo, documento, teléfono, etc.)
+  - Información del cliente (marca, tipo de persona, etc.)
+  - Información de la empresa (si aplica)
 
 ### Citas ⭐ **ACTUALIZADO - Ene 2026**
 ```http

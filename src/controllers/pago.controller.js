@@ -1,12 +1,73 @@
 import { PagoService } from "../services/pago.service.js";
+import { PagoRepository } from "../repositories/pago.repository.js";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 export const PagoController = {
   async getAll(req, res) {
     try {
-      const pagos = await PagoService.listarPagos();
-      res.json(pagos);
+      // ✅ NUEVO: Usar método con detalles para incluir información de usuario y solicitud
+      const pagos = await PagoService.listarPagosConDetalles();
+      
+      // Formatear respuesta para mejor estructura
+      const pagosFormateados = pagos.map(pago => ({
+        pago: {
+          id_pago: pago.id_pago,
+          monto_pagado: parseFloat(pago.monto_pagado),
+          metodo_pago: pago.metodo_pago,
+          estado: pago.estado_pago,
+          fecha_pago: pago.fecha_pago,
+          transaction_id: pago.transaction_id,
+          gateway: pago.gateway,
+          comprobante_url: pago.comprobante_url,
+          numero_comprobante: pago.numero_comprobante,
+          verified_at: pago.verified_at,
+          verification_method: pago.verification_method,
+          created_at: pago.created_at,
+          updated_at: pago.updated_at
+        },
+        solicitud: {
+          id_orden_servicio: pago.id_orden_servicio,
+          numero_expediente: pago.numero_expediente,
+          fecha_creacion: pago.fecha_creacion_solicitud,
+          estado: pago.estado_solicitud,
+          total_orden_servicio: parseFloat(pago.total_orden_servicio),
+          pais: pago.pais,
+          ciudad: pago.ciudad,
+          codigo_postal: pago.codigo_postal,
+          nombre_completo: pago.nombrecompleto,
+          correo: pago.correoelectronico,
+          telefono: pago.telefono_solicitud
+        },
+        servicio: {
+          id_servicio: pago.id_servicio,
+          nombre: pago.nombre_servicio,
+          descripcion: pago.descripcion_servicio,
+          precio_base: parseFloat(pago.precio_base_servicio)
+        },
+        usuario: {
+          id_usuario: pago.id_usuario,
+          nombre: pago.nombre_usuario,
+          apellido: pago.apellido_usuario,
+          correo: pago.correo_usuario,
+          telefono: pago.telefono_usuario,
+          tipo_documento: pago.tipo_documento_usuario,
+          documento: pago.documento_usuario
+        },
+        cliente: {
+          id_cliente: pago.id_cliente,
+          marca: pago.marca,
+          tipo_persona: pago.tipo_persona
+        },
+        empresa: pago.id_empresa ? {
+          id_empresa: pago.id_empresa,
+          nombre: pago.nombre_empresa,
+          nit: pago.nit_empresa,
+          tipo_empresa: pago.tipo_empresa
+        } : null
+      }));
+      
+      res.json(pagosFormateados);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -14,9 +75,67 @@ export const PagoController = {
 
   async getById(req, res) {
     try {
-      const pago = await PagoService.obtenerPago(req.params.id);
+      // ✅ NUEVO: Usar método con detalles para incluir información completa
+      const pago = await PagoService.obtenerPagoConDetalles(req.params.id);
       if (!pago) return res.status(404).json({ message: "Pago no encontrado" });
-      res.json(pago);
+      
+      // Formatear respuesta para mejor estructura
+      const pagoFormateado = {
+        pago: {
+          id_pago: pago.id_pago,
+          monto_pagado: parseFloat(pago.monto_pagado),
+          metodo_pago: pago.metodo_pago,
+          estado: pago.estado_pago,
+          fecha_pago: pago.fecha_pago,
+          transaction_id: pago.transaction_id,
+          gateway: pago.gateway,
+          comprobante_url: pago.comprobante_url,
+          numero_comprobante: pago.numero_comprobante,
+          verified_at: pago.verified_at,
+          verification_method: pago.verification_method
+        },
+        solicitud: {
+          id_orden_servicio: pago.id_orden_servicio,
+          numero_expediente: pago.numero_expediente,
+          fecha_creacion: pago.fecha_creacion_solicitud,
+          estado: pago.estado_solicitud,
+          total_orden_servicio: parseFloat(pago.total_orden_servicio),
+          pais: pago.pais,
+          ciudad: pago.ciudad,
+          codigo_postal: pago.codigo_postal,
+          nombre_completo: pago.nombrecompleto,
+          correo: pago.correoelectronico,
+          telefono: pago.telefono_solicitud
+        },
+        servicio: {
+          id_servicio: pago.id_servicio,
+          nombre: pago.nombre_servicio,
+          descripcion: pago.descripcion_servicio,
+          precio_base: parseFloat(pago.precio_base_servicio)
+        },
+        usuario: {
+          id_usuario: pago.id_usuario,
+          nombre: pago.nombre_usuario,
+          apellido: pago.apellido_usuario,
+          correo: pago.correo_usuario,
+          telefono: pago.telefono_usuario,
+          tipo_documento: pago.tipo_documento_usuario,
+          documento: pago.documento_usuario
+        },
+        cliente: {
+          id_cliente: pago.id_cliente,
+          marca: pago.marca,
+          tipo_persona: pago.tipo_persona
+        },
+        empresa: pago.id_empresa ? {
+          id_empresa: pago.id_empresa,
+          nombre: pago.nombre_empresa,
+          nit: pago.nit_empresa,
+          tipo_empresa: pago.tipo_empresa
+        } : null
+      };
+      
+      res.json(pagoFormateado);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -120,15 +239,41 @@ export const PagoController = {
       const { monto, metodo_pago, id_orden_servicio } = req.body;
       const usuarioQuePago = req.user; // Usuario autenticado que realiza el pago
 
-      if (!monto || !metodo_pago || !id_orden_servicio) {
+      if (!metodo_pago || !id_orden_servicio) {
         return res.status(400).json({ 
           success: false,
-          error: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio" 
+          error: "Datos incompletos. Requiere: metodo_pago, id_orden_servicio (monto es opcional, se toma del servicio)" 
         });
       }
 
+      // ✅ NUEVO: Obtener orden de servicio para tomar el precio automáticamente
+      const ordenServicio = await PagoRepository.getOrdenServicioById(parseInt(id_orden_servicio));
+      
+      if (!ordenServicio) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Orden de servicio no encontrada" 
+        });
+      }
+
+      // ✅ NUEVO: Si no se envía monto, usar automáticamente el total_estimado
+      // Si se envía monto, validar que coincida con total_estimado (tolerancia de 0.01 para decimales)
+      const montoFinal = monto ? parseFloat(monto) : parseFloat(ordenServicio.total_estimado);
+      const totalEstimado = parseFloat(ordenServicio.total_estimado);
+      
+      if (monto && Math.abs(montoFinal - totalEstimado) > 0.01) {
+        return res.status(400).json({ 
+          success: false,
+          error: `El monto enviado (${montoFinal}) no coincide con el total estimado de la orden (${totalEstimado}). Use el monto correcto o omita el campo 'monto' para usar el precio automático.`,
+          total_estimado: totalEstimado,
+          monto_enviado: montoFinal
+        });
+      }
+
+      console.log(`💰 Procesando pago: Monto automático = ${montoFinal} (total_estimado de la orden)`);
+
       const resultado = await PagoService.procesarPagoMock({
-        monto: parseFloat(monto),
+        monto: montoFinal, // ✅ Usar monto automático del servicio
         metodo_pago,
         id_orden_servicio: parseInt(id_orden_servicio),
         gateway: 'mock',

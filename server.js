@@ -1,8 +1,8 @@
-import dotenv from "dotenv";
+// Cargar .env PRIMERO, antes de cualquier otro import
+import "./src/config/env.js";
+
 import app from "./app.js";
 import { initializeDatabase } from "./init-database.js";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 

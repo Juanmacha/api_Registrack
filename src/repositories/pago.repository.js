@@ -3,30 +3,149 @@ import { QueryTypes } from "sequelize";
 
 export const PagoRepository = {
   async findAll() {
-    return await sequelize.query("SELECT * FROM pagos", { type: QueryTypes.SELECT });
+    return await sequelize.query(
+      `SELECT 
+        id_pago,
+        id_orden_servicio,
+        monto,
+        metodo_pago,
+        estado,
+        COALESCE(fecha_pago, created_at) as fecha_pago,
+        referencia,
+        comprobante_url,
+        observaciones,
+        transaction_id,
+        gateway,
+        gateway_data,
+        verified_at,
+        verified_by,
+        verification_method,
+        numero_comprobante,
+        created_at,
+        updated_at
+      FROM pagos 
+      ORDER BY created_at DESC`, 
+      { type: QueryTypes.SELECT }
+    );
+  },
+
+  /**
+   * ✅ NUEVO: Obtener todos los pagos con información completa (usuario, solicitud, servicio)
+   */
+  async findAllWithDetails() {
+    return await sequelize.query(
+      `SELECT 
+        -- Información del pago
+        p.id_pago,
+        p.monto as monto_pagado,
+        p.metodo_pago,
+        p.estado as estado_pago,
+        p.transaction_id,
+        p.gateway,
+        p.comprobante_url,
+        p.numero_comprobante,
+        p.verified_at,
+        p.verification_method,
+        COALESCE(p.fecha_pago, p.created_at) as fecha_pago,
+        p.created_at,
+        p.updated_at,
+        
+        -- Información de la solicitud/orden
+        os.id_orden_servicio,
+        os.numero_expediente,
+        os.fecha_creacion as fecha_creacion_solicitud,
+        os.estado as estado_solicitud,
+        os.total_estimado as total_orden_servicio,
+        os.pais,
+        os.ciudad,
+        os.codigo_postal,
+        os.nombrecompleto,
+        os.correoelectronico,
+        os.telefono as telefono_solicitud,
+        
+        -- Información del servicio
+        s.id_servicio,
+        s.nombre as nombre_servicio,
+        s.descripcion as descripcion_servicio,
+        s.precio_base as precio_base_servicio,
+        
+        -- Información del cliente
+        c.id_cliente,
+        c.marca,
+        c.tipo_persona,
+        
+        -- Información del usuario (cliente)
+        u.id_usuario,
+        u.nombre as nombre_usuario,
+        u.apellido as apellido_usuario,
+        u.correo as correo_usuario,
+        u.telefono as telefono_usuario,
+        u.tipo_documento as tipo_documento_usuario,
+        u.documento as documento_usuario,
+        
+        -- Información de la empresa (si aplica)
+        e.id_empresa,
+        e.nombre as nombre_empresa,
+        e.nit as nit_empresa,
+        e.tipo_empresa
+      FROM pagos p
+      INNER JOIN ordenes_de_servicios os ON p.id_orden_servicio = os.id_orden_servicio
+      INNER JOIN servicios s ON os.id_servicio = s.id_servicio
+      INNER JOIN clientes c ON os.id_cliente = c.id_cliente
+      INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
+      LEFT JOIN empresas e ON os.id_empresa = e.id_empresa
+      ORDER BY p.created_at DESC`, 
+      { type: QueryTypes.SELECT }
+    );
   },
 
   async findById(id) {
     const result = await sequelize.query(
-      "SELECT * FROM pagos WHERE id_pago = ?",
+      `SELECT 
+        id_pago,
+        id_orden_servicio,
+        monto,
+        metodo_pago,
+        estado,
+        COALESCE(fecha_pago, created_at) as fecha_pago,
+        referencia,
+        comprobante_url,
+        observaciones,
+        transaction_id,
+        gateway,
+        gateway_data,
+        verified_at,
+        verified_by,
+        verification_method,
+        numero_comprobante,
+        created_at,
+        updated_at
+      FROM pagos 
+      WHERE id_pago = ?`,
       { replacements: [id], type: QueryTypes.SELECT }
     );
     return result[0];
   },
 
   async create(pago) {
+    // Si el estado es "Pagado", establecer fecha_pago automáticamente
+    const fechaPago = (pago.estado === 'Pagado') 
+      ? (pago.fecha_pago || new Date()) 
+      : null;
+    
     const [result] = await sequelize.query(
       `INSERT INTO pagos (
-        monto, metodo_pago, estado, comprobante_url, id_orden_servicio,
+        monto, metodo_pago, estado, fecha_pago, comprobante_url, id_orden_servicio,
         transaction_id, gateway, gateway_data, verified_at, verified_by,
         verification_method, numero_comprobante
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
         replacements: [
           pago.monto, 
           pago.metodo_pago, 
-          pago.estado || 'Pendiente', 
+          pago.estado || 'Pendiente',
+          fechaPago, // ✅ Agregado fecha_pago
           pago.comprobante_url || null, 
           pago.id_orden_servicio || null,
           pago.transaction_id || null,
@@ -40,7 +159,7 @@ export const PagoRepository = {
         type: QueryTypes.INSERT
       }
     );
-    return { id_pago: result, ...pago };
+    return { id_pago: result, ...pago, fecha_pago: fechaPago };
   },
 
   /**
@@ -50,6 +169,24 @@ export const PagoRepository = {
     const result = await sequelize.query(
       "SELECT * FROM pagos WHERE transaction_id = ?",
       { replacements: [transactionId], type: QueryTypes.SELECT }
+    );
+    return result[0];
+  },
+
+  /**
+   * ✅ NUEVO: Obtener orden de servicio con total_estimado
+   */
+  async getOrdenServicioById(idOrdenServicio) {
+    const result = await sequelize.query(
+      `SELECT 
+        id_orden_servicio,
+        total_estimado,
+        estado,
+        id_servicio,
+        id_cliente
+      FROM ordenes_de_servicios 
+      WHERE id_orden_servicio = ?`,
+      { replacements: [idOrdenServicio], type: QueryTypes.SELECT }
     );
     return result[0];
   },
