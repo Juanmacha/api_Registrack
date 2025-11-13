@@ -56,9 +56,10 @@ if (!useMailgun) {
     console.error('   Por favor, verifica tu archivo .env');
   } else {
     // Timeouts más largos para producción/Render (mayor latencia)
-    const connectionTimeout = isProduction ? 30000 : 10000; // 30s en producción, 10s en desarrollo
-    const socketTimeout = isProduction ? 60000 : 30000; // 60s en producción, 30s en desarrollo
-    const greetingTimeout = isProduction ? 20000 : 10000; // 20s en producción, 10s en desarrollo
+    // En Render, los timeouts necesitan ser aún más largos debido a la latencia de red
+    const connectionTimeout = isRender ? 60000 : (isProduction ? 45000 : 10000); // 60s en Render, 45s en producción, 10s en desarrollo
+    const socketTimeout = isRender ? 120000 : (isProduction ? 90000 : 30000); // 120s en Render, 90s en producción, 30s en desarrollo
+    const greetingTimeout = isRender ? 30000 : (isProduction ? 25000 : 10000); // 30s en Render, 25s en producción, 10s en desarrollo
 
     transporter = nodemailer.createTransport({
       service: "gmail",
@@ -70,9 +71,10 @@ if (!useMailgun) {
       connectionTimeout: connectionTimeout,
       socketTimeout: socketTimeout,
       greetingTimeout: greetingTimeout,
-      pool: true, // Usar pool de conexiones para mejor rendimiento
-      maxConnections: 5, // Máximo de conexiones simultáneas
-      maxMessages: 100, // Máximo de mensajes por conexión
+      // En Render, desactivar pool para evitar problemas de conexión
+      pool: !isRender, // Pool solo en desarrollo/producción local
+      maxConnections: isRender ? 1 : 5, // 1 conexión en Render para evitar timeouts
+      maxMessages: isRender ? 1 : 100, // 1 mensaje por conexión en Render
       rateDelta: 1000, // Ventana de tiempo para rate limiting
       rateLimit: 14, // Máximo de emails por rateDelta (Gmail permite ~14 emails/segundo)
       // Configuración adicional para Render/producción
@@ -85,6 +87,18 @@ if (!useMailgun) {
 
     console.log('✅ [EMAIL] Configurado Gmail como proveedor de email');
     console.log(`   Email remitente: ${emailUser}`);
+    if (isRender) {
+      console.log(`   ⚙️ Configuración optimizada para Render:`);
+      console.log(`      - Connection timeout: ${connectionTimeout / 1000}s`);
+      console.log(`      - Socket timeout: ${socketTimeout / 1000}s`);
+      console.log(`      - Pool desactivado (mejor para Render)`);
+      console.log(`      - Reintentos automáticos: 3 intentos`);
+    } else if (isProduction) {
+      console.log(`   ⚙️ Configuración para producción:`);
+      console.log(`      - Connection timeout: ${connectionTimeout / 1000}s`);
+      console.log(`      - Socket timeout: ${socketTimeout / 1000}s`);
+      console.log(`      - Reintentos automáticos: 2 intentos`);
+    }
   }
 }
 
@@ -181,26 +195,63 @@ const sendEmail = async (mailOptions) => {
       throw error;
     }
   } else {
-    // Usar Gmail (Nodemailer)
+    // Usar Gmail (Nodemailer) con reintentos automáticos
     if (!transporter) {
       throw new Error('Transporter no configurado. Verifica EMAIL_USER y EMAIL_PASS en .env');
     }
 
-    try {
-      // Asegurar que el from esté configurado
-      const finalMailOptions = {
-        ...mailOptions,
-        from: mailOptions.from || `"Registrack" <${emailUser}>`,
-      };
+    // Asegurar que el from esté configurado
+    const finalMailOptions = {
+      ...mailOptions,
+      from: mailOptions.from || `"Registrack" <${emailUser}>`,
+    };
 
-      await transporter.sendMail(finalMailOptions);
-      console.log(`✅ [EMAIL] Email enviado exitosamente con Gmail a: ${mailOptions.to}`);
-      return true;
-    } catch (error) {
-      console.error(`❌ [EMAIL] Error al enviar email con Gmail a ${mailOptions.to}:`, error.message);
-      console.error(`   Código de error: ${error.code}`);
-      throw error;
+    // Reintentos automáticos para errores de timeout (especialmente en Render)
+    const maxRetries = isRender ? 3 : 2; // 3 reintentos en Render, 2 en otros entornos
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await transporter.sendMail(finalMailOptions);
+        if (attempt > 1) {
+          console.log(`✅ [EMAIL] Email enviado exitosamente con Gmail a: ${mailOptions.to} (intento ${attempt}/${maxRetries})`);
+        } else {
+          console.log(`✅ [EMAIL] Email enviado exitosamente con Gmail a: ${mailOptions.to}`);
+        }
+        return true;
+      } catch (error) {
+        lastError = error;
+        const isTimeoutError = error.code === 'ETIMEDOUT' || 
+                              error.code === 'ECONNRESET' || 
+                              error.code === 'ESOCKETTIMEDOUT' ||
+                              error.message?.includes('timeout') ||
+                              error.message?.includes('Connection timeout');
+
+        if (isTimeoutError && attempt < maxRetries) {
+          // Calcular delay con backoff exponencial (2s, 4s, 8s)
+          const delay = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
+          console.warn(`⚠️ [EMAIL] Timeout al enviar email a ${mailOptions.to} (intento ${attempt}/${maxRetries})`);
+          console.warn(`   Reintentando en ${delay / 1000} segundos...`);
+          console.warn(`   Código de error: ${error.code}`);
+          
+          // Esperar antes de reintentar
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Reintentar
+        } else {
+          // No es un timeout o ya se agotaron los reintentos
+          console.error(`❌ [EMAIL] Error al enviar email con Gmail a ${mailOptions.to}:`, error.message);
+          console.error(`   Código de error: ${error.code}`);
+          if (attempt === maxRetries && isTimeoutError) {
+            console.error(`   ⚠️ Se agotaron los ${maxRetries} reintentos por timeout`);
+            console.error(`   💡 En Render, los timeouts pueden ser más frecuentes. Considera usar Mailgun para mejor rendimiento.`);
+          }
+          throw error;
+        }
+      }
     }
+
+    // Si llegamos aquí, todos los reintentos fallaron
+    throw lastError;
   }
 };
 
