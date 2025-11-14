@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { createUser, findUserByEmail, findRoleByName, findUserByResetToken } from "../repositories/auth.repository.js";
 import { Role as Rol } from "../models/index.js";
 import { sendPasswordResetEmail, generateResetCode } from "./email.service.js";
+import { transformRoleToFrontend } from "../utils/roleTransformations.js";
 
 
 // Lógica de registro
@@ -58,6 +59,29 @@ export const loginUser = async (correo, contrasena) => {
   // ✅ Obtener id_rol (disponible directamente en usuario.id_rol o desde usuario.rol.id_rol)
   const idRol = usuario.id_rol || (usuario.rol ? usuario.rol.id_rol : null);
 
+  // ✅ NUEVO: Cargar el rol básico (transformRoleToFrontend obtendrá los permisos desde la tabla intermedia)
+  let rolCompleto = null;
+  if (idRol) {
+    rolCompleto = await Rol.findByPk(idRol, {
+      attributes: ['id_rol', 'nombre', 'estado']
+    });
+  }
+
+  // ✅ NUEVO: Transformar el rol al formato del frontend (con permisos)
+  // transformRoleToFrontend obtendrá los permisos desde la tabla rol_permisos_privilegios
+  let rolTransformado = null;
+  if (rolCompleto) {
+    rolTransformado = await transformRoleToFrontend(rolCompleto);
+  } else {
+    // Si no hay rol, crear un objeto básico
+    rolTransformado = {
+      id: idRol?.toString() || null,
+      nombre: rolUsuario || 'Sin rol',
+      estado: 'Activo',
+      permisos: {}
+    };
+  }
+
   // generar token JWT
   const token = jwt.sign(
     {
@@ -70,9 +94,16 @@ export const loginUser = async (correo, contrasena) => {
   );
 
   // devolver datos limpios (sin la contraseña)
-  const { contrasena: _, ...usuarioSinPass } = usuario.toJSON();
-
-  return { usuario: usuarioSinPass, token };
+  const { contrasena: _, rol: rolOriginal, ...usuarioSinPass } = usuario.toJSON();
+  
+  // ✅ NUEVO: Agregar el rol transformado (con permisos) al usuario
+  return { 
+    usuario: {
+      ...usuarioSinPass,
+      rol: rolTransformado  // ✅ Rol con permisos en formato granular
+    }, 
+    token 
+  };
 };
 
 // Lógica para solicitar restablecimiento de contraseña

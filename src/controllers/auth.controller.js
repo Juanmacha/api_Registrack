@@ -119,6 +119,7 @@ export const login = async (req, res) => {
     
     const { usuario, token } = await loginUser(correo, contrasena);
     
+    // ✅ El usuario ya viene con rol.permisos desde el servicio
     res.json({
       success: true,
       message: SUCCESS_MESSAGES.LOGIN_SUCCESS,
@@ -129,7 +130,7 @@ export const login = async (req, res) => {
           apellido: usuario.apellido,
           correo: usuario.correo,
           telefono: usuario.telefono || null,
-          rol: usuario.rol,
+          rol: usuario.rol,  // ✅ Ahora incluye permisos en formato granular
           estado: usuario.estado
         },
         token,
@@ -137,8 +138,8 @@ export const login = async (req, res) => {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        permissions: usuario.rol === "administrador" ? "Acceso completo" : 
-                    usuario.rol === "empleado" ? "Acceso operativo" : 
+        permissions: usuario.rol?.nombre === "administrador" ? "Acceso completo" : 
+                    usuario.rol?.nombre === "empleado" ? "Acceso operativo" : 
                     "Acceso limitado a datos propios"
       }
     });
