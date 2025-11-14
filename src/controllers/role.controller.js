@@ -42,8 +42,8 @@ export const createRole = async (req, res) => {
     const result = await roleService.createRoleWithDetails(rolData);
     console.log('✅ [Backend] Rol creado en la base de datos:', result.id_rol);
     
-    // Transformar el resultado al formato del frontend
-    const transformedRole = transformRoleToFrontend(result);
+    // Transformar el resultado al formato del frontend (ahora es async)
+    const transformedRole = await transformRoleToFrontend(result);
     
     console.log('✅ [Backend] Rol transformado para el frontend:', transformedRole.id);
     
@@ -69,8 +69,10 @@ export const getRoles = async (req, res) => {
     const roles = await roleService.getAllRoles();
     console.log('📋 [Backend] Roles obtenidos de la base de datos:', roles.length);
     
-    // Transformar cada rol al formato del frontend
-    const transformedRoles = roles.map(role => transformRoleToFrontend(role));
+    // Transformar cada rol al formato del frontend (ahora es async)
+    const transformedRoles = await Promise.all(
+      roles.map(role => transformRoleToFrontend(role))
+    );
     
     console.log('✅ [Backend] Roles transformados al formato frontend:', transformedRoles.length);
     
@@ -106,8 +108,8 @@ export const getRoleById = async (req, res) => {
     
     console.log('✅ [Backend] Rol encontrado en la base de datos:', role.id_rol);
     
-    // Transformar el rol al formato del frontend
-    const transformedRole = transformRoleToFrontend(role);
+    // Transformar el rol al formato del frontend (ahora es async)
+    const transformedRole = await transformRoleToFrontend(role);
     
     console.log('✅ [Backend] Rol transformado para el frontend:', transformedRole.id);
     
@@ -192,8 +194,8 @@ export const updateRole = async (req, res) => {
     const result = await roleService.updateRoleWithDetails(req.params.id, updateData);
     console.log('✅ [Backend] Rol actualizado en la base de datos:', result.id_rol);
     
-    // Transformar el resultado al formato del frontend
-    const transformedRole = transformRoleToFrontend(result);
+    // Transformar el resultado al formato del frontend (ahora es async)
+    const transformedRole = await transformRoleToFrontend(result);
     
     console.log('✅ [Backend] Rol transformado para el frontend:', transformedRole.id);
     
@@ -250,8 +252,8 @@ export const changeRoleState = async (req, res) => {
     // Obtener el rol completo con permisos y privilegios
     const rolCompleto = await roleService.getRoleById(req.params.id);
     
-    // Transformar al formato del frontend
-    const transformedRole = transformRoleToFrontend(rolCompleto);
+    // Transformar al formato del frontend (ahora es async)
+    const transformedRole = await transformRoleToFrontend(rolCompleto);
     
     console.log('✅ [Backend] Rol transformado para el frontend:', transformedRole.id);
 

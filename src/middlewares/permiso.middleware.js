@@ -31,12 +31,69 @@ export const checkPermiso = (permiso, privilegio) => {
       return next();
     }
 
-    // ✅ MANTENER LÓGICA ACTUAL PARA CLIENTE
-    // Los clientes tienen validaciones específicas en los controladores
-    // No aplicamos validación granular aquí para mantener compatibilidad
+    // ✅ RESTRICCIONES ESPECÍFICAS PARA CLIENTE
+    // Los clientes solo pueden realizar ciertas acciones específicas
     if (req.user.rol === 'cliente') {
-      console.log('✅ [Permisos] Cliente - Manteniendo lógica actual');
-      return next();
+      // Acciones permitidas para clientes por módulo
+      const accionesPermitidasCliente = {
+      'gestion_citas': ['leer', 'crear', 'actualizar', 'eliminar'], 
+      // 'leer': Ver sus propias citas (filtrado en controlador)
+      // 'crear': Crear citas para sí mismo (validado en controlador)
+      // 'actualizar': Reprogramar sus propias citas (validado en controlador)
+      // 'eliminar': Anular sus propias citas (validado en controlador)
+      'gestion_solicitudes': ['crear', 'leer'], 
+      // 'crear': Crear solicitudes (validado en controlador)
+      // 'leer': Ver sus propias solicitudes (filtrado en controlador)
+      'gestion_clientes': ['leer', 'actualizar'],
+      // 'leer': Ver su propio perfil de cliente (validado en controlador)
+      // 'actualizar': Editar su propio perfil de cliente (validado en controlador)
+      'gestion_pagos': ['crear', 'leer'],
+      // 'crear': Crear pagos (validado en controlador - solo pueden pagar sus propias solicitudes)
+      // 'leer': Ver sus propios pagos (filtrado en controlador)
+    };
+
+      // Módulos completamente bloqueados para clientes
+      const modulosBloqueados = [
+        'gestion_usuarios',      // No pueden gestionar usuarios
+        'gestion_empleados',     // No pueden gestionar empleados
+        'gestion_empresas',      // No pueden gestionar empresas
+        'gestion_servicios',     // No pueden gestionar servicios
+        // 'gestion_pagos' - REMOVIDO: Los clientes ahora pueden crear y leer sus propios pagos
+        'gestion_roles',         // No pueden gestionar roles
+        'gestion_permisos',      // No pueden gestionar permisos
+        'gestion_privilegios',   // No pueden gestionar privilegios
+        'gestion_dashboard',     // No pueden acceder al dashboard
+      ];
+
+      // Si el módulo está bloqueado, denegar acceso
+      if (modulosBloqueados.includes(permiso)) {
+        console.error(`❌ [Permisos] Cliente - Módulo bloqueado: ${permiso}`);
+        return res.status(403).json({ 
+          success: false,
+          mensaje: `Los clientes no tienen permiso para acceder a ${permiso.replace('gestion_', '')}`,
+          permiso_requerido: permiso,
+          privilegio_requerido: privilegio,
+          rol: req.user.rol,
+          detalles: "Este módulo está restringido para administradores y empleados únicamente."
+        });
+      }
+
+      // Verificar si la acción está permitida para clientes
+      if (accionesPermitidasCliente[permiso] && accionesPermitidasCliente[permiso].includes(privilegio)) {
+        console.log(`✅ [Permisos] Cliente - Acción permitida: ${permiso} + ${privilegio} (validación de propiedad en controlador)`);
+        return next(); // Permitir pero el controlador debe validar propiedad
+      }
+
+      // Para otras acciones no permitidas, denegar
+      console.error(`❌ [Permisos] Cliente - Acción NO permitida: ${permiso} + ${privilegio}`);
+      return res.status(403).json({ 
+        success: false,
+        mensaje: `Los clientes no tienen permiso para ${privilegio} en ${permiso.replace('gestion_', '')}`,
+        permiso_requerido: permiso,
+        privilegio_requerido: privilegio,
+        rol: req.user.rol,
+        detalles: "Esta acción está restringida para administradores y empleados únicamente."
+      });
     }
 
     // ✅ VALIDACIÓN GRANULAR SOLO PARA EMPLEADOS

@@ -2,11 +2,17 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express-5-blue?logo=express&logoColor=white) ![Sequelize](https://img.shields.io/badge/Sequelize-6-3C76A1?logo=sequelize&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8-blue?logo=mysql&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-Auth-black?logo=jsonwebtokens) ![License](https://img.shields.io/badge/License-ISC-green)
 
-> **🚀 Última Actualización:** Enero 2026
+> **🚀 Última Actualización:** Enero 2026 - Validaciones de Archivos, Seguimiento, Roles, Permisos, Privilegios y Dashboard Implementadas y Probadas
 > 
 > **✅ Estado:** Producción Ready (98%)
 > 
 > **🔥 Nuevo:** 
+> - **🔐 Validaciones de Seguridad en Autenticación**: Rate limiting (protección contra fuerza bruta), validación de contraseñas comunes, sanitización de inputs (XSS/inyección), validación de estado del usuario en cada request, y validación de fortaleza de contraseña. Códigos HTTP correctos (401, 403, 429) y mensajes descriptivos.
+> - **👥 Validaciones de Seguridad en Módulo de Empleados**: Validación estricta de IDs (protección SQL injection), sistema de permisos granular híbrido (roles principales y personalizados), y validación de integridad (previene eliminación/desactivación con asignaciones activas).
+> - **👤 Validaciones de Seguridad en Módulo de Clientes**: Validación estricta de IDs (protección SQL injection), sistema de permisos granular híbrido (roles principales y personalizados), y validación de propiedad de recursos (clientes solo pueden ver/editar sus propios datos).
+> - **🏢 Validaciones de Seguridad en Módulo de Empresas**: Validación estricta de IDs (protección SQL injection), sistema de permisos granular híbrido (roles principales y personalizados), y validación de unicidad de NIT (previene duplicados).
+> - **💰 Validaciones de Seguridad en Módulo de Pagos**: Validación estricta de IDs (protección SQL injection), sistema de permisos granular híbrido (roles principales y personalizados), validación de montos (rangos y precisión decimal), y validación de relaciones foreign key (orden de servicio).
+> - **🛠️ Validaciones de Seguridad en Módulo de Servicios**: Validación estricta de IDs (protección SQL injection), sistema de permisos granular híbrido (roles principales y personalizados), y validación de precios (rangos y precisión decimal).
 > - **Sistema de Permisos Granular**: Control de acceso a nivel de módulo y acción. Crear roles personalizados con permisos específicos. Middleware `checkPermiso` para validación granular. Administradores tienen acceso total automático.
 > - **Creación de Usuarios con Roles Personalizados**: Los administradores pueden crear usuarios con cualquier rol existente y activo (incluye roles personalizados). Validación mejorada de roles y manejo de errores específico.
 > - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
@@ -25,7 +31,17 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
-| **Ene 2026** | 🔐 **Sistema de Permisos Granular Implementado** | Sistema completo de control de acceso a nivel de módulo y acción. Middleware `checkPermiso` para validación granular. Creación de roles personalizados con permisos específicos. Administradores tienen acceso total automático. JWT incluye `id_rol` para carga eficiente de permisos. Aplicado a módulos críticos: usuarios, solicitudes, citas. Scripts SQL para permisos y privilegios iniciales. |
+| **Ene 2026** | 🔐 **Validaciones de Seguridad en Autenticación** | **Rate Limiting:** Protección contra fuerza bruta en login (5 intentos/15min), registro (3 intentos/15min), recuperación de contraseña (3 intentos/15min) y reset de contraseña (5 intentos/15min). **Validación de Contraseñas Comunes:** Bloqueo de más de 50 contraseñas comunes (123456, password, admin123, etc.). **Validación de Estado del Usuario:** Verificación de usuario activo en cada request con token JWT. **Sanitización de Inputs:** Prevención de XSS e inyección en campos de login. **Validación de Fortaleza:** Contraseñas deben tener mínimo 8 caracteres, mayúscula, número y carácter especial. |
+| **Ene 2026** | 👥 **Validaciones de Seguridad en Módulo de Empleados** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Integridad:** Previene eliminación/desactivación de empleados con asignaciones activas (citas programadas/reprogramadas y solicitudes activas). Rechazo explícito de clientes sin acceso. |
+| **Ene 2026** | 👤 **Validaciones de Seguridad en Módulo de Clientes** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Propiedad de Recursos:** Los clientes solo pueden ver/editar sus propios datos (implementado en `obtenerCliente`, `editarCliente`, `editarUsuarioCliente`, `editarEmpresaCliente`). Administradores y empleados tienen acceso completo. |
+| **Ene 2026** | 🏢 **Validaciones de Seguridad en Módulo de Empresas** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Unicidad (NIT):** Verifica que el NIT sea único antes de crear empresas, previene duplicados, procesa NIT removiendo caracteres no numéricos, mensajes de error descriptivos con información de empresa existente. Clientes rechazados explícitamente (sin acceso a gestión de empresas). |
+| **Ene 2026** | 💰 **Validaciones de Seguridad en Módulo de Pagos** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Montos:** Valida que los montos sean positivos, tengan máximo 2 decimales y no excedan $1,000,000,000 (1 billón). **Validación de Relaciones Foreign Key:** Verifica existencia de orden de servicio antes de crear/actualizar pagos, previene pagos para órdenes anuladas. Clientes pueden crear y leer sus propios pagos. |
+| **Ene 2026** | 🛠️ **Validaciones de Seguridad en Módulo de Servicios** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Precios:** Valida que los precios sean positivos, tengan máximo 2 decimales y no excedan $1,000,000,000 (1 billón). Acepta tanto `precio` como `precio_base` y normaliza a `precio_base`. Clientes rechazados explícitamente (sin acceso a gestión de servicios). **Precio en respuestas:** El campo `precio_base` aparece en todas las respuestas de GET. ✅ **Probado y funcionando correctamente.** |
+| **Ene 2026** | 📁 **Validaciones de Seguridad en Módulo de Archivos** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Acceso de Clientes:** Clientes pueden acceder con validación de propiedad de recursos (solo sus propios archivos). **Validación de Upload:** Requiere archivo real usando `multipart/form-data`, validación de tamaño (10MB), extensiones permitidas, campos requeridos (id_solicitud, id_tipo_archivo, descripcion). ✅ **Probado y funcionando correctamente.** |
+| **Ene 2026** | 📊 **Validaciones de Seguridad en Módulo de Seguimiento** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`) en todos los parámetros `:id` y `:idOrdenServicio`. **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Clientes Rechazados:** Rechazo explícito automático (sin acceso a gestión de seguimiento). Aplicado a 7 endpoints completos. ✅ **Probado y funcionando correctamente.** |
+| **Ene 2026** | 🔐 **Validaciones de Seguridad en Módulo de Roles, Permisos y Privilegios** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`) en todos los endpoints. **Sistema de Permisos Granular:** Control híbrido completo implementado en roles, permisos y privilegios. **Clientes Rechazados:** Rechazo explícito automático (sin acceso a gestión de roles, permisos o privilegios). **6 endpoints de roles + 5 endpoints de permisos + 5 endpoints de privilegios** protegidos con validación completa. ✅ **Probado y funcionando correctamente.** |
+| **Ene 2026** | 📊 **Validaciones de Seguridad en Módulo de Dashboard** | **Sistema de Permisos Granular:** Control híbrido implementado con permiso `gestion_dashboard` + `leer` (módulo de solo lectura). **Clientes Rechazados:** Rechazo explícito automático (sin acceso al dashboard). **8 endpoints protegidos** (ingresos, servicios, resumen, pendientes, inactivas, renovaciones-próximas, test-alertas, periodos). Todos requieren permiso `leer`. ✅ **Probado y funcionando correctamente.** |
+| **Ene 2026** | 🔐 **Sistema de Permisos Granular Implementado** | Sistema completo de control de acceso a nivel de módulo y acción. Middleware `checkPermiso` para validación granular. Creación de roles personalizados con permisos específicos. Administradores tienen acceso total automático. JWT incluye `id_rol` para carga eficiente de permisos. Aplicado a módulos críticos: usuarios, solicitudes, citas, empleados, clientes, empresas, pagos, servicios. Scripts SQL para permisos y privilegios iniciales. |
 | **Ene 2026** | 👤 **Creación de Usuarios con Roles Personalizados** | Los administradores pueden crear usuarios con cualquier rol existente y activo (no solo roles básicos). Validación mejorada que verifica existencia y estado del rol. Manejo de errores específico para roles inactivos o no existentes. Logging detallado para depuración. Compatible con roles personalizados (id_rol > 10). |
 | **Ene 2026** | 🔒 **Mejoras en Manejo de Errores JWT** | Diferenciación clara entre `TokenExpiredError` y `JsonWebTokenError`. Mensajes de error descriptivos con detalles específicos. Información de expiración incluida en respuestas. Instrucciones para renovar token. Mejor experiencia de usuario en frontend. |
 | **Ene 2026** | 📞 **Campo Teléfono en Usuarios** | Agregado campo `telefono` opcional a la tabla usuarios. Validación de formato (7-20 caracteres, formato internacional/nacional). Disponible para todos los roles (clientes, empleados, administradores). Índice para búsquedas. Compatible con usuarios existentes (campo nullable). |
@@ -667,6 +683,68 @@ Los administradores pueden crear roles personalizados con permisos específicos:
 - **Permisos específicos**: Define exactamente qué puede hacer cada rol en cada módulo
 - **Estado activo/inactivo**: Controla qué roles están disponibles
 - **Validaciones**: No se pueden eliminar roles básicos ni roles con usuarios asignados
+- **Actualización de permisos**: Puedes añadir o quitar permisos a roles existentes usando `PUT /api/gestion-roles/:id`
+
+#### Gestión de Permisos en Roles
+
+**Crear Rol con Permisos:**
+```bash
+POST /api/gestion-roles/
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+
+{
+  "nombre": "supervisor",
+  "estado": "Activo",
+  "permisos": {
+    "usuarios": { "crear": false, "leer": true, "actualizar": false, "eliminar": false },
+    "solicitudes": { "crear": true, "leer": true, "actualizar": true, "eliminar": false }
+  }
+}
+```
+
+**Actualizar Permisos de un Rol (Añadir/Quitar):**
+```bash
+PUT /api/gestion-roles/:id
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+
+{
+  "permisos": {
+    "usuarios": { "crear": false, "leer": true, "actualizar": true, "eliminar": false }
+  }
+}
+```
+
+**Ver Todos los Roles y sus Permisos:**
+```bash
+GET /api/gestion-roles/
+Authorization: Bearer <token_admin>
+```
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_ROLES_Y_PERMISOS.md` - Ejemplos completos de Postman para crear roles, asignar permisos, crear usuarios con roles, etc.
+- 📁 `VERIFICACION_SISTEMA_PERMISOS.md` - Verificación completa del sistema de permisos
+
+#### Permisos Asignados a Roles Iniciales
+
+**Rol Administrador:**
+- ✅ **Bypass automático**: Todos los permisos en `true` automáticamente
+- No requiere permisos en base de datos
+
+**Rol Empleado:**
+- ✅ `gestion_usuarios`: leer
+- ✅ `gestion_solicitudes`: leer
+- ✅ `gestion_citas`: crear, leer
+- ✅ `gestion_seguimiento`: leer, crear, actualizar
+- ✅ `gestion_dashboard`: leer
+
+**Rol Cliente:**
+- ✅ `gestion_citas`: leer, crear, actualizar, eliminar (solo sus propias citas)
+- ✅ `gestion_solicitudes`: crear, leer (solo sus propias solicitudes)
+- ❌ Otros módulos bloqueados en middleware
+
+**Nota:** Los permisos se asignan automáticamente al ejecutar `database_official_complete.sql` (v7.5+)
 
 #### Creación de Usuarios con Roles Personalizados
 
@@ -1128,6 +1206,8 @@ Authorization: Bearer <token_admin>
 - **📦 Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud (logotipo, poderes, certificados, documentos) en un archivo ZIP comprimido con nombres descriptivos y archivo README incluido
 
 ### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - Ene 2026**
+
+#### Características Principales
 - **Citas independientes**: Crear citas generales sin asociar a solicitud
 - **Citas asociadas**: Vincular citas con solicitudes de servicio existentes
 - **Datos automáticos**: Cliente y tipo de servicio se toman automáticamente
@@ -1137,19 +1217,55 @@ Authorization: Bearer <token_admin>
 - **Normalización automática de tipos**: Acepta variaciones con acentos y las normaliza automáticamente (ej: "Certificación" → "Certificacion")
 - **Búsqueda de usuario por documento**: Autocompletar datos de usuario al crear cita
 - **Prevención de citas duplicadas**: Valida que el usuario no tenga una cita activa en el mismo horario
+- **Validación de propiedad**: Los clientes solo pueden ver/editar sus propias citas
 
-**Nuevas Funcionalidades (Ene 2026):**
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de Días Hábiles (Lunes a Viernes)**
+- Las citas solo se pueden agendar de lunes a viernes
+- Aplicado en: `createCita`, `reprogramarCita`, `crearCitaDesdeSolicitud`
+- Error: `INVALID_WEEKDAY`
+
+**2. ✅ Validación de Duración (1 hora ±5 minutos)** ⭐ **CRÍTICO**
+- Las citas deben durar aproximadamente 1 hora (60 minutos) con tolerancia de ±5 minutos (55-65 minutos)
+- Ejemplos válidos: `09:00:00 - 10:00:00` (60 min), `09:00:00 - 10:05:00` (65 min), `09:05:00 - 10:00:00` (55 min)
+- Ejemplos inválidos: `09:00:00 - 10:30:00` (90 min), `09:00:00 - 09:30:00` (30 min)
+- Aplicado en: `createCita`, `reprogramarCita`, `crearCitaDesdeSolicitud`
+- Error: `INVALID_DURATION`
+
+**3. ✅ Sanitización XSS (Campo observacion)**
+- Sanitiza el campo `observacion` para prevenir ataques XSS
+- Librería: `xss` (incluida en `package.json`)
+- Aplicado en: `createCita`, `anularCita`, `finalizarCita`, `crearCitaDesdeSolicitud`
+
+**4. ✅ Validación de Rango de Fechas (Máximo 1 año en el futuro)**
+- La fecha no puede ser más de 1 año en el futuro
+- Aplicado en: `createCita`, `reprogramarCita`, `crearCitaDesdeSolicitud`
+- Error: `DATE_TOO_FAR`
+
+**5. ✅ Validación de Integridad de Datos con Documento**
+- Valida que los datos enviados (nombre, apellido, correo, etc.) coincidan con los datos reales del usuario cuando se usa `documento`
+- Aplicado en: `createCita`
+- Campos validados: nombre, apellido, correo, tipo_documento, telefono
+
+**6. ✅ Validación de Horarios de Atención (7:00 AM - 6:00 PM)**
+- Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM
+- Aplicado en: `createCita`, `reprogramarCita`, `crearCitaDesdeSolicitud`
+- Error: `INVALID_TIME_RANGE`
+
+**Documentación Completa:**
+- 📁 `VALIDACIONES_CITAS_IMPLEMENTADAS.md` - Documentación detallada de todas las validaciones
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_CITAS.md` - Ejemplos de Postman para probar todas las validaciones
+
+#### Endpoints Principales
 - `GET /api/gestion-citas/buscar-usuario/:documento` - Buscar usuario por documento y autocompletar datos
-- Normalización automática de tipos de cita (acepta "Certificación", "Búsqueda", etc.)
-- Validación de citas duplicadas para el mismo cliente
-
-**Funcionalidades Existentes:**
-- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
-- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
 - `POST /api/gestion-citas` - Crear cita independiente (acepta `id_cliente` o `documento`)
-- `GET /api/gestion-citas` - Ver todas las citas
+- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
+- `GET /api/gestion-citas` - Ver todas las citas (filtrado por rol)
+- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
 - `PUT /api/gestion-citas/:id/reprogramar` - Reprogramar cita
 - `PUT /api/gestion-citas/:id/anular` - Anular cita
+- `PUT /api/gestion-citas/:id/finalizar` - Finalizar cita (solo admin/empleado)
 - `GET /api/gestion-citas/reporte/excel` - Reporte Excel con ID Solicitud
 
 ### 5. Seguimiento de Procesos (`/api/seguimiento`) ⭐ **ACTUALIZADO**
@@ -1162,22 +1278,70 @@ Authorization: Bearer <token_admin>
 - **Notificaciones automáticas**: Email al cliente cuando cambia el estado
 - **Traza de usuario**: Quién creó cada seguimiento
 
-**Funcionalidades:**
-- `GET /api/seguimiento/historial/:idOrdenServicio` - Ver historial completo
-- `GET /api/seguimiento/:idOrdenServicio/estados-disponibles` - Ver estados permitidos
-- `POST /api/seguimiento/crear` - Crear seguimiento (con o sin cambio de estado)
-- `GET /api/seguimiento/:id` - Ver seguimiento específico
-- `PUT /api/seguimiento/:id` - Actualizar seguimiento
-- `DELETE /api/seguimiento/:id` - Eliminar seguimiento
-- `GET /api/seguimiento/buscar/:idOrdenServicio?titulo=` - Buscar por título
+**Endpoints:**
+- `GET /api/seguimiento/historial/:idOrdenServicio` - Obtener historial de seguimiento (requiere `leer`)
+- `POST /api/seguimiento/crear` - Crear seguimiento (requiere `crear`)
+- `GET /api/seguimiento/:id` - Ver seguimiento específico (requiere `leer`)
+- `PUT /api/seguimiento/:id` - Actualizar seguimiento (requiere `actualizar`)
+- `DELETE /api/seguimiento/:id` - Eliminar seguimiento (requiere `eliminar`)
+- `GET /api/seguimiento/buscar/:idOrdenServicio?titulo=` - Buscar por título (requiere `leer`)
+- `GET /api/seguimiento/:idOrdenServicio/estados-disponibles` - Obtener estados disponibles (requiere `leer`)
 
-### 6. Gestión de Archivos (`/api/archivos`)
-- Subida de archivos con categorización
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id` y `:idOrdenServicio`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE seguimientos;--`)
+- Aplicado en: Todos los endpoints con parámetros (`GET /:id`, `PUT /:id`, `DELETE /:id`, `GET /historial/:idOrdenServicio`, `GET /buscar/:idOrdenServicio`, `GET /:idOrdenServicio/estados-disponibles`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso a gestión de seguimiento)
+- Permiso requerido: `gestion_seguimiento` con acción específica (`crear`, `leer`, `actualizar`, `eliminar`)
+- Aplicado en: Todas las rutas del módulo de seguimiento
+- Middleware: `validateSeguimientoAccess(privilegio)` - Middleware híbrido personalizado
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_ARCHIVOS_SEGUIMIENTO_ROLES.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
+
+### 6. Gestión de Archivos (`/api/gestion-archivos`) ⭐ **ACTUALIZADO - Ene 2026**
+- Subida de archivos con categorización usando `multipart/form-data`
 - Descarga segura
 - Asociación con clientes y órdenes
 - Tipos de archivo configurables
+- Validación de archivos (tamaño, extensión, campos requeridos)
 
-### 7. Gestión de Clientes (`/api/gestion-clientes`) ⭐ **ACTUALIZADO**
+**Endpoints:**
+- `POST /api/gestion-archivos/upload` - Subir archivo (requiere `crear`)
+- `GET /api/gestion-archivos/:id/descargar` - Descargar archivo (requiere `leer`)
+- `GET /api/gestion-archivos/cliente/:idCliente` - Listar archivos de cliente (requiere `leer`)
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id` y `:idCliente`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE archivos;--`)
+- Aplicado en: Todos los endpoints con parámetros (`GET /:id/descargar`, `GET /cliente/:idCliente`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Acceso condicionado con validación de propiedad de recursos (pueden ver/editar solo sus propios archivos)
+- Permiso requerido: `gestion_archivos` con acción específica (`crear`, `leer`)
+- Aplicado en: Todas las rutas del módulo de archivos
+- Middleware: `validateArchivoAccess(privilegio, permitirCliente)` - Middleware híbrido personalizado
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_ARCHIVOS_SEGUIMIENTO_ROLES.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
+
+### 7. Gestión de Clientes (`/api/gestion-clientes`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Visualización completa**: Muestra todos los clientes (solicitudes, directos, importados)
 - **Creación automática**: Clientes se crean automáticamente al hacer solicitudes
 - **Sin creación directa**: Los clientes NO se pueden crear manualmente
@@ -1185,6 +1349,75 @@ Authorization: Bearer <token_admin>
 - **Asociación automática**: Cliente ↔ Empresa se asocia automáticamente
 - **Campo origen**: Distingue entre clientes de solicitudes, directos e importados
 - **Datos completos**: Información completa del usuario y empresa asociada
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE clientes;--`)
+- Aplicado en: Todos los endpoints con parámetro `:id` (`GET /:id`, `PUT /:id`, `PUT /:id/usuario`, `PUT /:id/empresa`, `DELETE /:id`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Acceso condicionado con validación de propiedad de recursos (pueden ver/editar solo sus propios datos)
+- Permiso requerido: `gestion_clientes` con acción específica (`leer`, `actualizar`, `eliminar`)
+- Aplicado en: Todas las rutas del módulo de clientes
+- Middleware: `validateClienteAccess(privilegio, permitirCliente)` - Middleware híbrido personalizado
+
+**3. ✅ Validación de Propiedad de Recursos**
+- Los clientes solo pueden ver/editar sus propios datos (validación en controlador)
+- **Endpoints protegidos:** `obtenerCliente`, `editarCliente`, `editarUsuarioCliente`, `editarEmpresaCliente`
+- **Validación:** Compara `cliente.id_usuario === req.user.id_usuario` antes de permitir acceso
+- **Administradores y empleados:** Tienen acceso completo a todos los clientes
+- Mensaje de error: Indica que no tiene permiso para acceder al recurso
+- Error: 403 Forbidden con código `PERMISSION_DENIED`
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_CLIENTES.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
+
+### 7.5. Gestión de Empresas (`/api/gestion-empresas`) ⭐ **ACTUALIZADO - Ene 2026**
+- **Creación de empresas**: Crear empresas con NIT, nombre, tipo, dirección, teléfono y correo
+- **Listar clientes de empresa**: Obtener todos los clientes asociados a una empresa por ID o NIT
+- **Validación de NIT**: Verificación de unicidad de NIT antes de crear empresas
+- **Asociación cliente-empresa**: Relación many-to-many entre clientes y empresas
+
+**Endpoints:**
+- `POST /api/gestion-empresas` - Crear empresa (requiere `crear`)
+- `GET /api/gestion-empresas/:id/clientes` - Listar clientes de empresa por ID (requiere `leer`)
+- `GET /api/gestion-empresas/nit/:nit/clientes` - Listar clientes de empresa por NIT (requiere `leer`)
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE empresas;--`)
+- Aplicado en: Todos los endpoints con parámetro `:id` (`GET /:id/clientes`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso a gestión de empresas)
+- Permiso requerido: `gestion_empresas` con acción específica (`crear`, `leer`)
+- Aplicado en: Todas las rutas del módulo de empresas
+- Middleware: `validateEmpresaAccess(privilegio)` - Middleware híbrido personalizado
+
+**3. ✅ Validación de Unicidad (NIT)**
+- Valida que el NIT sea único antes de crear una empresa
+- Verifica existencia de empresa con el mismo NIT en la base de datos
+- Procesa NIT removiendo caracteres no numéricos antes de validar
+- Mensaje de error descriptivo con información de la empresa existente
+- Error: 409 Conflict con código `DUPLICATE_NIT`
+- Aplicado en: `crearEmpresaController`
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_EMPRESAS_Y_PAGOS.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
 
 ### 8. Sistema de Pagos (`/api/gestion-pagos`) ⭐ **ACTUALIZADO - Enero 2026**
 - **Procesamiento con Mock**: Simula pasarelas de pago (PayPal, Stripe, Wompi)
@@ -1312,6 +1545,91 @@ Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devu
 
 **📝 Documentación Completa:** Ver `EJEMPLO_POSTMAN_PAGO_MOCK.md` para ejemplos detallados de uso, incluyendo registro, login, creación de solicitudes y procesamiento de pagos.
 
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE pagos;--`)
+- Aplicado en: Todos los endpoints con parámetro `:id` (`GET /:id`, `GET /:id/comprobante`, `GET /:id/comprobante/download`, `POST /:id/verify-manual`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Acceso condicionado para ver sus propios pagos (pueden crear y leer pagos de sus solicitudes)
+- Permiso requerido: `gestion_pagos` con acción específica (`crear`, `leer`, `actualizar`)
+- Aplicado en: Todas las rutas del módulo de pagos
+- Middleware: `validatePagoAccess(privilegio, permitirCliente)` - Middleware híbrido personalizado
+
+**3. ✅ Validación de Montos (Rangos y Precisión)**
+- Valida que los montos sean números positivos mayores a 0
+- Valida límite máximo de $1,000,000,000 (1 billón)
+- Valida precisión decimal (máximo 2 decimales)
+- Mensajes de error descriptivos indicando el problema específico
+- Error: 400 Bad Request con código `VALIDATION_ERROR`
+- Aplicado en: `create`, `procesarPagoMock`, `simularPago`
+
+**4. ✅ Validación de Relaciones Foreign Key (Orden de Servicio)**
+- Valida que la orden de servicio exista antes de crear/actualizar un pago
+- Verifica que la orden de servicio no esté anulada
+- Mensajes de error descriptivos con el ID de la orden no encontrada
+- Error: 400 Bad Request con código `ORDER_NOT_FOUND` o `ORDER_ANNULLED`
+- Aplicado en: `create`, `procesarPagoMock`, `simularPago`
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_EMPRESAS_Y_PAGOS.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
+
+### 8.5. Gestión de Servicios (`/api/servicios`) ⭐ **ACTUALIZADO - Ene 2026**
+- **Consulta pública**: Listar servicios, buscar por nombre, obtener detalle y procesos
+- **Gestión administrativa**: Actualizar servicios, ocultar/publicar, gestionar procesos
+- **Precios configurables**: Actualización de precios con validación de rangos y precisión
+- **Precio en respuestas**: El campo `precio_base` aparece en todas las respuestas de GET
+- **Procesos dinámicos**: Gestión de estados de proceso por servicio
+
+**Endpoints:**
+- `GET /api/servicios` - Listar servicios (público)
+- `GET /api/servicios/buscar` - Buscar servicios por nombre (público)
+- `GET /api/servicios/:id` - Obtener servicio por ID (público)
+- `GET /api/servicios/:id/detalle` - Obtener detalle completo (público)
+- `GET /api/servicios/:idServicio/procesos` - Obtener procesos de servicio (público)
+- `GET /api/servicios/admin/todos` - Listar todos los servicios incluyendo ocultos (requiere `leer`)
+- `PUT /api/servicios/:id` - Actualizar servicio (requiere `actualizar`)
+- `PATCH /api/servicios/:id/ocultar` - Ocultar servicio (requiere `actualizar`)
+- `PATCH /api/servicios/:id/publicar` - Publicar servicio (requiere `actualizar`)
+- `PUT /api/servicios/:idServicio/procesos` - Actualizar procesos (requiere `actualizar`)
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id` y `:idServicio`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE servicios;--`)
+- Aplicado en: Todos los endpoints con parámetros (`PUT /:id`, `PATCH /:id/ocultar`, `PATCH /:id/publicar`, `PUT /:idServicio/procesos`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso a gestión de servicios)
+- Permiso requerido: `gestion_servicios` con acción específica (`leer`, `actualizar`)
+- Aplicado en: Todas las rutas protegidas del módulo de servicios
+- Middleware: `validateServicioAccess(privilegio)` - Middleware híbrido personalizado
+
+**3. ✅ Validación de Precios (Rangos y Precisión)**
+- Valida que los precios sean números positivos mayores a 0
+- Valida límite máximo de $1,000,000,000 (1 billón)
+- Valida precisión decimal (máximo 2 decimales)
+- Acepta tanto `precio` como `precio_base` y normaliza a `precio_base`
+- Mensajes de error descriptivos indicando el problema específico
+- Error: 400 Bad Request con código `VALIDATION_ERROR`
+- Aplicado en: `actualizarServicio` cuando se proporciona `precio` o `precio_base`
+- **Precio en respuestas:** El campo `precio_base` aparece en todas las respuestas de GET (`GET /servicios`, `GET /servicios/:id`, `GET /servicios/buscar`, `GET /servicios/admin/todos`, `GET /servicios/:id/detalle`)
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_SERVICIOS.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
 
 ### 9. Gestión de Empleados (`/api/gestion-empleados`)
 - Administración completa de empleados (solo administradores)
@@ -1319,6 +1637,35 @@ Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devu
 - Control de estado (activo/inactivo)
 - Reportes en Excel con información detallada
 - CRUD completo (Crear, Leer, Actualizar, Eliminar)
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE empleados;--`)
+- Aplicado en: Todos los endpoints con parámetro `:id` (`GET /:id`, `PUT /:id`, `PATCH /:id/estado`, `DELETE /:id`)
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso a gestión de empleados)
+- Permiso requerido: `gestion_empleados` con acción específica (`leer`, `crear`, `actualizar`, `eliminar`)
+- Aplicado en: Todas las rutas del módulo de empleados
+- Middleware: `validateEmpleadoAccess(privilegio)` - Middleware híbrido personalizado
+
+**3. ✅ Validación de Integridad (Asignaciones Activas)**
+- Previene eliminación/desactivación de empleados con asignaciones activas
+- **Citas activas:** Verifica citas con estado `'Programada'` o `'Reprogramada'`
+- **Solicitudes activas:** Verifica solicitudes con estado diferente a `'Anulado'` o `'Finalizado'`
+- Aplicado en: `deleteEmpleado`, `changeEmpleadoState`, `updateEmpleado` (solo si se intenta desactivar)
+- Mensaje de error: Indica cantidad exacta de asignaciones activas y acción requerida
+- Error: 400 Bad Request con detalles descriptivos
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_EMPLEADOS.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
 
 ### 10. Dashboard Administrativo (`/api/dashboard`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Control de Ingresos**: Análisis por mes y método de pago con tendencias
@@ -1329,8 +1676,32 @@ Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devu
 - **Renovaciones Próximas a Vencer**: Marcas que vencen en los próximos 90 días (5 años desde finalización)
 - **Sistema de Alertas**: Notificaciones automáticas según umbrales
 - **Reportes Excel**: Código de colores según urgencia (amarillo, naranja, rojo)
-- **Solo Administradores**: Protegido con JWT + roleMiddleware
 - **📊 Períodos Mejorados**: Soporte para 9 períodos diferentes (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
+
+**Endpoints:**
+- `GET /api/dashboard/ingresos` - Obtener datos de ingresos (requiere `leer`)
+- `GET /api/dashboard/servicios` - Resumen de servicios (requiere `leer`)
+- `GET /api/dashboard/resumen` - Resumen general (requiere `leer`)
+- `GET /api/dashboard/pendientes` - Servicios pendientes (requiere `leer`)
+- `GET /api/dashboard/inactivas` - Solicitudes inactivas (requiere `leer`)
+- `GET /api/dashboard/renovaciones-proximas` - Renovaciones próximas (requiere `leer`)
+- `POST /api/dashboard/renovaciones-proximas/test-alertas` - Probar alertas (requiere `leer`)
+- `GET /api/dashboard/periodos` - Períodos disponibles (requiere `leer`)
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso al dashboard)
+- Permiso requerido: `gestion_dashboard` con acción `leer` (dashboard es solo lectura)
+- Aplicado en: Todas las rutas del dashboard
+- Middleware: `validateDashboardAccess(privilegio = 'leer')` - Middleware híbrido personalizado
+- **Nota:** Todos los endpoints del dashboard requieren solo permiso `leer` ya que es un módulo de solo lectura
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_ARCHIVOS_SEGUIMIENTO_ROLES.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
 - **🔧 Estados Reales**: Distribución de estados basada en process_states reales de cada servicio (no estados fijos)
 
 **Funcionalidades:**
@@ -1892,6 +2263,33 @@ const headers = {
 ---
 
 ### 🔐 Autenticación (No requiere token)
+
+#### Validaciones de Seguridad ⭐ **NUEVO - Ene 2026**
+
+**Rate Limiting:**
+- Login: 5 intentos por IP cada 15 minutos
+- Registro: 3 intentos por IP cada 15 minutos
+- Recuperación de contraseña: 3 intentos por IP cada 15 minutos
+- Reset de contraseña: 5 intentos por IP cada 15 minutos
+
+**Validaciones de Contraseña:**
+- Bloqueo de contraseñas comunes (123456, password, admin123, etc.)
+- Fortaleza: mínimo 8 caracteres, mayúscula, número y carácter especial
+- Longitud máxima: 128 caracteres
+
+**Sanitización:**
+- Correo electrónico: sanitización automática (trim, lowercase, bloqueo de caracteres peligrosos)
+- Prevención de XSS e inyección SQL
+
+**Validación de Estado:**
+- Verificación de usuario activo en cada request con token JWT
+- Tokens de usuarios inactivos son rechazados automáticamente
+
+**Manejo de Errores:**
+- Códigos HTTP correctos: 401 (credenciales incorrectas), 403 (usuario inactivo), 429 (rate limit)
+- Mensajes descriptivos con sugerencias
+
+📁 **Documentación completa:** `EJEMPLO_POSTMAN_VALIDACIONES_LOGIN.md`
 
 #### 1. Login
 ```javascript
@@ -3142,10 +3540,35 @@ curl -X GET "http://localhost:3000/api/gestion-archivos/cliente/1" \
 **🔐 Sistema de Permisos Granular (Enero 2026):**
 - **Middleware `checkPermiso`**: Valida permisos específicos antes de ejecutar acciones
 - **Bypass automático para administradores**: Los administradores tienen acceso total sin validación adicional
-- **Aplicado en módulos críticos**: usuarios, solicitudes, citas
+- **Aplicado en todos los módulos principales**: usuarios, solicitudes, citas, empleados, clientes, empresas, pagos, servicios, roles, permisos, privilegios, seguimiento, archivos, dashboard
 - **Carga eficiente**: Los permisos se cargan una vez desde la base de datos y se almacenan en `req.user.permisos`
 
-**Módulos disponibles**: `gestion_usuarios`, `gestion_empleados`, `gestion_clientes`, `gestion_empresas`, `gestion_servicios`, `gestion_solicitudes`, `gestion_citas`, `gestion_pagos`, `gestion_roles`, `gestion_permisos`, `gestion_privilegios`, `gestion_seguimiento`, `gestion_archivos`, `gestion_tipo_archivos`, `gestion_formularios`, `gestion_detalles_orden`, `gestion_detalles_procesos`, `gestion_servicios_procesos`
+**Módulos disponibles**: `gestion_usuarios`, `gestion_empleados`, `gestion_clientes`, `gestion_empresas`, `gestion_servicios`, `gestion_solicitudes`, `gestion_citas`, `gestion_pagos`, `gestion_roles`, `gestion_permisos`, `gestion_privilegios`, `gestion_seguimiento`, `gestion_archivos`, `gestion_tipo_archivos`, `gestion_formularios`, `gestion_detalles_orden`, `gestion_detalles_procesos`, `gestion_servicios_procesos`, `gestion_dashboard`
+
+#### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
+
+**1. ✅ Validación de IDs en Parámetros (Protección contra SQL Injection)**
+- Validación estricta de formato numérico en todos los parámetros `:id`
+- Rechaza IDs con caracteres especiales, letras o inyecciones SQL (ej: `1; DROP TABLE roles;--`)
+- Aplicado en: Todos los endpoints con parámetro `:id` en roles, permisos y privilegios
+- Validación regex: Solo acepta dígitos 0-9 (`/^\d+$/`)
+- Error: 400 Bad Request con mensaje descriptivo
+
+**2. ✅ Sistema de Permisos Granular (Control Híbrido)**
+- **Roles principales (administrador, empleado):** Usa `roleMiddleware` + `checkPermiso` (doble validación)
+- **Roles personalizados (id_rol > 3):** Solo usa `checkPermiso` (validación granular)
+- **Clientes:** Rechazo explícito automático (sin acceso a gestión de roles, permisos o privilegios)
+- Permisos requeridos:
+  - `gestion_roles` con acción específica (`crear`, `leer`, `actualizar`, `eliminar`)
+  - `gestion_permisos` con acción específica (`crear`, `leer`, `actualizar`, `eliminar`)
+  - `gestion_privilegios` con acción específica (`crear`, `leer`, `actualizar`, `eliminar`)
+- Aplicado en: Todas las rutas de roles, permisos y privilegios
+- Middlewares: `validateRoleAccess(privilegio)`, `validatePermisoAccess(privilegio)`, `validatePrivilegioAccess(privilegio)` - Middlewares híbridos personalizados
+
+**Documentación Completa:**
+- 📁 `EJEMPLO_POSTMAN_VALIDACIONES_ARCHIVOS_SEGUIMIENTO_ROLES.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `EJEMPLO_POSTMAN_ROLES_Y_PERMISOS.md` - Ejemplos de Postman para gestión de roles y permisos
+- 📁 `VALIDACIONES_FALTANTES_POR_MODULO.md` - Organización de validaciones por módulo
 
 **Acciones disponibles**: `crear`, `leer`, `actualizar`, `eliminar`
 
@@ -5736,13 +6159,60 @@ Este script demuestra todas las mejoras en los mensajes de la API.
 - **CORS configurado** para control de origen
 - **Variables de entorno** para datos sensibles
 - **Middleware de autorización** por roles
+- **✅ Rate Limiting** - Protección contra fuerza bruta (Enero 2026)
+- **✅ Validación de Contraseñas Comunes** - Bloqueo de contraseñas vulnerables (Enero 2026)
+- **✅ Sanitización de Inputs** - Prevención de XSS e inyección (Enero 2026)
+- **✅ Validación de Estado del Usuario** - Verificación de usuario activo en cada request (Enero 2026)
+
+### Validaciones de Seguridad en Autenticación ⭐ **NUEVO - Ene 2026**
+
+#### 1. Rate Limiting (Protección contra Fuerza Bruta)
+- **Login:** 5 intentos por IP cada 15 minutos
+- **Registro:** 3 intentos por IP cada 15 minutos
+- **Recuperación de Contraseña:** 3 intentos por IP cada 15 minutos
+- **Reset de Contraseña:** 5 intentos por IP cada 15 minutos
+- **Respuesta:** Error 429 (Too Many Requests) con mensaje descriptivo
+- **Headers:** `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+
+#### 2. Validación de Contraseñas Comunes
+- **Lista de 50+ contraseñas prohibidas:** 123456, password, admin123, qwerty, etc.
+- **Aplicado en:** Registro y reset de contraseña
+- **Validación case-insensitive:** Detecta variaciones en mayúsculas/minúsculas
+- **Mensaje de error:** Incluye sugerencias para crear contraseñas seguras
+
+#### 3. Validación de Fortaleza de Contraseña
+- **Longitud mínima:** 8 caracteres
+- **Longitud máxima:** 128 caracteres (prevención de DoS)
+- **Requisitos obligatorios:**
+  - Al menos una letra mayúscula (A-Z)
+  - Al menos un número (0-9)
+  - Al menos un carácter especial (!@#$%^&*()_+-=[]{}|;':"\\,.<>/?)
+- **Aplicado en:** Registro, reset de contraseña, cambio de contraseña
+
+#### 4. Sanitización de Inputs (Prevención XSS e Inyección)
+- **Correo electrónico:** Sanitización automática (trim, lowercase, bloqueo de caracteres peligrosos)
+- **Contraseña:** Trim automático (sin modificar contenido)
+- **Validación de formato:** Rechaza correos con caracteres especiales peligrosos
+- **Aplicado en:** Login, registro, recuperación de contraseña
+
+#### 5. Validación de Estado del Usuario
+- **Verificación en cada request:** El middleware `authMiddleware` valida que el usuario exista y esté activo
+- **Token con usuario inactivo:** Retorna error 403 (Forbidden) con mensaje claro
+- **Token con usuario eliminado:** Retorna error 401 (Unauthorized) con mensaje específico
+- **Prevención de acceso:** Usuarios desactivados no pueden usar tokens existentes
+
+#### 6. Manejo Mejorado de Errores de Autenticación
+- **Códigos de error específicos:** `INVALID_CREDENTIALS`, `USER_INACTIVE`, `RATE_LIMIT_EXCEEDED`
+- **Códigos HTTP correctos:** 401 (Unauthorized) para credenciales incorrectas, 403 (Forbidden) para usuarios inactivos, 429 (Too Many Requests) para rate limit
+- **Mensajes descriptivos:** Incluyen detalles y sugerencias para el usuario
+- **Timestamps:** Todas las respuestas de error incluyen timestamp
 
 ### Recomendaciones de seguridad
 - Cambiar contraseñas por defecto en producción
 - Usar HTTPS en producción
 - Configurar firewall apropiado
 - Mantener dependencias actualizadas
-- Implementar rate limiting
+- ✅ **Rate limiting implementado** (Enero 2026)
 - Hacer backups regulares de la base de datos
 
 ### Configuración de email seguro

@@ -1727,6 +1727,30 @@ export const anularSolicitud = async (req, res) => {
     const { id } = req.params;
     const { motivo } = req.body;
 
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede anular sus propias solicitudes
+    if (req.user.rol === 'cliente') {
+      const solicitud = await OrdenServicio.findByPk(id);
+      if (!solicitud) {
+        return res.status(404).json({ mensaje: "Solicitud no encontrada" });
+      }
+      
+      // Buscar el cliente asociado al usuario
+      const cliente = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!cliente || solicitud.id_cliente !== cliente.id_cliente) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para anular esta solicitud",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes anular tus propias solicitudes'
+          }
+        });
+      }
+    }
+
     // Validar que se envió motivo
     if (!motivo || motivo.trim() === '') {
       return res.status(400).json({
@@ -1820,6 +1844,31 @@ export const anularSolicitud = async (req, res) => {
 export const editarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // ✅ RESTRICCIÓN: Si es cliente, solo puede editar sus propias solicitudes
+    if (req.user.rol === 'cliente') {
+      const solicitudVerificacion = await OrdenServicio.findByPk(id);
+      if (!solicitudVerificacion) {
+        return res.status(404).json({ mensaje: "Solicitud no encontrada" });
+      }
+      
+      // Buscar el cliente asociado al usuario
+      const cliente = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!cliente || solicitudVerificacion.id_cliente !== cliente.id_cliente) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para editar esta solicitud",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes editar tus propias solicitudes'
+          }
+        });
+      }
+    }
+    
     const solicitud = await solicitudesService.editarSolicitud(id, req.body);
     res.json(solicitud);
   } catch (error) {
@@ -1940,6 +1989,18 @@ export const obtenerEstadoActual = async (req, res) => {
 // Asignar empleado a solicitud
 export const asignarEmpleado = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Solo admin/empleado pueden asignar empleados
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para asignar empleados",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden asignar empleados a solicitudes'
+        }
+      });
+    }
+
     const { id } = req.params;
     const { id_empleado } = req.body;
 

@@ -32,6 +32,7 @@ export const getClientesByEmpresaId = async (id_empresa) => {
   return await Empresa.findByPk(id_empresa, {
     include: {
       model: Cliente,
+      as: 'Clientes', // ✅ Alias requerido según associations.js
       through: { attributes: [] } // Oculta la tabla intermedia
     }
   });
@@ -43,6 +44,7 @@ export const getClientesByNit = async (nit) => {
     where: { nit },
     include: {
       model: Cliente,
+      as: 'Clientes', // ✅ Alias requerido según associations.js
       through: { attributes: [] }
     }
   });

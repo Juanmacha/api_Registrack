@@ -208,7 +208,7 @@ export const listByCliente = async (req, res) => {
     const archivos = await Archivo.findAll({ 
       where: { id_cliente: parseInt(idCliente) },
       include: [
-        { model: TipoArchivo, as: 'TipoArchivo' }
+        { model: TipoArchivo, as: 'tipo' }
       ]
     });
     
@@ -223,8 +223,8 @@ export const listByCliente = async (req, res) => {
           id_cliente: archivo.id_cliente,
           id_orden_servicio: archivo.id_orden_servicio,
           fecha_subida: archivo.fecha_subida,
-          tipo_archivo: archivo.TipoArchivo ? {
-            descripcion: archivo.TipoArchivo.descripcion
+          tipo_archivo: archivo.tipo ? {
+            descripcion: archivo.tipo.descripcion
           } : null
         })),
         total: archivos.length,

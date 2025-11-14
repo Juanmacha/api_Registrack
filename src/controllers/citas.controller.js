@@ -15,6 +15,7 @@ import {
   sendCitaProgramadaCliente,
   sendCitaProgramadaEmpleado
 } from "../services/email.service.js";
+import xss from 'xss'; // Para sanitización XSS
 
 // ✅ Función para actualizar automáticamente citas pasadas a "Finalizada"
 const actualizarCitasFinalizadas = async () => {
@@ -57,7 +58,15 @@ export const getCitas = async (req, res) => {
         // ✅ Actualizar automáticamente citas pasadas antes de consultar
         await actualizarCitasFinalizadas();
         
+        // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede ver sus propias citas
+        let whereClause = {};
+        if (req.user.rol === 'cliente') {
+            whereClause.id_cliente = req.user.id_usuario;
+            console.log('👤 Cliente - Filtrando citas propias para id_usuario:', req.user.id_usuario);
+        }
+        
         const citas = await Cita.findAll({
+            where: whereClause,
             include: [
                 {
                     model: User,
@@ -120,6 +129,109 @@ export const getCitas = async (req, res) => {
             }
         });
     }
+};
+
+// =============================================
+// FUNCIONES DE VALIDACIÓN PARA CITAS
+// =============================================
+
+/**
+ * ✅ Validar que la fecha sea un día hábil (lunes a viernes)
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ * @returns {Object|null} - Error object si no es día hábil, null si es válido
+ */
+const validarDiasHabiles = (fecha) => {
+    // ✅ CORREGIDO: Parsear fecha correctamente para evitar problemas de zona horaria
+    // Usar formato YYYY-MM-DD y crear fecha en hora local (no UTC)
+    const [year, month, day] = fecha.split('-').map(Number);
+    const fechaDate = new Date(year, month - 1, day); // month - 1 porque Date usa 0-11 para meses
+    const dia = fechaDate.getDay(); // 0 = Domingo, 6 = Sábado
+    
+    console.log(`🔍 Validando día hábil - Fecha: ${fecha}, Día de la semana: ${dia} (0=Domingo, 6=Sábado)`);
+    
+    if (dia === 0 || dia === 6) {
+        const nombreDia = dia === 0 ? 'domingo' : 'sábado';
+        console.log(`❌ Día no hábil detectado: ${nombreDia}`);
+        return {
+            success: false,
+            message: `Las citas solo se pueden agendar de lunes a viernes. La fecha seleccionada es ${nombreDia}.`,
+            code: 'INVALID_WEEKDAY',
+            dia: nombreDia
+        };
+    }
+    
+    console.log(`✅ Día hábil válido`);
+    return null; // Es día hábil
+};
+
+/**
+ * ✅ Validar que la duración de la cita sea aproximadamente 1 hora (60 minutos) con tolerancia de ±5 minutos (55-65 minutos)
+ * @param {string} horaInicio - Hora de inicio en formato HH:MM:SS
+ * @param {string} horaFin - Hora de fin en formato HH:MM:SS
+ * @returns {Object|null} - Error object si la duración no es válida, null si es válida
+ */
+const validarDuracionCita = (horaInicio, horaFin) => {
+    const horaInicioDate = new Date(`1970-01-01T${horaInicio}`);
+    const horaFinDate = new Date(`1970-01-01T${horaFin}`);
+    
+    const duracionMs = horaFinDate.getTime() - horaInicioDate.getTime();
+    const unaHoraEnMs = 60 * 60 * 1000; // 1 hora en milisegundos (3,600,000 ms)
+    const toleranciaMs = 5 * 60 * 1000; // Tolerancia de 5 minutos (300,000 ms)
+    const duracionMinutos = Math.round(duracionMs / (1000 * 60));
+    
+    if (Math.abs(duracionMs - unaHoraEnMs) > toleranciaMs) {
+        return {
+            success: false,
+            message: `Las citas deben durar aproximadamente 1 hora (60 minutos) con tolerancia de ±5 minutos (55-65 minutos). La duración proporcionada es de ${duracionMinutos} minutos.`,
+            code: 'INVALID_DURATION',
+            duracion_minutos: duracionMinutos,
+            duracion_esperada: '55-65 minutos',
+            ejemplos_validos: [
+                '09:00:00 - 10:00:00 (60 minutos)',
+                '09:00:00 - 10:05:00 (65 minutos)',
+                '09:05:00 - 10:00:00 (55 minutos)'
+            ]
+        };
+    }
+    
+    return null; // Duración válida
+};
+
+/**
+ * ✅ Sanitizar campo observacion para prevenir ataques XSS
+ * @param {string} observacion - Texto a sanitizar
+ * @returns {string} - Texto sanitizado
+ */
+const sanitizarObservacion = (observacion) => {
+    if (!observacion || typeof observacion !== 'string') {
+        return '';
+    }
+    return xss(observacion.trim());
+};
+
+/**
+ * ✅ Validar rango de fechas (máximo 1 año en el futuro)
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ * @returns {Object|null} - Error object si excede el rango, null si es válida
+ */
+const validarRangoFechas = (fecha) => {
+    const fechaDate = new Date(fecha);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    const maxDate = new Date(hoy);
+    maxDate.setFullYear(maxDate.getFullYear() + 1); // 1 año en el futuro
+    
+    if (fechaDate > maxDate) {
+        return {
+            success: false,
+            message: `La fecha no puede ser más de 1 año en el futuro. La fecha máxima permitida es ${maxDate.toISOString().split('T')[0]}.`,
+            code: 'DATE_TOO_FAR',
+            fecha_maxima: maxDate.toISOString().split('T')[0]
+        };
+    }
+    
+    return null; // Fecha dentro del rango válido
 };
 
 // ✅ Función para validar que los datos enviados coincidan con los datos reales del usuario
@@ -263,6 +375,43 @@ export const createCita = async (req, res) => {
     const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion, documento, nombre, apellido, correo, tipo_documento, telefono } = req.body;
     let { estado } = req.body;
 
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede crear citas para sí mismo
+    if (req.user.rol === 'cliente') {
+        // Si envía id_cliente, debe ser su propio ID (pero primero necesitamos buscar el id_cliente PK)
+        if (id_cliente) {
+            // Buscar el cliente por id_cliente (PK) y verificar que el id_usuario coincida
+            const clienteVerificacion = await Cliente.findByPk(id_cliente);
+            if (!clienteVerificacion || clienteVerificacion.id_usuario !== req.user.id_usuario) {
+                return res.status(403).json({ 
+                    success: false,
+                    message: "No tienes permiso para crear citas para otros clientes",
+                    error: {
+                        code: 'PERMISSION_DENIED',
+                        details: 'Los clientes solo pueden crear citas para sí mismos'
+                    }
+                });
+            }
+        }
+        // Si no envía id_cliente ni documento, buscar su cliente y usar su id_cliente (PK)
+        if (!id_cliente && !documento) {
+            const cliente = await Cliente.findOne({
+                where: { id_usuario: req.user.id_usuario }
+            });
+            if (!cliente) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "No se encontró un cliente asociado a tu usuario",
+                    error: {
+                        code: 'CLIENT_NOT_FOUND',
+                        details: 'Tu usuario no está asociado a un cliente en el sistema'
+                    }
+                });
+            }
+            // Usar el id_cliente (PK) del cliente encontrado
+            req.body.id_cliente = cliente.id_cliente;
+        }
+    }
+
     // 1. Field Validation - Modificado para aceptar documento o id_cliente
     const requiredFields = ['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_empleado'];
     const missingFields = [];
@@ -273,7 +422,8 @@ export const createCita = async (req, res) => {
     }
     
     // Validar que se proporcione id_cliente O documento (no ambos requeridos)
-    if (!id_cliente && !documento) {
+    // Nota: Si es cliente y no envió ninguno, ya se asignó automáticamente arriba
+    if (!req.body.id_cliente && !documento) {
         missingFields.push('id_cliente o documento');
     }
     
@@ -337,9 +487,29 @@ export const createCita = async (req, res) => {
     console.log("Creating cita with data:", req.body);
 
     try {
-        // ✅ NUEVO: Si se envía documento, buscar el usuario primero
-        let clienteId = id_cliente;
-        if (documento && !id_cliente) {
+        // ✅ CORREGIDO: Si se envía id_cliente, buscar el cliente por id_cliente (PK) y obtener su id_usuario
+        let clienteId = null; // Este será el id_usuario del cliente
+        
+        if (id_cliente && !documento) {
+            // Si se envía id_cliente, buscar en la tabla clientes por id_cliente (PK)
+            console.log('🔍 Buscando cliente por id_cliente (PK):', id_cliente);
+            const clientePorId = await Cliente.findByPk(id_cliente, {
+                include: [{ model: User, as: 'Usuario' }]
+            });
+            
+            if (!clientePorId) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "No se encontró un cliente con ese id_cliente",
+                    id_cliente: id_cliente,
+                    nota: "El id_cliente debe ser el ID de la tabla clientes (PK), no el id_usuario"
+                });
+            }
+            
+            // Obtener el id_usuario del cliente
+            clienteId = clientePorId.id_usuario;
+            console.log('✅ Cliente encontrado por id_cliente:', clientePorId.Usuario ? `${clientePorId.Usuario.nombre} ${clientePorId.Usuario.apellido} (id_cliente: ${id_cliente}, id_usuario: ${clienteId})` : 'Cliente encontrado');
+        } else if (documento && !id_cliente) {
             console.log('🔍 Buscando usuario por documento:', documento);
             const usuario = await User.findOne({
                 where: { documento: BigInt(documento) }
@@ -406,6 +576,29 @@ export const createCita = async (req, res) => {
             });
         }
 
+        // ✅ VALIDAR que el clienteId (id_usuario) corresponda a un cliente real (no empleado/admin)
+        // Nota: clienteId ya es el id_usuario en este punto
+        console.log('🔍 Validando que clienteId (id_usuario) corresponda a un cliente válido:', clienteId);
+        const clienteValidacion = await Cliente.findOne({
+            where: { id_usuario: clienteId },
+            include: [{ model: User, as: 'Usuario' }] // ✅ Usar 'Usuario' con mayúscula según associations.js
+        });
+
+        if (!clienteValidacion) {
+            console.error('❌ Cliente no encontrado en tabla clientes para id_usuario:', clienteId);
+            console.error('   Esto significa que el ID proporcionado no corresponde a un cliente registrado.');
+            console.error('   Verifica que el id_cliente sea de un cliente, no de un empleado o administrador.');
+            return res.status(400).json({ 
+                success: false,
+                message: "El id_cliente proporcionado no corresponde a un cliente registrado",
+                id_cliente: id_cliente, // Mostrar el id_cliente original que se envió
+                id_usuario_obtenido: clienteId,
+                nota: "Asegúrate de que el id_cliente corresponde a un cliente válido en la tabla clientes"
+            });
+        }
+
+        console.log('✅ Cliente validado:', clienteValidacion.Usuario ? `${clienteValidacion.Usuario.nombre} ${clienteValidacion.Usuario.apellido} (id_cliente: ${clienteValidacion.id_cliente}, id_usuario: ${clienteId}, Email: ${clienteValidacion.Usuario.correo})` : 'Cliente encontrado');
+
         // ✅ NUEVO: Validar que el cliente no tenga una cita activa en ese horario
         console.log('🔍 Validando citas duplicadas para cliente:', clienteId);
         const citaExistenteCliente = await Cita.findOne({
@@ -450,7 +643,23 @@ export const createCita = async (req, res) => {
         const requestedDate = new Date(fecha);
 
         if (requestedDate < today) {
-            return res.status(400).json({ message: "No se puede crear una cita en una fecha anterior a hoy." });
+            return res.status(400).json({ 
+                success: false,
+                message: "No se puede crear una cita en una fecha anterior a hoy.",
+                code: 'DATE_IN_PAST'
+            });
+        }
+
+        // ✅ VALIDAR RANGO DE FECHAS (máximo 1 año en el futuro)
+        const errorRangoFechas = validarRangoFechas(fecha);
+        if (errorRangoFechas) {
+            return res.status(400).json(errorRangoFechas);
+        }
+
+        // ✅ VALIDAR DÍAS HÁBILES (lunes a viernes)
+        const errorDiasHabiles = validarDiasHabiles(fecha);
+        if (errorDiasHabiles) {
+            return res.status(400).json(errorDiasHabiles);
         }
 
         // 2. Time Validation
@@ -460,12 +669,29 @@ export const createCita = async (req, res) => {
         const closingTime = new Date(`1970-01-01T18:00:00`);
 
         if (startTime < openingTime || endTime > closingTime) {
-            return res.status(400).json({ message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM." });
+            return res.status(400).json({ 
+                success: false,
+                message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM.",
+                code: 'INVALID_TIME_RANGE'
+            });
         }
 
         if (startTime >= endTime) {
-            return res.status(400).json({ message: "La hora de inicio debe ser anterior a la hora de fin." });
+            return res.status(400).json({ 
+                success: false,
+                message: "La hora de inicio debe ser anterior a la hora de fin.",
+                code: 'INVALID_TIME_ORDER'
+            });
         }
+
+        // ✅ VALIDAR DURACIÓN DE CITA (1 hora ±5 minutos)
+        console.log('🔍 Validando duración de cita:', hora_inicio, '-', hora_fin);
+        const errorDuracion = validarDuracionCita(hora_inicio, hora_fin);
+        if (errorDuracion) {
+            console.error('❌ Error en validación de duración:', errorDuracion.message);
+            return res.status(400).json(errorDuracion);
+        }
+        console.log('✅ Duración de cita válida');
 
         // 4. Overlap Validation (usando id_usuario_empleado)
         console.log("Checking for existing appointments with overlap...");
@@ -489,6 +715,9 @@ export const createCita = async (req, res) => {
             return res.status(400).json({ message: "Ya existe una cita agendada en ese horario para el empleado seleccionado." });
         }
 
+        // ✅ SANITIZAR OBSERVACION (prevenir XSS)
+        const observacionSanitizada = observacion ? sanitizarObservacion(observacion) : null;
+
         const newCita = await Cita.create({
             fecha,
             hora_inicio,
@@ -498,57 +727,82 @@ export const createCita = async (req, res) => {
             estado,
             id_cliente: clienteId, // ✅ Usar clienteId (puede venir de documento o id_cliente)
             id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario
-            observacion
+            observacion: observacionSanitizada // ✅ Usar observación sanitizada
         });
 
         // 📧 Enviar emails de confirmación
         try {
+            console.log('📧 Iniciando envío de emails de confirmación...');
+            console.log('🔍 IDs para emails - clienteId:', clienteId, 'id_usuario_empleado:', id_usuario_empleado);
+            
             // Obtener datos del cliente y empleado
             const cliente = await User.findByPk(clienteId); // ✅ Usar clienteId
             const empleadoUser = await User.findByPk(id_usuario_empleado);
+            
+            console.log('👤 Cliente encontrado:', cliente ? `${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id_usuario}, Email: ${cliente.correo})` : 'NO ENCONTRADO');
+            console.log('👤 Empleado encontrado:', empleadoUser ? `${empleadoUser.nombre} ${empleadoUser.apellido} (ID: ${empleadoUser.id_usuario}, Email: ${empleadoUser.correo})` : 'NO ENCONTRADO');
 
-            // Email al cliente
-            if (cliente && cliente.correo) {
+            if (!cliente) {
+                console.error('❌ Cliente no encontrado para enviar email:', clienteId);
+            } else if (!cliente.correo) {
+                console.warn('⚠️ Cliente no tiene correo electrónico:', clienteId);
+            } else {
+                // Email al cliente
                 console.log('📧 Enviando email de cita al cliente:', cliente.correo);
-                await sendCitaProgramadaCliente(
-                    cliente.correo,
-                    `${cliente.nombre} ${cliente.apellido}`,
-                    {
-                        solicitud_id: null,
-                        servicio: tipo,
-                        fecha: fecha,
-                        hora_inicio: hora_inicio,
-                        hora_fin: hora_fin,
-                        modalidad: modalidad,
-                        empleado_nombre: empleadoUser ? `${empleadoUser.nombre} ${empleadoUser.apellido}` : null,
-                        observacion: observacion
-                    }
-                );
-                console.log('✅ Email enviado al cliente');
+                try {
+                    await sendCitaProgramadaCliente(
+                        cliente.correo,
+                        `${cliente.nombre} ${cliente.apellido}`,
+                        {
+                            solicitud_id: null,
+                            servicio: tipo,
+                            fecha: fecha,
+                            hora_inicio: hora_inicio,
+                            hora_fin: hora_fin,
+                            modalidad: modalidad,
+                            empleado_nombre: empleadoUser ? `${empleadoUser.nombre} ${empleadoUser.apellido}` : null,
+                            observacion: observacionSanitizada || observacion
+                        }
+                    );
+                    console.log('✅ Email enviado exitosamente al cliente:', cliente.correo);
+                } catch (clienteEmailError) {
+                    console.error('❌ Error específico al enviar email al cliente:', clienteEmailError.message);
+                    // Continuar con el proceso aunque falle el email
+                }
             }
 
             // Email al empleado
-            if (empleadoUser && empleadoUser.correo) {
+            if (!empleadoUser) {
+                console.error('❌ Empleado no encontrado para enviar email:', id_usuario_empleado);
+            } else if (!empleadoUser.correo) {
+                console.warn('⚠️ Empleado no tiene correo electrónico:', id_usuario_empleado);
+            } else {
                 console.log('📧 Enviando email de cita al empleado:', empleadoUser.correo);
-                await sendCitaProgramadaEmpleado(
-                    empleadoUser.correo,
-                    empleadoUser.nombre,
-                    {
-                        solicitud_id: null,
-                        servicio: tipo,
-                        cliente_nombre: `${cliente.nombre} ${cliente.apellido}`,
-                        cliente_email: cliente.correo,
-                        fecha: fecha,
-                        hora_inicio: hora_inicio,
-                        hora_fin: hora_fin,
-                        modalidad: modalidad,
-                        observacion: observacion
-                    }
-                );
-                console.log('✅ Email enviado al empleado');
+                try {
+                    await sendCitaProgramadaEmpleado(
+                        empleadoUser.correo,
+                        empleadoUser.nombre,
+                        {
+                            solicitud_id: null,
+                            servicio: tipo,
+                            cliente_nombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente',
+                            cliente_email: cliente ? cliente.correo : null,
+                            fecha: fecha,
+                            hora_inicio: hora_inicio,
+                            hora_fin: hora_fin,
+                            modalidad: modalidad,
+                            observacion: observacionSanitizada || observacion
+                        }
+                    );
+                    console.log('✅ Email enviado exitosamente al empleado:', empleadoUser.correo);
+                } catch (empleadoEmailError) {
+                    console.error('❌ Error específico al enviar email al empleado:', empleadoEmailError.message);
+                    // Continuar con el proceso aunque falle el email
+                }
             }
         } catch (emailError) {
-            console.error('❌ Error al enviar emails:', emailError);
+            console.error('❌ Error general al enviar emails:', emailError);
+            console.error('❌ Stack trace:', emailError.stack);
             // No fallar la operación por error de email
         }
 
@@ -612,6 +866,18 @@ export const reprogramarCita = async (req, res) => {
             return res.status(404).json({ message: "Cita no encontrada." });
         }
 
+        // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede reprogramar sus propias citas
+        if (req.user.rol === 'cliente' && cita.id_cliente !== req.user.id_usuario) {
+            return res.status(403).json({ 
+                success: false,
+                message: "No tienes permiso para reprogramar esta cita",
+                error: {
+                    code: 'RESOURCE_OWNERSHIP_ERROR',
+                    details: 'Solo puedes reprogramar tus propias citas'
+                }
+            });
+        }
+
         // Check if the appointment is canceled or finalized
         if (cita.estado === 'Anulada') {
             return res.status(400).json({ message: "No se puede reprogramar una cita que ha sido anulada." });
@@ -646,7 +912,23 @@ export const reprogramarCita = async (req, res) => {
         today.setHours(0, 0, 0, 0);
         const requestedDate = new Date(newFecha);
         if (requestedDate < today) {
-            return res.status(400).json({ message: "No se puede reprogramar una cita a una fecha anterior a hoy." });
+            return res.status(400).json({ 
+                success: false,
+                message: "No se puede reprogramar una cita a una fecha anterior a hoy.",
+                code: 'DATE_IN_PAST'
+            });
+        }
+
+        // ✅ VALIDAR RANGO DE FECHAS (máximo 1 año en el futuro)
+        const errorRangoFechas = validarRangoFechas(newFecha);
+        if (errorRangoFechas) {
+            return res.status(400).json(errorRangoFechas);
+        }
+
+        // ✅ VALIDAR DÍAS HÁBILES (lunes a viernes)
+        const errorDiasHabiles = validarDiasHabiles(newFecha);
+        if (errorDiasHabiles) {
+            return res.status(400).json(errorDiasHabiles);
         }
 
         // Time within working hours validation
@@ -656,11 +938,25 @@ export const reprogramarCita = async (req, res) => {
         const closingTime = new Date(`1970-01-01T18:00:00`);
 
         if (startTime < openingTime || endTime > closingTime) {
-            return res.status(400).json({ message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM." });
+            return res.status(400).json({ 
+                success: false,
+                message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM.",
+                code: 'INVALID_TIME_RANGE'
+            });
         }
 
         if (startTime >= endTime) {
-            return res.status(400).json({ message: "La hora de inicio debe ser anterior a la hora de fin." });
+            return res.status(400).json({ 
+                success: false,
+                message: "La hora de inicio debe ser anterior a la hora de fin.",
+                code: 'INVALID_TIME_ORDER'
+            });
+        }
+
+        // ✅ VALIDAR DURACIÓN DE CITA (1 hora ±5 minutos)
+        const errorDuracion = validarDuracionCita(newHoraInicio, newHoraFin);
+        if (errorDuracion) {
+            return res.status(400).json(errorDuracion);
         }
 
         // Overlap validation
@@ -723,11 +1019,24 @@ export const anularCita = async (req, res) => {
         if (!req.body || !req.body.observacion) {
             return res.status(400).json({ message: "Se requiere una observación para anular la cita." });
         }
-        const { observacion } = req.body;
+        // ✅ SANITIZAR OBSERVACION (prevenir XSS)
+        const observacion = sanitizarObservacion(req.body.observacion);
 
         const cita = await Cita.findByPk(id);
         if (!cita) {
             return res.status(404).json({ message: "Cita no encontrada." });
+        }
+
+        // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede anular sus propias citas
+        if (req.user.rol === 'cliente' && cita.id_cliente !== req.user.id_usuario) {
+            return res.status(403).json({ 
+                success: false,
+                message: "No tienes permiso para anular esta cita",
+                error: {
+                    code: 'RESOURCE_OWNERSHIP_ERROR',
+                    details: 'Solo puedes anular tus propias citas'
+                }
+            });
         }
 
         // Check if the appointment is already canceled or finalized
@@ -776,6 +1085,18 @@ export const anularCita = async (req, res) => {
 // Reporte Excel de citas
 export const descargarReporteCitas = async (req, res) => {
     try {
+        // ✅ RESTRICCIÓN: Solo admin/empleado pueden descargar reportes
+        if (req.user.rol === 'cliente') {
+            return res.status(403).json({ 
+                success: false,
+                message: "No tienes permiso para descargar reportes",
+                error: {
+                    code: 'PERMISSION_DENIED',
+                    details: 'Solo administradores y empleados pueden descargar reportes de citas'
+                }
+            });
+        }
+
         const citas = await Cita.findAll({
             include: [
                 {
@@ -844,6 +1165,18 @@ export const finalizarCita = async (req, res) => {
     const { id } = req.params;
     
     try {
+        // ✅ RESTRICCIÓN: Solo admin/empleado pueden finalizar citas
+        if (req.user.rol === 'cliente') {
+            return res.status(403).json({ 
+                success: false,
+                message: "No tienes permiso para finalizar citas",
+                error: {
+                    code: 'PERMISSION_DENIED',
+                    details: 'Solo administradores y empleados pueden finalizar citas'
+                }
+            });
+        }
+
         const cita = await Cita.findByPk(id);
         if (!cita) {
             return res.status(404).json({ message: "Cita no encontrada." });
@@ -875,7 +1208,8 @@ export const finalizarCita = async (req, res) => {
         
         cita.estado = 'Finalizada';
         if (req.body.observacion) {
-            cita.observacion = req.body.observacion;
+            // ✅ SANITIZAR OBSERVACION (prevenir XSS)
+            cita.observacion = sanitizarObservacion(req.body.observacion);
         }
         await cita.save();
         
@@ -919,6 +1253,18 @@ export const validateCreateCita = (req, res, next) => {
  * Solo Admin/Empleado
  */
 export const crearCitaDesdeSolicitud = async (req, res) => {
+  // ✅ RESTRICCIÓN: Solo admin/empleado pueden crear citas desde solicitudes
+  if (req.user.rol === 'cliente') {
+    return res.status(403).json({ 
+      success: false,
+      message: "No tienes permiso para crear citas desde solicitudes",
+      error: {
+        code: 'PERMISSION_DENIED',
+        details: 'Solo administradores y empleados pueden crear citas desde solicitudes'
+      }
+    });
+  }
+
   const { idOrdenServicio } = req.params;
   const { fecha, hora_inicio, hora_fin, modalidad, id_empleado, observacion } = req.body;
 
@@ -1009,8 +1355,21 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
     if (requestedDate < today) {
       return res.status(400).json({ 
         success: false,
-        message: "No se puede crear una cita en una fecha anterior a hoy" 
+        message: "No se puede crear una cita en una fecha anterior a hoy",
+        code: 'DATE_IN_PAST'
       });
+    }
+
+    // ✅ VALIDAR RANGO DE FECHAS (máximo 1 año en el futuro)
+    const errorRangoFechas = validarRangoFechas(fecha);
+    if (errorRangoFechas) {
+      return res.status(400).json(errorRangoFechas);
+    }
+
+    // ✅ VALIDAR DÍAS HÁBILES (lunes a viernes)
+    const errorDiasHabiles = validarDiasHabiles(fecha);
+    if (errorDiasHabiles) {
+      return res.status(400).json(errorDiasHabiles);
     }
 
     // 5. Validar horario de oficina (7 AM - 6 PM)
@@ -1022,15 +1381,23 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
     if (startTime < openingTime || endTime > closingTime) {
       return res.status(400).json({ 
         success: false,
-        message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM" 
+        message: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM",
+        code: 'INVALID_TIME_RANGE'
       });
     }
 
     if (startTime >= endTime) {
       return res.status(400).json({ 
         success: false,
-        message: "La hora de inicio debe ser anterior a la hora de fin" 
+        message: "La hora de inicio debe ser anterior a la hora de fin",
+        code: 'INVALID_TIME_ORDER'
       });
+    }
+
+    // ✅ VALIDAR DURACIÓN DE CITA (1 hora ±5 minutos)
+    const errorDuracion = validarDuracionCita(hora_inicio, hora_fin);
+    if (errorDuracion) {
+      return res.status(400).json(errorDuracion);
     }
 
     // ✅ VALIDAR que id_empleado corresponda a un empleado válido
@@ -1083,6 +1450,9 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
     const tipoCita = tipoMap[solicitud.servicio.nombre] || 'General';
 
     // 8. Crear la cita asociada a la solicitud
+    // ✅ SANITIZAR OBSERVACION (prevenir XSS)
+    const observacionSanitizada = observacion ? sanitizarObservacion(observacion) : null;
+    
     const nuevaCita = await Cita.create({
       fecha,
       hora_inicio,
@@ -1090,7 +1460,7 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
       tipo: tipoCita, // Tipo mapeado al ENUM válido
       modalidad: modalidadFinal, // Usar modalidad corregida
       estado: 'Programada',
-      observacion,
+      observacion: observacionSanitizada, // ✅ Usar observación sanitizada
       id_cliente: solicitud.cliente.Usuario.id_usuario, // Cliente automático
       id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario del empleado
       id_orden_servicio: idOrdenServicio // ← VINCULAR CON SOLICITUD
@@ -1315,6 +1685,18 @@ export const crearCitaDesdeSolicitud = async (req, res) => {
  * Obtener todas las citas asociadas a una solicitud
  */
 export const obtenerCitasDeSolicitud = async (req, res) => {
+  // ✅ RESTRICCIÓN: Solo admin/empleado pueden ver citas de solicitudes
+  if (req.user.rol === 'cliente') {
+    return res.status(403).json({ 
+      success: false,
+      message: "No tienes permiso para ver citas de solicitudes",
+      error: {
+        code: 'PERMISSION_DENIED',
+        details: 'Solo administradores y empleados pueden ver citas de solicitudes'
+      }
+    });
+  }
+
   const { id } = req.params;
 
   try {
@@ -1380,6 +1762,18 @@ export const obtenerCitasDeSolicitud = async (req, res) => {
  */
 export const buscarUsuarioPorDocumento = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Solo admin/empleado pueden buscar usuarios
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        message: "No tienes permiso para buscar usuarios",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden buscar usuarios por documento'
+        }
+      });
+    }
+
     const { documento } = req.params;
 
     if (!documento) {

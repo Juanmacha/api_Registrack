@@ -10,6 +10,7 @@ import {
   VALIDATION_MESSAGES,
   ERROR_CODES 
 } from "../constants/messages.js";
+import { sanitizeLoginEmail, sanitizePassword } from '../utils/inputSanitizer.js';
 
 export const register = async (req, res) => {
   try {
@@ -82,16 +83,35 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { correo, contrasena } = req.body;
+    // ✅ SANITIZAR INPUTS para prevenir XSS e inyección
+    const correoRaw = req.body.correo;
+    const contrasenaRaw = req.body.contrasena;
     
     // Validaciones básicas
-    if (!correo || !contrasena) {
+    if (!correoRaw || !contrasenaRaw) {
       return res.status(400).json({
         success: false,
         error: {
           message: VALIDATION_MESSAGES.USER.REQUIRED_FIELDS,
           code: ERROR_CODES.REQUIRED_FIELD,
-          details: { missingFields: !correo ? ['correo'] : ['contrasena'] },
+          details: { missingFields: !correoRaw ? ['correo'] : ['contrasena'] },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // ✅ Sanitizar inputs
+    const correo = sanitizeLoginEmail(correoRaw);
+    const contrasena = sanitizePassword(contrasenaRaw);
+    
+    // Validar que la sanitización no haya eliminado el contenido
+    if (!correo || correo.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'El correo electrónico contiene caracteres inválidos',
+          code: 'INVALID_EMAIL_FORMAT',
+          details: 'El correo no puede contener caracteres especiales peligrosos',
           timestamp: new Date().toISOString()
         }
       });
@@ -125,19 +145,23 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error("Error en login:", error);
     
-    if (error.message.includes("credenciales") || error.message.includes("contraseña")) {
+    // ✅ Usar código de error si está disponible (más confiable)
+    if (error.code === "INVALID_CREDENTIALS") {
       return res.status(401).json({
         success: false,
         error: {
           message: ERROR_MESSAGES.INVALID_CREDENTIALS,
           code: ERROR_CODES.INVALID_CREDENTIALS,
-          details: { attempts: "Verifique sus credenciales e intente nuevamente" },
+          details: { 
+            hint: "Verifique sus credenciales e intente nuevamente",
+            reason: "El correo electrónico o la contraseña son incorrectos"
+          },
           timestamp: new Date().toISOString()
         }
       });
     }
     
-    if (error.message.includes("inactivo") || error.message.includes("bloqueado")) {
+    if (error.code === "USER_INACTIVE") {
       return res.status(403).json({
         success: false,
         error: {
@@ -149,6 +173,51 @@ export const login = async (req, res) => {
       });
     }
     
+    // ✅ Fallback: Normalizar mensaje de error a minúsculas para comparación
+    const errorMessage = error.message.toLowerCase();
+    
+    // Validar credenciales incorrectas (contraseña incorrecta, usuario no encontrado)
+    if (
+      errorMessage.includes("credenciales") || 
+      errorMessage.includes("contraseña") || 
+      errorMessage.includes("contraseña incorrecta") ||
+      errorMessage.includes("usuario no encontrado") ||
+      errorMessage.includes("password") ||
+      errorMessage.includes("invalid")
+    ) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: ERROR_MESSAGES.INVALID_CREDENTIALS,
+          code: ERROR_CODES.INVALID_CREDENTIALS,
+          details: { 
+            hint: "Verifique sus credenciales e intente nuevamente",
+            reason: "El correo electrónico o la contraseña son incorrectos"
+          },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Validar usuario inactivo o bloqueado
+    if (
+      errorMessage.includes("inactivo") || 
+      errorMessage.includes("bloqueado") ||
+      errorMessage.includes("inactive") ||
+      errorMessage.includes("disabled")
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          message: "Su cuenta está inactiva. Contacte al administrador.",
+          code: ERROR_CODES.ACCESS_DENIED,
+          details: { reason: "Cuenta inactiva" },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Error genérico del servidor (solo para errores inesperados)
     res.status(500).json({
       success: false,
       error: {
@@ -189,7 +258,7 @@ export const forgotPassword = async (req, res) => {
         instructions: [
           "Revise su bandeja de entrada",
           "Si no encuentra el correo, revise la carpeta de spam",
-          "El enlace de recuperación expira en 1 hora"
+          "El código de recuperación expira en 15 minutos"
         ]
       }
     });
@@ -205,7 +274,7 @@ export const forgotPassword = async (req, res) => {
         instructions: [
           "Revise su bandeja de entrada",
           "Si no encuentra el correo, revise la carpeta de spam",
-          "El enlace de recuperación expira en 1 hora"
+          "El código de recuperación expira en 15 minutos"
         ]
       }
     });
@@ -215,15 +284,31 @@ export const forgotPassword = async (req, res) => {
 // Controlador para restablecer la contraseña
 export const resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { code, newPassword } = req.body;
     
-    if (!token || !newPassword) {
+    // También aceptar 'token' por compatibilidad, pero preferir 'code'
+    const resetCode = code || req.body.token;
+    
+    if (!resetCode || !newPassword) {
       return res.status(400).json({
         success: false,
         error: {
-          message: "Token y nueva contraseña son requeridos",
+          message: "Código de verificación y nueva contraseña son requeridos",
           code: ERROR_CODES.REQUIRED_FIELD,
-          details: { missingFields: !token ? ['token'] : ['newPassword'] },
+          details: { missingFields: !resetCode ? ['code'] : ['newPassword'] },
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Validar que el código sea numérico de 6 dígitos
+    if (!/^\d{6}$/.test(resetCode)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "El código de verificación debe ser un número de 6 dígitos",
+          code: ERROR_CODES.INVALID_INPUT,
+          details: { field: "code" },
           timestamp: new Date().toISOString()
         }
       });
@@ -242,7 +327,7 @@ export const resetPassword = async (req, res) => {
       });
     }
     
-    await handleResetPassword(token, newPassword);
+    await handleResetPassword(resetCode, newPassword);
     
     res.status(200).json({
       success: true,
@@ -259,15 +344,15 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("Error en reset password:", error);
     
-    if (error.message.includes("token") || error.message.includes("expired")) {
+    if (error.message.includes("token") || error.message.includes("expired") || error.message.includes("Código") || error.message.includes("código")) {
       return res.status(400).json({
         success: false,
         error: {
-          message: "El token de recuperación no es válido o ha expirado",
+          message: "El código de verificación no es válido o ha expirado",
           code: ERROR_CODES.TOKEN_INVALID,
           details: { 
-            reason: "Token inválido o expirado",
-            solution: "Solicite un nuevo enlace de recuperación"
+            reason: "Código inválido o expirado",
+            solution: "Solicite un nuevo código de recuperación"
           },
           timestamp: new Date().toISOString()
         }

@@ -1,6 +1,6 @@
 -- =============================================
 -- API REGISTRACK - SCHEMA OFICIAL Y COMPLETO
--- Versión: 7.4 (Enero 2026)
+-- Versión: 7.5 (Enero 2026)
 -- Base de datos MySQL con todas las entidades y relaciones
 -- =============================================
 
@@ -801,6 +801,12 @@ CAMBIOS EN v7.4 (Enero 2026):
 - SQL principal ahora incluye todas las correcciones de migraciones anteriores
 - Base de datos completamente sincronizada con modelos de Sequelize
 
+CAMBIOS EN v7.5 (Enero 2026):
+- Asignación automática de permisos a roles iniciales (empleado y cliente)
+- Rol empleado: permisos para leer usuarios, leer solicitudes, crear/leer citas, gestionar seguimiento, leer dashboard
+- Rol cliente: permisos para gestionar citas (todas las acciones) y gestionar solicitudes (crear, leer)
+- El rol administrador NO requiere permisos (bypass automático en middleware)
+
 CAMBIOS EN v7.3 (Enero 2026):
 - Agregados datos iniciales de privilegios (crear, leer, actualizar, eliminar)
 - Agregados datos iniciales de permisos (19 permisos por módulo)
@@ -913,6 +919,81 @@ INSERT INTO permisos (nombre, descripcion) VALUES
 -- Módulos de Solo Lectura
 ('gestion_dashboard', 'Acceso al dashboard administrativo (solo lectura)')
 ON DUPLICATE KEY UPDATE nombre=nombre;
+
+-- =============================================
+-- ASIGNAR PERMISOS A ROLES INICIALES
+-- =============================================
+-- Asignar permisos específicos a los roles empleado y cliente
+-- NOTA: El rol administrador NO necesita permisos (tiene bypass automático)
+
+-- =============================================
+-- ASIGNAR PERMISOS AL ROL EMPLEADO (id_rol = 3)
+-- =============================================
+-- Permisos asignados:
+-- - Leer usuarios
+-- - Leer solicitudes
+-- - Crear y leer citas
+-- - Leer, crear y actualizar seguimiento
+-- - Leer dashboard
+
+-- Permiso: Leer usuarios
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 3, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_usuarios' AND pr.nombre = 'leer'
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- Permiso: Leer solicitudes
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 3, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_solicitudes' AND pr.nombre = 'leer'
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- Permiso: Crear y leer citas
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 3, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_citas' AND pr.nombre IN ('crear', 'leer')
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- Permiso: Leer, crear y actualizar seguimiento
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 3, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_seguimiento' AND pr.nombre IN ('leer', 'crear', 'actualizar')
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- Permiso: Leer dashboard
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 3, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_dashboard' AND pr.nombre = 'leer'
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- =============================================
+-- ASIGNAR PERMISOS AL ROL CLIENTE (id_rol = 1)
+-- =============================================
+-- Permisos asignados según el middleware (permiso.middleware.js):
+-- - gestion_citas: leer, crear, actualizar, eliminar
+-- - gestion_solicitudes: crear, leer
+--
+-- NOTA: Estos permisos se validan adicionalmente en los controladores
+-- para asegurar que los clientes solo accedan a sus propios recursos.
+
+-- Permiso: gestion_citas - leer, crear, actualizar, eliminar
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 1, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_citas' AND pr.nombre IN ('leer', 'crear', 'actualizar', 'eliminar')
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
+
+-- Permiso: gestion_solicitudes - crear, leer
+INSERT INTO rol_permisos_privilegios (id_rol, id_permiso, id_privilegio)
+SELECT 1, p.id_permiso, pr.id_privilegio
+FROM permisos p, privilegios pr
+WHERE p.nombre = 'gestion_solicitudes' AND pr.nombre IN ('crear', 'leer')
+ON DUPLICATE KEY UPDATE id_rol=id_rol;
 
 -- =============================================
 -- FIN DEL SCRIPT

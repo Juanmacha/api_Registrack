@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import User from "../models/user.js";
 import Role from "../models/Role.js";
+import { validarContraseñaCompleta } from "../utils/passwordValidator.js";
 
 // Middleware para validar el registro de un nuevo usuario
 export const validarNuevoUsuario = async (req, res, next) => {
@@ -40,18 +41,20 @@ export const validarNuevoUsuario = async (req, res, next) => {
     return res.status(400).json({ mensaje: "El correo no es válido" });
   }
 
-  // Validar contraseña segura
-  if (
-    !/(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}/.test(
-      contrasena
-    )
-  ) {
-    return res
-      .status(400)
-      .json({
-        mensaje:
-          "La contraseña debe tener mínimo 8 caracteres, una mayúscula, un número y un carácter especial",
-      });
+  // ✅ Validar contraseña (común + fortaleza)
+  const errorContraseña = validarContraseñaCompleta(contrasena);
+  if (errorContraseña) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: errorContraseña.message,
+        code: errorContraseña.code,
+        details: errorContraseña.details || errorContraseña.requisitos || errorContraseña.sugerencias,
+        ...(errorContraseña.minLength && { minLength: errorContraseña.minLength, actualLength: errorContraseña.actualLength }),
+        ...(errorContraseña.maxLength && { maxLength: errorContraseña.maxLength, actualLength: errorContraseña.actualLength })
+      },
+      timestamp: new Date().toISOString()
+    });
   }
 
   // Validar que el correo no exista

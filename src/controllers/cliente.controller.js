@@ -60,7 +60,29 @@ export const listarClientes = async (req, res) => {
 // READ - uno
 export const obtenerCliente = async (req, res) => {
   try {
-    const cliente = await obtenerClientePorId(req.params.id);
+    const { id } = req.params;
+    
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede ver su propio cliente
+    if (req.user.rol === 'cliente') {
+      // Buscar el cliente asociado al usuario
+      const Cliente = (await import("../models/Cliente.js")).default;
+      const clienteUsuario = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!clienteUsuario || clienteUsuario.id_cliente != id) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para ver este cliente",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes ver tu propio perfil de cliente'
+          }
+        });
+      }
+    }
+    
+    const cliente = await obtenerClientePorId(id);
     
     if (!cliente) {
       return res.status(404).json({
@@ -68,7 +90,7 @@ export const obtenerCliente = async (req, res) => {
         error: {
           message: VALIDATION_MESSAGES.CLIENT.CLIENT_NOT_FOUND,
           code: ERROR_CODES.CLIENT_NOT_FOUND,
-          details: { id: req.params.id },
+          details: { id: id },
           timestamp: new Date().toISOString()
         }
       });
@@ -118,7 +140,29 @@ export const obtenerCliente = async (req, res) => {
 // UPDATE - Cliente completo
 export const editarCliente = async (req, res) => {
   try {
-    const cliente = await actualizarCliente(req.params.id, req.body);
+    const { id } = req.params;
+    
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede editar su propio cliente
+    if (req.user.rol === 'cliente') {
+      // Buscar el cliente asociado al usuario
+      const Cliente = (await import("../models/Cliente.js")).default;
+      const clienteUsuario = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!clienteUsuario || clienteUsuario.id_cliente != id) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para editar este cliente",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes editar tu propio perfil de cliente'
+          }
+        });
+      }
+    }
+    
+    const cliente = await actualizarCliente(id, req.body);
     
     if (!cliente) {
       return res.status(404).json({
@@ -194,6 +238,25 @@ export const editarUsuarioCliente = async (req, res) => {
           timestamp: new Date().toISOString()
         }
       });
+    }
+    
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede editar su propio cliente
+    if (req.user.rol === 'cliente') {
+      const Cliente = (await import("../models/Cliente.js")).default;
+      const clienteUsuario = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!clienteUsuario || clienteUsuario.id_cliente != id) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para editar este cliente",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes editar tu propio perfil de cliente'
+          }
+        });
+      }
     }
     
     // Preparar datos de actualización del usuario
@@ -285,7 +348,27 @@ export const editarUsuarioCliente = async (req, res) => {
 // UPDATE - Empresa asociada
 export const editarEmpresaCliente = async (req, res) => {
   try {
+    const { id } = req.params;
     const { id_empresa, ...datosEmpresa } = req.body;
+    
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede editar su propio cliente
+    if (req.user.rol === 'cliente') {
+      const Cliente = (await import("../models/Cliente.js")).default;
+      const clienteUsuario = await Cliente.findOne({
+        where: { id_usuario: req.user.id_usuario }
+      });
+      
+      if (!clienteUsuario || clienteUsuario.id_cliente != id) {
+        return res.status(403).json({ 
+          success: false,
+          mensaje: "No tienes permiso para editar este cliente",
+          error: {
+            code: 'PERMISSION_DENIED',
+            details: 'Solo puedes editar tu propio perfil de cliente'
+          }
+        });
+      }
+    }
     
     if (!id_empresa) {
       return res.status(400).json({

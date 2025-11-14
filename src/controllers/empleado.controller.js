@@ -2,6 +2,52 @@ import Empleado from "../models/Empleado.js";
 import User from "../models/user.js";
 import Rol from "../models/Role.js";
 import ExcelJS from "exceljs";
+import { Op } from "sequelize";
+import { Cita, OrdenServicio } from "../models/associations.js";
+
+/**
+ * Validar que un empleado no tenga citas o solicitudes asignadas antes de eliminarlo/desactivarlo
+ * @param {number} idEmpleado - ID del empleado
+ * @param {number} idUsuarioEmpleado - ID del usuario asociado al empleado
+ * @throws {Error} Si el empleado tiene asignaciones activas
+ */
+const validarAsignacionesEmpleado = async (idEmpleado, idUsuarioEmpleado) => {
+  // Verificar citas asignadas (activas: Programada, Reprogramada)
+  const citasActivas = await Cita.count({
+    where: {
+      id_empleado: idUsuarioEmpleado,
+      estado: {
+        [Op.in]: ['Programada', 'Reprogramada']
+      }
+    }
+  });
+
+  if (citasActivas > 0) {
+    throw new Error(
+      `No se puede eliminar/desactivar el empleado porque tiene ${citasActivas} ` +
+      `cita(s) activa(s) asignada(s). Por favor, reprograme o cancele las citas primero.`
+    );
+  }
+
+  // Verificar solicitudes asignadas (activas: no Anuladas ni Finalizadas)
+  const solicitudesActivas = await OrdenServicio.count({
+    where: {
+      id_empleado_asignado: idUsuarioEmpleado,
+      estado: {
+        [Op.notIn]: ['Anulado', 'Finalizado']
+      }
+    }
+  });
+
+  if (solicitudesActivas > 0) {
+    throw new Error(
+      `No se puede eliminar/desactivar el empleado porque tiene ${solicitudesActivas} ` +
+      `solicitud(es) activa(s) asignada(s). Por favor, reasigne las solicitudes o finalice/anule primero.`
+    );
+  }
+
+  return true;
+};
 
 export const getAllEmpleados = async (req, res) => {
   try {
@@ -252,6 +298,22 @@ export const updateEmpleado = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
 
+    // ✅ VALIDAR ASIGNACIONES SI SE INTENTA DESACTIVAR (estado = false)
+    if (estado !== undefined && estado === false && empleado.estado === true) {
+      try {
+        await validarAsignacionesEmpleado(id, empleado.id_usuario);
+      } catch (error) {
+        if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+          return res.status(400).json({ 
+            success: false,
+            message: error.message,
+            detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado."
+          });
+        }
+        throw error;
+      }
+    }
+
     // Actualizar campos del empleado
     if (id_usuario !== undefined) {
       empleado.id_usuario = id_usuario;
@@ -338,6 +400,22 @@ export const changeEmpleadoState = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado." });
     }
     
+    // ✅ VALIDAR ASIGNACIONES SOLO SI SE INTENTA DESACTIVAR (estado = false)
+    if (estado === false && empleado.estado === true) {
+      try {
+        await validarAsignacionesEmpleado(id, empleado.id_usuario);
+      } catch (error) {
+        if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+          return res.status(400).json({ 
+            success: false,
+            message: error.message,
+            detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado."
+          });
+        }
+        throw error;
+      }
+    }
+    
     // Actualizar estado del empleado
     empleado.estado = estado;
     await empleado.save();
@@ -393,6 +471,20 @@ export const deleteEmpleado = async (req, res) => {
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
       return res.status(404).json({ message: "Empleado no encontrado." });
+    }
+
+    // ✅ VALIDAR ASIGNACIONES ANTES DE ELIMINAR
+    try {
+      await validarAsignacionesEmpleado(id, empleado.id_usuario);
+    } catch (error) {
+      if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+        return res.status(400).json({ 
+          success: false,
+          message: error.message,
+          detalles: "Debe resolver todas las asignaciones activas antes de eliminar el empleado."
+        });
+      }
+      throw error;
     }
 
     const id_usuario = empleado.id_usuario;

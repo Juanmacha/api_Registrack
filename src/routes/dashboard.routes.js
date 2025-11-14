@@ -5,14 +5,50 @@ import { DashboardController } from "../controllers/dashboard.controller.js";
 // Middlewares de seguridad
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { roleMiddleware } from "../middlewares/role.middleware.js";
+import { checkPermiso } from "../middlewares/permiso.middleware.js";
 
 const router = Router();
 
 /**
- * TODAS las rutas del dashboard requieren:
- * - JWT válido (authMiddleware)
- * - Rol de administrador (roleMiddleware(['administrador']))
+ * Middleware híbrido para gestión de dashboard:
+ * - Para roles principales (administrador, empleado): usa roleMiddleware + checkPermiso
+ * - Para roles personalizados (id_rol > 3): solo usa checkPermiso
+ * - Clientes no tienen acceso al dashboard
+ * - Todos los endpoints requieren permiso 'leer' (dashboard es solo lectura)
  */
+const validateDashboardAccess = (privilegio = 'leer') => {
+  return async (req, res, next) => {
+    // Verificar si es cliente (rechazar automáticamente)
+    if (req.user?.rol?.toLowerCase() === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "Los clientes no tienen acceso al dashboard",
+        rol: req.user.rol,
+        detalles: "Este módulo está restringido para administradores y empleados únicamente."
+      });
+    }
+    
+    // Verificar si es uno de los roles principales permitidos (administrador o empleado)
+    const rolesPermitidos = ['administrador', 'empleado'];
+    const esRolPrincipal = rolesPermitidos.some(r => r.toLowerCase() === req.user?.rol?.toLowerCase());
+    
+    // Si es rol principal, usar AMBAS validaciones
+    if (esRolPrincipal) {
+      // Primero: roleMiddleware valida el rol
+      const roleMw = roleMiddleware(["administrador", "empleado"]);
+      roleMw(req, res, (err) => {
+        if (err) return next(err);
+        // Segundo: checkPermiso valida el permiso específico
+        const permisoMw = checkPermiso('gestion_dashboard', privilegio);
+        permisoMw(req, res, next);
+      });
+    } else {
+      // Si es rol personalizado (id_rol > 3), solo usar checkPermiso
+      const permisoMw = checkPermiso('gestion_dashboard', privilegio);
+      permisoMw(req, res, next);
+    }
+  };
+};
 
 // ==========================================
 // ENDPOINTS DEL DASHBOARD
@@ -29,7 +65,7 @@ const router = Router();
 router.get(
   "/ingresos",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getIngresos
 );
 
@@ -42,7 +78,7 @@ router.get(
 router.get(
   "/servicios",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getServicios
 );
 
@@ -55,7 +91,7 @@ router.get(
 router.get(
   "/resumen",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getResumen
 );
 
@@ -69,7 +105,7 @@ router.get(
 router.get(
   "/pendientes",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getPendientes
 );
 
@@ -83,7 +119,7 @@ router.get(
 router.get(
   "/inactivas",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getInactivas
 );
 
@@ -97,7 +133,7 @@ router.get(
 router.get(
   "/renovaciones-proximas",
   authMiddleware,
-  roleMiddleware(["administrador", "empleado"]),
+  validateDashboardAccess('leer'),
   DashboardController.getRenovacionesProximas
 );
 
@@ -108,7 +144,7 @@ router.get(
 router.post(
   "/renovaciones-proximas/test-alertas",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.testAlertasRenovaciones
 );
 
@@ -120,7 +156,7 @@ router.post(
 router.get(
   "/periodos",
   authMiddleware,
-  roleMiddleware(["administrador"]),
+  validateDashboardAccess('leer'),
   DashboardController.getPeriodos
 );
 

@@ -52,10 +52,12 @@ export const validateForgotPassword = [
 ];
 
 // Validación para reset password
+// Acepta 'code' o 'token' por compatibilidad
 export const validateResetPassword = [
-  validateRequiredFields(['token', 'newPassword']),
+  validateRequiredFields(['newPassword']),
   validateFieldTypes({
-    token: 'string',
+    code: 'string',  // Código de 6 dígitos
+    token: 'string', // Compatibilidad con versiones anteriores
     newPassword: 'password'
   }),
   validateFieldRanges({

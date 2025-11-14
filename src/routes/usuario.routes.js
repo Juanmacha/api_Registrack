@@ -19,15 +19,23 @@ import {
   validateChangeUserStatus
 } from "../middlewares/validation/auth.validation.js";
 
+// Importar rate limiters para protección contra fuerza bruta
+import { 
+  loginLimiter, 
+  registerLimiter, 
+  forgotPasswordLimiter, 
+  resetPasswordLimiter 
+} from '../middlewares/rateLimit.middleware.js';
+
 const router = Router();
 
-// Rutas públicas de autenticación
-router.post('/registrar', validateUserRegistration, validarNuevoUsuario, register);
-router.post('/login', validateUserLogin, login);
+// Rutas públicas de autenticación con rate limiting
+router.post('/registrar', registerLimiter, validateUserRegistration, validarNuevoUsuario, register);
+router.post('/login', loginLimiter, validateUserLogin, login);
 
-// Rutas para recuperación de contraseña
-router.post('/forgot-password', validateForgotPassword, validarForgotPassword, forgotPassword);
-router.post('/reset-password', validateResetPassword, validarResetPassword, resetPassword);
+// Rutas para recuperación de contraseña con rate limiting
+router.post('/forgot-password', forgotPasswordLimiter, validateForgotPassword, validarForgotPassword, forgotPassword);
+router.post('/reset-password', resetPasswordLimiter, validateResetPassword, validarResetPassword, resetPassword);
 
 // Rutas protegidas - Con validación granular de permisos
 // ✅ GET / - Listar usuarios: requiere gestion_usuarios + leer

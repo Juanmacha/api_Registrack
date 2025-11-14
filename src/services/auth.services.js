@@ -31,12 +31,25 @@ export const loginUser = async (correo, contrasena) => {
   // buscar el usuario incluyendo su rol
   const usuario = await findUserByEmail(correo);
   if (!usuario) {
-    throw new Error("Usuario no encontrado");
+    // ✅ Usar un error con código específico para mejor manejo
+    const error = new Error("Credenciales inválidas");
+    error.code = "INVALID_CREDENTIALS";
+    throw error;
+  }
+
+  // Validar que el usuario esté activo
+  if (!usuario.estado) {
+    const error = new Error("Usuario inactivo");
+    error.code = "USER_INACTIVE";
+    throw error;
   }
 
   const passwordValida = await bcrypt.compare(contrasena, usuario.contrasena);
   if (!passwordValida) {
-    throw new Error("Contraseña incorrecta");
+    // ✅ Usar un error con código específico para mejor manejo
+    const error = new Error("Credenciales inválidas");
+    error.code = "INVALID_CREDENTIALS";
+    throw error;
   }
 
   // asegurarse que el rol está disponible

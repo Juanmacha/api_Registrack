@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { Role, Permiso, Privilegio } from '../models/index.js';
+import User from '../models/user.js';
 
 export const authMiddleware = async (req, res, next) => {
   const token = req.headers['authorization']?.split(' ')[1];
@@ -11,14 +12,36 @@ export const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
+    // ✅ VALIDAR QUE EL USUARIO EXISTA Y ESTÉ ACTIVO
+    const usuario = await User.findByPk(decoded.id_usuario);
+    if (!usuario) {
+      return res.status(401).json({ 
+        success: false,
+        mensaje: 'Usuario no encontrado',
+        error: 'El usuario asociado al token no existe en el sistema.',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    if (!usuario.estado) {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: 'Usuario inactivo',
+        error: 'El usuario está inactivo. Por favor, contacte al administrador.',
+        code: 'USER_INACTIVE',
+        detalles: 'Su cuenta ha sido desactivada. No puede acceder al sistema hasta que sea reactivada.'
+      });
+    }
+    
     // ✅ CARGAR ROL CON PERMISOS Y PRIVILEGIOS (solo si hay id_rol)
-    const idRol = decoded.id_rol;
+    const idRol = decoded.id_rol || usuario.id_rol;
     
     if (!idRol) {
       // Si no hay id_rol en el token (tokens antiguos), cargar solo el rol básico
       req.user = {
         id_usuario: decoded.id_usuario,
-        rol: decoded.rol
+        rol: decoded.rol || usuario.rol?.nombre,
+        estado: usuario.estado
       };
       return next();
     }
@@ -55,7 +78,8 @@ export const authMiddleware = async (req, res, next) => {
       rol: rol.nombre,
       id_rol: rol.id_rol,
       permisos: permisos,        // ← NUEVO: Lista de permisos del rol
-      privilegios: privilegios   // ← NUEVO: Lista de privilegios del rol
+      privilegios: privilegios, // ← NUEVO: Lista de privilegios del rol
+      estado: usuario.estado     // ← NUEVO: Estado del usuario
     };
 
     next();

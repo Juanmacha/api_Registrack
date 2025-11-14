@@ -4,6 +4,18 @@ import { createUserWithRole } from "../services/auth.services.js";
 // Crear usuario por administrador (con rol específico)
 export const createUserByAdmin = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Solo admin/empleado pueden crear usuarios
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para crear usuarios",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden crear usuarios'
+        }
+      });
+    }
+
     console.log('📥 [Backend] Creando usuario por administrador:', {
       tipo_documento: req.body.tipo_documento,
       documento: req.body.documento,
@@ -86,6 +98,18 @@ export const createUserByAdmin = async (req, res) => {
 
 export const getUsuarios = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Clientes no pueden listar usuarios
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para listar usuarios",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden listar usuarios'
+        }
+      });
+    }
+
     const usuarios = await userService.getAllUsuarios();
     res.json(usuarios);
   } catch (error) {
@@ -95,7 +119,21 @@ export const getUsuarios = async (req, res) => {
 
 export const getUsuarioPorId = async (req, res) => {
   try {
-    const usuario = await userService.getUsuarioById(req.params.id);
+    const { id } = req.params;
+    
+    // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede ver su propio usuario
+    if (req.user.rol === 'cliente' && req.user.id_usuario != id) {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para ver este usuario",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo puedes ver tu propio perfil de usuario'
+        }
+      });
+    }
+
+    const usuario = await userService.getUsuarioById(id);
     if (!usuario) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
@@ -140,6 +178,18 @@ export const updateUsuario = async (req, res) => {
 
 export const deleteUsuario = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Clientes no pueden eliminar usuarios
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para eliminar usuarios",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden eliminar usuarios'
+        }
+      });
+    }
+
     const deleted = await userService.deleteUsuarioById(req.params.id);
     if (!deleted) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
@@ -153,6 +203,18 @@ export const deleteUsuario = async (req, res) => {
 // Controlador para cambiar el estado del usuario (activar/desactivar)
 export const changeUserStatus = async (req, res) => {
   try {
+    // ✅ RESTRICCIÓN: Clientes no pueden cambiar estados de usuarios
+    if (req.user.rol === 'cliente') {
+      return res.status(403).json({ 
+        success: false,
+        mensaje: "No tienes permiso para cambiar el estado de usuarios",
+        error: {
+          code: 'PERMISSION_DENIED',
+          details: 'Solo administradores y empleados pueden cambiar el estado de usuarios'
+        }
+      });
+    }
+
     const { id } = req.params;
     const { estado } = req.body; // Nuevo estado (true/false)
     const usuarioActualizado = await userService.changeUserStatus(id, estado);

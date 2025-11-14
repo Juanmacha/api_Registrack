@@ -7,6 +7,59 @@ import {
 } from "../constants/messages.js";
 
 /**
+ * ✅ VALIDACIÓN DE PRECIO: Validar rangos y precisión decimal
+ * @param {number|string} precio - Precio a validar
+ * @returns {object} { esValido: boolean, precio: number, error?: string }
+ */
+const validarPrecio = (precio) => {
+  // Validar que el precio sea un número válido
+  const precioNum = parseFloat(precio);
+  
+  if (isNaN(precioNum)) {
+    return {
+      esValido: false,
+      precio: null,
+      error: 'El precio debe ser un número válido'
+    };
+  }
+  
+  // Validar que sea positivo
+  if (precioNum <= 0) {
+    return {
+      esValido: false,
+      precio: precioNum,
+      error: 'El precio debe ser un número positivo mayor a 0'
+    };
+  }
+  
+  // Validar límite máximo (1 billón)
+  if (precioNum > 1000000000) {
+    return {
+      esValido: false,
+      precio: precioNum,
+      error: `El precio excede el límite permitido de $1,000,000,000 (1 billón). Precio recibido: $${precioNum.toLocaleString()}`
+    };
+  }
+  
+  // Validar precisión decimal (máximo 2 decimales)
+  const precioStr = precioNum.toString();
+  const partes = precioStr.split('.');
+  
+  if (partes.length > 1 && partes[1].length > 2) {
+    return {
+      esValido: false,
+      precio: precioNum,
+      error: 'El precio debe tener máximo 2 decimales. Ejemplo válido: 50000.00 o 50000'
+    };
+  }
+  
+  return {
+    esValido: true,
+    precio: precioNum
+  };
+};
+
+/**
  * Obtener todos los servicios
  */
 export const getAllServicios = async (req, res) => {
@@ -36,6 +89,8 @@ export const getServicioById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ✅ Validación de ID ya manejada por validateId middleware
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
     if (!id || isNaN(Number(id))) {
       return res.status(400).json({
         success: false,
@@ -84,6 +139,8 @@ export const getDetalleServicio = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ✅ Validación de ID ya manejada por validateId middleware (si se aplica)
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
     if (!id || isNaN(Number(id))) {
       return res.status(400).json({
         success: false,
@@ -174,6 +231,42 @@ export const actualizarServicio = async (req, res) => {
         success: false,
         error: { message: "No hay datos para actualizar" }
       });
+    }
+    
+    // ✅ VALIDACIÓN DE PRECIO: Normalizar y validar precio_base o precio
+    // Aceptar tanto 'precio' como 'precio_base' y normalizar a 'precio_base'
+    if (updateData.precio !== undefined || updateData.precio_base !== undefined) {
+      const precioValue = updateData.precio !== undefined ? updateData.precio : updateData.precio_base;
+      const campoOriginal = updateData.precio !== undefined ? 'precio' : 'precio_base';
+      
+      console.log(`🔍 [Backend] Validando ${campoOriginal}:`, precioValue);
+      
+      const validacionPrecio = validarPrecio(precioValue);
+      
+      if (!validacionPrecio.esValido) {
+        console.log('❌ [Backend] Precio inválido:', validacionPrecio.error);
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: validacionPrecio.error,
+            code: 'VALIDATION_ERROR',
+            details: {
+              field: campoOriginal,
+              expectedField: 'precio_base',
+              value: precioValue,
+              receivedValue: validacionPrecio.precio
+            },
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
+      // Normalizar: siempre usar precio_base (remover 'precio' si existe)
+      if (updateData.precio !== undefined) {
+        delete updateData.precio;
+      }
+      updateData.precio_base = validacionPrecio.precio;
+      console.log('✅ [Backend] Precio validado y normalizado a precio_base:', validacionPrecio.precio);
     }
     
     console.log('🔧 [Backend] Importando modelos...');
@@ -334,6 +427,7 @@ export const actualizarServicio = async (req, res) => {
         id: servicioActualizado.id_servicio.toString(),
         nombre: servicioActualizado.nombre,
         descripcion_corta: servicioActualizado.descripcion_corta,
+        precio_base: servicioActualizado.precio_base,
         visible_en_landing: servicioActualizado.visible_en_landing,
         landing_data: servicioActualizado.landing_data || {},
         info_page_data: servicioActualizado.info_page_data || {},
@@ -377,6 +471,8 @@ export const obtenerProcesos = async (req, res) => {
   try {
     const { idServicio } = req.params;
 
+    // ✅ Validación de ID ya manejada por validateId middleware (si se aplica)
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
     if (!idServicio || isNaN(Number(idServicio))) {
       return res.status(400).json({
         success: false,
@@ -413,6 +509,8 @@ export const actualizarProcesos = async (req, res) => {
     const { idServicio } = req.params;
     const { procesos } = req.body;
 
+    // ✅ Validación de ID ya manejada por validateId middleware
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
     if (!idServicio || isNaN(Number(idServicio))) {
       return res.status(400).json({
         success: false,
@@ -460,13 +558,15 @@ export const actualizarProcesos = async (req, res) => {
  */
 export const ocultarServicio = async (req, res) => {
   try {
-    const { idServicio } = req.params;
+    const { id } = req.params;
 
-    if (!idServicio || isNaN(Number(idServicio))) {
+    // ✅ Validación de ID ya manejada por validateId middleware
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
+    if (!id || isNaN(Number(id))) {
       return fail(res, "El ID proporcionado no es válido", 400);
     }
 
-    const result = await servicioService.ocultarServicio(idServicio);
+    const result = await servicioService.ocultarServicio(id);
     return ok(res, result);
   } catch (error) {
     console.error("Error al ocultar servicio:", error);
@@ -482,13 +582,15 @@ export const ocultarServicio = async (req, res) => {
  */
 export const publicarServicio = async (req, res) => {
   try {
-    const { idServicio } = req.params;
+    const { id } = req.params;
 
-    if (!idServicio || isNaN(Number(idServicio))) {
+    // ✅ Validación de ID ya manejada por validateId middleware
+    // Esta validación adicional es redundante pero se mantiene por compatibilidad
+    if (!id || isNaN(Number(id))) {
       return fail(res, "El ID proporcionado no es válido", 400);
     }
 
-    const result = await servicioService.publicarServicio(idServicio);
+    const result = await servicioService.publicarServicio(id);
     return ok(res, result);
   } catch (error) {
     console.error("Error al publicar servicio:", error);

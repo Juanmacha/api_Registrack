@@ -119,7 +119,7 @@ export const transformPermisosToAPI = (permisosFrontend) => {
  * @param {Object} rolAPI - Rol en formato de la API
  * @returns {Object} Rol en formato del frontend
  */
-export const transformRoleToFrontend = (rolAPI) => {
+export const transformRoleToFrontend = async (rolAPI) => {
   console.log('🔄 [Backend] Transformando rol de API a frontend:', JSON.stringify(rolAPI, null, 2));
   
   const permisos = {};
@@ -134,20 +134,76 @@ export const transformRoleToFrontend = (rolAPI) => {
     };
   });
   
-  // Procesar permisos de la API
-  if (rolAPI.permisos && Array.isArray(rolAPI.permisos)) {
-    rolAPI.permisos.forEach(perm => {
-      const modulo = perm.nombre ? perm.nombre.replace('gestion_', '') : perm.replace('gestion_', '');
-      
-      if (permisos[modulo] && rolAPI.privilegios && Array.isArray(rolAPI.privilegios)) {
-        rolAPI.privilegios.forEach(priv => {
-          const accion = priv.nombre || priv;
-          if (permisos[modulo].hasOwnProperty(accion)) {
-            permisos[modulo][accion] = true;
-          }
-        });
-      }
+  // ✅ ESPECIAL: Si es administrador, poner todos los permisos en true
+  if (rolAPI.nombre && rolAPI.nombre.toLowerCase() === 'administrador') {
+    console.log('👑 [Backend] Rol es administrador - Otorgando todos los permisos');
+    MODULOS_DISPONIBLES.forEach(modulo => {
+      permisos[modulo] = {
+        crear: true,
+        leer: true,
+        actualizar: true,
+        eliminar: true
+      };
     });
+  } else {
+    // Para otros roles, obtener las combinaciones específicas de RolPermisoPrivilegio
+    const { RolPermisoPrivilegio, Permiso, Privilegio } = await import('../models/index.js');
+    
+    if (rolAPI.id_rol) {
+      // Obtener todas las combinaciones específicas de este rol (solo IDs)
+      const combinaciones = await RolPermisoPrivilegio.findAll({
+        where: { id_rol: rolAPI.id_rol },
+        attributes: ['id_permiso', 'id_privilegio']
+      });
+      
+      console.log(`📋 [Backend] Combinaciones encontradas para rol ${rolAPI.nombre}:`, combinaciones.length);
+      
+      // Obtener todos los IDs únicos de permisos y privilegios
+      const idsPermisos = [...new Set(combinaciones.map(c => c.id_permiso))];
+      const idsPrivilegios = [...new Set(combinaciones.map(c => c.id_privilegio))];
+      
+      // Obtener los permisos y privilegios por sus IDs
+      const permisosData = await Permiso.findAll({
+        where: { id_permiso: idsPermisos },
+        attributes: ['id_permiso', 'nombre']
+      });
+      
+      const privilegiosData = await Privilegio.findAll({
+        where: { id_privilegio: idsPrivilegios },
+        attributes: ['id_privilegio', 'nombre']
+      });
+      
+      // Crear mapas para acceso rápido
+      const mapaPermisos = {};
+      permisosData.forEach(p => {
+        mapaPermisos[p.id_permiso] = p.nombre;
+      });
+      
+      const mapaPrivilegios = {};
+      privilegiosData.forEach(p => {
+        mapaPrivilegios[p.id_privilegio] = p.nombre;
+      });
+      
+      // Procesar cada combinación específica
+      combinaciones.forEach(comb => {
+        const nombrePermiso = mapaPermisos[comb.id_permiso];
+        const nombrePrivilegio = mapaPrivilegios[comb.id_privilegio];
+        
+        if (nombrePermiso && nombrePrivilegio) {
+          // Extraer el módulo del nombre del permiso (ej: "gestion_usuarios" -> "usuarios")
+          const modulo = nombrePermiso.replace('gestion_', '');
+          
+          // Verificar que el módulo existe en MODULOS_DISPONIBLES
+          if (MODULOS_DISPONIBLES.includes(modulo) && permisos[modulo]) {
+            // Verificar que la acción existe en ACCIONES_DISPONIBLES
+            if (ACCIONES_DISPONIBLES.includes(nombrePrivilegio)) {
+              permisos[modulo][nombrePrivilegio] = true;
+              console.log(`✅ [Backend] Permiso asignado: ${modulo}.${nombrePrivilegio}`);
+            }
+          }
+        }
+      });
+    }
   }
   
   const result = {

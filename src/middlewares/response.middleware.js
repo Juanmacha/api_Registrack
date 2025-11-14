@@ -118,14 +118,58 @@ export const validateId = (paramName = 'id') => {
     const id = req.params[paramName];
     
     if (!id) {
-      return res.badRequest(`El parámetro ${paramName} es requerido`);
+      // Si res.badRequest no está disponible, usar res.status(400).json() directamente
+      if (typeof res.badRequest === 'function') {
+        return res.badRequest(`El parámetro ${paramName} es requerido`);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `El parámetro ${paramName} es requerido`,
+          error: {
+            code: 'VALIDATION_ERROR',
+            details: { paramName }
+          }
+        });
+      }
     }
     
-    if (isNaN(parseInt(id)) || parseInt(id) <= 0) {
-      return res.badRequest(`El ${paramName} debe ser un número válido mayor a 0`);
+    // Validar que el ID sea completamente numérico (previene inyección SQL)
+    // Solo permite dígitos del 0-9, sin caracteres especiales ni letras
+    if (!/^\d+$/.test(id.toString())) {
+      // Si res.badRequest no está disponible, usar res.status(400).json() directamente
+      if (typeof res.badRequest === 'function') {
+        return res.badRequest(`El ${paramName} debe ser un número válido mayor a 0`);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `El ${paramName} debe ser un número válido mayor a 0`,
+          error: {
+            code: 'VALIDATION_ERROR',
+            details: { paramName, receivedValue: id }
+          }
+        });
+      }
     }
     
-    req.params[paramName] = parseInt(id);
+    // Convertir a número y validar que sea mayor a 0
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum) || idNum <= 0) {
+      // Si res.badRequest no está disponible, usar res.status(400).json() directamente
+      if (typeof res.badRequest === 'function') {
+        return res.badRequest(`El ${paramName} debe ser un número válido mayor a 0`);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `El ${paramName} debe ser un número válido mayor a 0`,
+          error: {
+            code: 'VALIDATION_ERROR',
+            details: { paramName, receivedValue: id }
+          }
+        });
+      }
+    }
+    
+    req.params[paramName] = idNum;
     next();
   };
 };

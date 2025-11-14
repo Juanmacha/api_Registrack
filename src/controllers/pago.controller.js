@@ -3,11 +3,131 @@ import { PagoRepository } from "../repositories/pago.repository.js";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
+/**
+ * ✅ VALIDACIÓN DE MONTO: Validar rangos y precisión decimal
+ * @param {number|string} monto - Monto a validar
+ * @returns {object} { esValido: boolean, monto: number, error?: string }
+ */
+const validarMonto = (monto) => {
+  // Validar que el monto sea un número válido
+  const montoNum = parseFloat(monto);
+  
+  if (isNaN(montoNum)) {
+    return {
+      esValido: false,
+      monto: null,
+      error: 'El monto debe ser un número válido'
+    };
+  }
+  
+  // Validar que sea positivo
+  if (montoNum <= 0) {
+    return {
+      esValido: false,
+      monto: montoNum,
+      error: 'El monto debe ser un número positivo mayor a 0'
+    };
+  }
+  
+  // Validar límite máximo (1 billón)
+  if (montoNum > 1000000000) {
+    return {
+      esValido: false,
+      monto: montoNum,
+      error: `El monto excede el límite permitido de $1,000,000,000 (1 billón). Monto recibido: $${montoNum.toLocaleString()}`
+    };
+  }
+  
+  // Validar precisión decimal (máximo 2 decimales)
+  const montoStr = montoNum.toString();
+  const partes = montoStr.split('.');
+  
+  if (partes.length > 1 && partes[1].length > 2) {
+    return {
+      esValido: false,
+      monto: montoNum,
+      error: 'El monto debe tener máximo 2 decimales. Ejemplo válido: 50000.00 o 50000'
+    };
+  }
+  
+  return {
+    esValido: true,
+    monto: montoNum
+  };
+};
+
+/**
+ * ✅ VALIDACIÓN DE RELACIÓN FOREIGN KEY: Verificar que la orden de servicio exista
+ * @param {number|string} idOrdenServicio - ID de la orden de servicio
+ * @returns {Promise<object>} { esValida: boolean, ordenServicio?: object, error?: string }
+ */
+const validarOrdenServicio = async (idOrdenServicio) => {
+  try {
+    const idOrden = parseInt(idOrdenServicio);
+    
+    if (isNaN(idOrden) || idOrden <= 0) {
+      return {
+        esValida: false,
+        ordenServicio: null,
+        error: 'El ID de la orden de servicio debe ser un número válido mayor a 0'
+      };
+    }
+    
+    const ordenServicio = await PagoRepository.getOrdenServicioById(idOrden);
+    
+    if (!ordenServicio) {
+      return {
+        esValida: false,
+        ordenServicio: null,
+        error: `Orden de servicio no encontrada con ID: ${idOrden}`
+      };
+    }
+    
+    // Verificar que la orden esté activa (no anulada ni finalizada prematuramente)
+    if (ordenServicio.estado === 'Anulado') {
+      return {
+        esValida: false,
+        ordenServicio: ordenServicio,
+        error: `No se puede procesar un pago para una orden de servicio anulada (ID: ${idOrden})`
+      };
+    }
+    
+    return {
+      esValida: true,
+      ordenServicio: ordenServicio
+    };
+  } catch (error) {
+    return {
+      esValida: false,
+      ordenServicio: null,
+      error: `Error al validar orden de servicio: ${error.message}`
+    };
+  }
+};
+
 export const PagoController = {
   async getAll(req, res) {
     try {
-      // ✅ NUEVO: Usar método con detalles para incluir información de usuario y solicitud
-      const pagos = await PagoService.listarPagosConDetalles();
+      // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede ver sus propios pagos
+      let pagos;
+      if (req.user.rol === 'cliente') {
+        // Buscar el cliente asociado al usuario
+        const Cliente = (await import("../models/Cliente.js")).default;
+        const cliente = await Cliente.findOne({
+          where: { id_usuario: req.user.id_usuario }
+        });
+        
+        if (!cliente) {
+          return res.json([]); // No hay cliente asociado, retornar array vacío
+        }
+        
+        // Filtrar pagos por cliente
+        const todosPagos = await PagoService.listarPagosConDetalles();
+        pagos = todosPagos.filter(pago => pago.id_cliente === cliente.id_cliente);
+      } else {
+        // Admin/empleado: ver todos los pagos
+        pagos = await PagoService.listarPagosConDetalles();
+      }
       
       // Formatear respuesta para mejor estructura
       const pagosFormateados = pagos.map(pago => ({
@@ -75,9 +195,31 @@ export const PagoController = {
 
   async getById(req, res) {
     try {
+      const { id } = req.params;
+      
       // ✅ NUEVO: Usar método con detalles para incluir información completa
-      const pago = await PagoService.obtenerPagoConDetalles(req.params.id);
+      const pago = await PagoService.obtenerPagoConDetalles(id);
       if (!pago) return res.status(404).json({ message: "Pago no encontrado" });
+      
+      // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede ver sus propios pagos
+      if (req.user.rol === 'cliente') {
+        // Buscar el cliente asociado al usuario
+        const Cliente = (await import("../models/Cliente.js")).default;
+        const cliente = await Cliente.findOne({
+          where: { id_usuario: req.user.id_usuario }
+        });
+        
+        if (!cliente || pago.id_cliente !== cliente.id_cliente) {
+          return res.status(403).json({ 
+            success: false,
+            mensaje: "No tienes permiso para ver este pago",
+            error: {
+              code: 'PERMISSION_DENIED',
+              details: 'Solo puedes ver tus propios pagos'
+            }
+          });
+        }
+      }
       
       // Formatear respuesta para mejor estructura
       const pagoFormateado = {
@@ -143,10 +285,52 @@ export const PagoController = {
 
   async create(req, res) {
     try {
+      const { monto, id_orden_servicio } = req.body;
+      
+      // ✅ VALIDAR MONTO
+      if (monto !== undefined && monto !== null) {
+        const validacionMonto = validarMonto(monto);
+        if (!validacionMonto.esValido) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: validacionMonto.error,
+              code: 'VALIDATION_ERROR',
+              details: { field: 'monto', value: monto },
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      }
+      
+      // ✅ VALIDAR RELACIÓN FOREIGN KEY: Verificar que la orden de servicio exista
+      if (id_orden_servicio) {
+        const validacionOrden = await validarOrdenServicio(id_orden_servicio);
+        if (!validacionOrden.esValida) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: validacionOrden.error,
+              code: 'FOREIGN_KEY_ERROR',
+              details: { field: 'id_orden_servicio', value: id_orden_servicio },
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      }
+      
       const pago = await PagoService.crearPago(req.body);
       res.status(201).json(pago);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error('Error en create pago:', err);
+      res.status(400).json({ 
+        success: false,
+        error: {
+          message: err.message,
+          code: 'CREATION_ERROR',
+          timestamp: new Date().toISOString()
+        }
+      });
     }
   },
 
@@ -193,7 +377,7 @@ export const PagoController = {
   // 📌 Nuevo: Comprobante de pago específico (PDF)
   async generarComprobante(req, res) {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // ID ya validado por validateId middleware
       const pago = await PagoService.obtenerPago(id);
 
       if (!pago) return res.status(404).json({ message: "Pago no encontrado" });
@@ -246,28 +430,60 @@ export const PagoController = {
         });
       }
 
-      // ✅ NUEVO: Obtener orden de servicio para tomar el precio automáticamente
-      const ordenServicio = await PagoRepository.getOrdenServicioById(parseInt(id_orden_servicio));
-      
-      if (!ordenServicio) {
-        return res.status(404).json({ 
+      // ✅ VALIDAR RELACIÓN FOREIGN KEY: Verificar que la orden de servicio exista
+      const validacionOrden = await validarOrdenServicio(id_orden_servicio);
+      if (!validacionOrden.esValida) {
+        return res.status(400).json({
           success: false,
-          error: "Orden de servicio no encontrada" 
+          error: {
+            message: validacionOrden.error,
+            code: 'FOREIGN_KEY_ERROR',
+            details: { field: 'id_orden_servicio', value: id_orden_servicio },
+            timestamp: new Date().toISOString()
+          }
         });
       }
-
-      // ✅ NUEVO: Si no se envía monto, usar automáticamente el total_estimado
-      // Si se envía monto, validar que coincida con total_estimado (tolerancia de 0.01 para decimales)
-      const montoFinal = monto ? parseFloat(monto) : parseFloat(ordenServicio.total_estimado);
-      const totalEstimado = parseFloat(ordenServicio.total_estimado);
       
-      if (monto && Math.abs(montoFinal - totalEstimado) > 0.01) {
-        return res.status(400).json({ 
-          success: false,
-          error: `El monto enviado (${montoFinal}) no coincide con el total estimado de la orden (${totalEstimado}). Use el monto correcto o omita el campo 'monto' para usar el precio automático.`,
-          total_estimado: totalEstimado,
-          monto_enviado: montoFinal
-        });
+      const ordenServicio = validacionOrden.ordenServicio;
+
+      // ✅ VALIDAR MONTO: Si se envía monto, validar formato, rango y precisión
+      let montoFinal;
+      if (monto !== undefined && monto !== null) {
+        const validacionMonto = validarMonto(monto);
+        if (!validacionMonto.esValido) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: validacionMonto.error,
+              code: 'VALIDATION_ERROR',
+              details: { field: 'monto', value: monto },
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+        
+        montoFinal = validacionMonto.monto;
+        const totalEstimado = parseFloat(ordenServicio.total_estimado);
+        
+        // Validar que el monto coincida con el total_estimado (tolerancia de 0.01 para decimales)
+        if (Math.abs(montoFinal - totalEstimado) > 0.01) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: `El monto enviado ($${montoFinal.toLocaleString()}) no coincide con el total estimado de la orden ($${totalEstimado.toLocaleString()}). Use el monto correcto o omita el campo 'monto' para usar el precio automático.`,
+              code: 'AMOUNT_MISMATCH',
+              details: {
+                monto_enviado: montoFinal,
+                total_estimado: totalEstimado,
+                diferencia: Math.abs(montoFinal - totalEstimado)
+              },
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } else {
+        // Si no se envía monto, usar automáticamente el total_estimado
+        montoFinal = parseFloat(ordenServicio.total_estimado);
       }
 
       console.log(`💰 Procesando pago: Monto automático = ${montoFinal} (total_estimado de la orden)`);
@@ -378,13 +594,50 @@ export const PagoController = {
       const { monto, metodo_pago, id_orden_servicio } = req.body;
 
       if (!monto || !metodo_pago || !id_orden_servicio) {
-        return res.status(400).json({ 
-          error: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio" 
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Datos incompletos. Requiere: monto, metodo_pago, id_orden_servicio",
+            code: 'MISSING_FIELDS',
+            details: {
+              campos_requeridos: ['monto', 'metodo_pago', 'id_orden_servicio'],
+              campos_recibidos: Object.keys(req.body)
+            },
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      // ✅ VALIDAR MONTO
+      const validacionMonto = validarMonto(monto);
+      if (!validacionMonto.esValido) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: validacionMonto.error,
+            code: 'VALIDATION_ERROR',
+            details: { field: 'monto', value: monto },
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      // ✅ VALIDAR RELACIÓN FOREIGN KEY: Verificar que la orden de servicio exista
+      const validacionOrden = await validarOrdenServicio(id_orden_servicio);
+      if (!validacionOrden.esValida) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: validacionOrden.error,
+            code: 'FOREIGN_KEY_ERROR',
+            details: { field: 'id_orden_servicio', value: id_orden_servicio },
+            timestamp: new Date().toISOString()
+          }
         });
       }
 
       const resultado = await PagoService.simularPago({
-        monto: parseFloat(monto),
+        monto: validacionMonto.monto,
         metodo_pago,
         id_orden_servicio: parseInt(id_orden_servicio)
       });
@@ -396,7 +649,14 @@ export const PagoController = {
       });
     } catch (err) {
       console.error('Error en simularPago:', err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({
+        success: false,
+        error: {
+          message: err.message,
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        }
+      });
     }
   },
 
@@ -405,7 +665,7 @@ export const PagoController = {
    */
   async verificarPagoManual(req, res) {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // ID ya validado por validateId middleware
       const usuarioId = req.user?.id_usuario;
 
       if (!usuarioId) {
@@ -430,7 +690,7 @@ export const PagoController = {
    */
   async descargarComprobante(req, res) {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // ID ya validado por validateId middleware
       const pago = await PagoService.obtenerPago(id);
 
       if (!pago) {
