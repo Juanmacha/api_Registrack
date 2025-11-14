@@ -1,21 +1,49 @@
 import User from '../models/user.js';
+import { Role } from '../models/index.js';
 import { Op } from 'sequelize';
 
 // Obtener todos los usuarios
 export const getAllUsuarios = async () => {
-  return await User.findAll();
+  return await User.findAll({
+    include: [
+      {
+        model: Role,
+        as: 'rol',
+        attributes: ['id_rol', 'nombre', 'estado']
+      }
+    ],
+    attributes: { exclude: ['contrasena'] }
+  });
 };
 
 // Obtener usuario por ID
 export const getUsuarioById = async (id) => {
-  return await User.findByPk(id);
+  return await User.findByPk(id, {
+    include: [
+      {
+        model: Role,
+        as: 'rol',
+        attributes: ['id_rol', 'nombre', 'estado']
+      }
+    ],
+    attributes: { exclude: ['contrasena'] }
+  });
 };
 
 // Actualizar usuario
 export const updateUsuarioById = async (id, data) => {
   const [updated] = await User.update(data, { where: { id_usuario: id } });
   if (updated) {
-    return await User.findByPk(id);
+    return await User.findByPk(id, {
+      include: [
+        {
+          model: Role,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre', 'estado']
+        }
+      ],
+      attributes: { exclude: ['contrasena'] }
+    });
   }
   return null;
 };
@@ -45,7 +73,16 @@ export const existeDocumento = async (documento, excludeId = null) => {
 export const changeUserStatus = async (id, status) => {
   const [updated] = await User.update({ estado: status }, { where: { id_usuario: id } });
   if (updated) {
-    return await User.findByPk(id);
+    return await User.findByPk(id, {
+      include: [
+        {
+          model: Role,
+          as: 'rol',
+          attributes: ['id_rol', 'nombre', 'estado']
+        }
+      ],
+      attributes: { exclude: ['contrasena'] }
+    });
   }
   return null;
 };
