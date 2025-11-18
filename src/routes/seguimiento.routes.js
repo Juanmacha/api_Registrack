@@ -7,6 +7,8 @@ import {
   eliminarSeguimiento,
   buscarPorTitulo,
   obtenerEstadosDisponibles,
+  obtenerSeguimientosCliente,
+  descargarArchivosSeguimiento,
 } from "../controllers/seguimiento.controller.js";
 
 // Middlewares de seguridad
@@ -84,6 +86,15 @@ router.get(
   obtenerEstadosDisponibles
 );
 
+// 🚀 NUEVO: GET /cliente/:idOrdenServicio - Obtener seguimientos de una solicitud (solo clientes)
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para evitar conflictos
+router.get(
+  "/cliente/:idOrdenServicio",
+  authMiddleware,
+  validateId('idOrdenServicio'),
+  obtenerSeguimientosCliente
+);
+
 // ✅ GET /:id - Obtener seguimiento por ID (requiere leer + validación de ID)
 // IMPORTANTE: Esta ruta debe ir DESPUÉS de rutas específicas para evitar conflictos
 router.get(
@@ -119,6 +130,16 @@ router.get(
   validateId('idOrdenServicio'),
   validateSeguimientoAccess('leer'),
   buscarPorTitulo
+);
+
+// 🚀 NUEVO: GET /:id/descargar-archivos - Descargar archivos adjuntos de un seguimiento (requiere leer + validación de ID)
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para evitar conflictos
+router.get(
+  "/:id/descargar-archivos",
+  authMiddleware,
+  validateId('id'),
+  validateSeguimientoAccess('leer'),
+  descargarArchivosSeguimiento
 );
 
 export default router;

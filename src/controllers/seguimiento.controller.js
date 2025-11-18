@@ -7,6 +7,7 @@ import Proceso from "../models/Proceso.js";
 import Cliente from "../models/Cliente.js";
 import User from "../models/user.js";
 import { sendCambioEstadoCliente } from "../services/email.service.js";
+import archiver from "archiver";
 
 const seguimientoService = new SeguimientoService();
 
@@ -306,5 +307,303 @@ export const obtenerEstadosDisponibles = async (req, res) => {
       success: false,
       mensaje: "Error interno del servidor"
     });
+  }
+};
+
+// 🚀 NUEVA FUNCIÓN: Obtener seguimientos de una solicitud (para clientes)
+export const obtenerSeguimientosCliente = async (req, res) => {
+  try {
+    const { idOrdenServicio } = req.params;
+    
+    // Verificar que el usuario es cliente
+    if (req.user.rol !== "cliente") {
+      return res.status(403).json({
+        success: false,
+        mensaje: "Este endpoint es exclusivo para clientes"
+      });
+    }
+    
+    // Buscar el cliente asociado al usuario
+    const cliente = await Cliente.findOne({
+      where: { id_usuario: req.user.id_usuario }
+    });
+    
+    if (!cliente) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Cliente no encontrado"
+      });
+    }
+    
+    // Verificar que la orden de servicio pertenece al cliente
+    const ordenServicio = await OrdenServicio.findByPk(idOrdenServicio, {
+      include: [{
+        model: Cliente,
+        as: 'cliente',
+        attributes: ['id_cliente']
+      }]
+    });
+    
+    if (!ordenServicio) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Orden de servicio no encontrada"
+      });
+    }
+    
+    if (ordenServicio.id_cliente !== cliente.id_cliente) {
+      return res.status(403).json({
+        success: false,
+        mensaje: "No tienes permisos para ver los seguimientos de esta solicitud"
+      });
+    }
+    
+    // Obtener los seguimientos de la orden
+    const seguimientos = await seguimientoService.obtenerHistorialSeguimiento(idOrdenServicio);
+    
+    res.json({
+      success: true,
+      data: seguimientos
+    });
+    
+  } catch (error) {
+    console.error("Error al obtener seguimientos para cliente:", error);
+    res.status(500).json({
+      success: false,
+      mensaje: "Error interno del servidor"
+    });
+  }
+};
+
+// 🚀 NUEVA FUNCIÓN: Descargar archivos adjuntos de un seguimiento
+export const descargarArchivosSeguimiento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('📦 [API] Descargando archivos de seguimiento ID:', id);
+    
+    // Obtener el seguimiento con todas las relaciones
+    const seguimiento = await Seguimiento.findByPk(id, {
+      include: [
+        {
+          model: OrdenServicio,
+          as: 'orden_servicio',
+          include: [
+            {
+              model: Servicio,
+              as: 'servicio',
+              attributes: ['id_servicio', 'nombre']
+            },
+            {
+              model: Cliente,
+              as: 'cliente',
+              include: [{
+                model: User,
+                as: 'Usuario',
+                attributes: ['id_usuario', 'nombre', 'apellido']
+              }]
+            }
+          ]
+        },
+        {
+          model: User,
+          as: 'usuario_registro',
+          attributes: ['nombre', 'apellido', 'correo']
+        }
+      ]
+    });
+    
+    if (!seguimiento) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Seguimiento no encontrado"
+      });
+    }
+    
+    // Verificar que el seguimiento tiene documentos adjuntos
+    if (!seguimiento.documentos_adjuntos) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Este seguimiento no tiene archivos adjuntos"
+      });
+    }
+    
+    // Función auxiliar para extraer Base64 y tipo MIME
+    const extraerBase64YExtension = (base64String) => {
+      if (!base64String || typeof base64String !== 'string') return null;
+      
+      if (base64String.includes('data:')) {
+        const match = base64String.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const extensionMap = {
+            'application/pdf': 'pdf',
+            'image/png': 'png',
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/gif': 'gif',
+            'application/msword': 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+            'application/vnd.ms-excel': 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx'
+          };
+          const extension = extensionMap[mimeType] || 'bin';
+          return { base64Data, extension, mimeType };
+        }
+      }
+      
+      return { base64Data: base64String, extension: 'pdf', mimeType: 'application/pdf' };
+    };
+    
+    // Función auxiliar para convertir Base64 a Buffer
+    const base64ToBuffer = (base64String) => {
+      try {
+        const { base64Data } = extraerBase64YExtension(base64String) || { base64Data: base64String };
+        return Buffer.from(base64Data, 'base64');
+      } catch (error) {
+        console.error('❌ Error al convertir Base64 a Buffer:', error);
+        return null;
+      }
+    };
+    
+    // Procesar documentos adjuntos
+    let documentosAdjuntos;
+    try {
+      // Intentar parsear como JSON
+      documentosAdjuntos = typeof seguimiento.documentos_adjuntos === 'string' 
+        ? JSON.parse(seguimiento.documentos_adjuntos)
+        : seguimiento.documentos_adjuntos;
+    } catch (error) {
+      // Si no es JSON, tratar como string simple (URL o texto)
+      documentosAdjuntos = { archivo: seguimiento.documentos_adjuntos };
+    }
+    
+    // Recopilar archivos
+    const archivos = [];
+    const nombreBase = `SEG-${seguimiento.id_seguimiento}`;
+    const nombreCarpeta = `${nombreBase}_${seguimiento.titulo?.substring(0, 30) || 'seguimiento'}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+    
+    // Si es un objeto, iterar sobre sus propiedades
+    if (typeof documentosAdjuntos === 'object' && documentosAdjuntos !== null) {
+      Object.keys(documentosAdjuntos).forEach((key, index) => {
+        const valor = documentosAdjuntos[key];
+        if (valor) {
+          // Si es una URL, no podemos descargarla directamente sin hacer una petición HTTP
+          // Por ahora, solo procesamos Base64
+          if (typeof valor === 'string' && (valor.startsWith('data:') || valor.length > 100)) {
+            const infoArchivo = extraerBase64YExtension(valor);
+            if (infoArchivo) {
+              const buffer = base64ToBuffer(valor);
+              if (buffer) {
+                const nombreArchivo = `${String(index + 1).padStart(2, '0')}_${key}.${infoArchivo.extension}`;
+                archivos.push({
+                  nombre: nombreArchivo,
+                  buffer: buffer,
+                  tamaño: buffer.length
+                });
+                console.log(`✅ Archivo agregado: ${nombreArchivo} (${(buffer.length / 1024).toFixed(2)} KB)`);
+              }
+            }
+          } else if (typeof valor === 'string' && valor.startsWith('http')) {
+            // Si es una URL, crear un archivo de texto con la URL
+            archivos.push({
+              nombre: `${String(index + 1).padStart(2, '0')}_${key}_url.txt`,
+              buffer: Buffer.from(`URL del archivo: ${valor}`, 'utf-8'),
+              tamaño: valor.length
+            });
+          }
+        }
+      });
+    } else if (typeof documentosAdjuntos === 'string') {
+      // Si es un string directo, intentar procesarlo como Base64 o URL
+      if (documentosAdjuntos.startsWith('data:') || documentosAdjuntos.length > 100) {
+        const infoArchivo = extraerBase64YExtension(documentosAdjuntos);
+        if (infoArchivo) {
+          const buffer = base64ToBuffer(documentosAdjuntos);
+          if (buffer) {
+            archivos.push({
+              nombre: `01_archivo.${infoArchivo.extension}`,
+              buffer: buffer,
+              tamaño: buffer.length
+            });
+          }
+        }
+      } else if (documentosAdjuntos.startsWith('http')) {
+        archivos.push({
+          nombre: '01_archivo_url.txt',
+          buffer: Buffer.from(`URL del archivo: ${documentosAdjuntos}`, 'utf-8'),
+          tamaño: documentosAdjuntos.length
+        });
+      }
+    }
+    
+    // Si no hay archivos, retornar error
+    if (archivos.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "No se encontraron archivos válidos en este seguimiento",
+        detalles: "Los documentos adjuntos pueden estar en formato URL o no ser procesables"
+      });
+    }
+    
+    // Crear archivo ZIP
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+    
+    // Configurar headers de respuesta
+    const nombreZip = `${nombreCarpeta}_archivos.zip`;
+    res.attachment(nombreZip);
+    res.setHeader('Content-Type', 'application/zip');
+    
+    // Pipe del archivo ZIP a la respuesta
+    archive.pipe(res);
+    
+    // Agregar cada archivo al ZIP
+    archivos.forEach(archivo => {
+      archive.append(archivo.buffer, { name: archivo.nombre });
+    });
+    
+    // Agregar un archivo README con información del seguimiento
+    const readmeContent = `
+ARCHIVOS DEL SEGUIMIENTO
+========================
+
+ID Seguimiento: ${seguimiento.id_seguimiento}
+Título: ${seguimiento.titulo || 'N/A'}
+Fecha de Registro: ${seguimiento.fecha_registro || 'N/A'}
+Registrado por: ${seguimiento.usuario_registro ? `${seguimiento.usuario_registro.nombre} ${seguimiento.usuario_registro.apellido}` : 'N/A'}
+
+Orden de Servicio: ${seguimiento.orden_servicio?.numero_expediente || seguimiento.id_orden_servicio}
+Servicio: ${seguimiento.orden_servicio?.servicio?.nombre || 'N/A'}
+Cliente: ${seguimiento.orden_servicio?.cliente?.Usuario ? `${seguimiento.orden_servicio.cliente.Usuario.nombre} ${seguimiento.orden_servicio.cliente.Usuario.apellido}` : 'N/A'}
+
+Descripción: ${seguimiento.descripcion || 'Sin descripción'}
+
+ARCHIVOS INCLUIDOS:
+${archivos.map((a, i) => `${i + 1}. ${a.nombre} (${(a.tamaño / 1024).toFixed(2)} KB)`).join('\n')}
+
+Total de archivos: ${archivos.length}
+Fecha de descarga: ${new Date().toLocaleString('es-CO')}
+    `.trim();
+    
+    archive.append(readmeContent, { name: 'README.txt' });
+    
+    // Finalizar el archivo ZIP
+    await archive.finalize();
+    
+    console.log(`✅ [API] ZIP creado exitosamente: ${nombreZip} (${archivos.length} archivos)`);
+    
+  } catch (error) {
+    console.error("❌ [API] Error al descargar archivos de seguimiento:", error);
+    
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        mensaje: "Error al generar archivo ZIP",
+        error: process.env.NODE_ENV === "development" ? error.message : "Error interno del servidor"
+      });
+    }
   }
 };

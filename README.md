@@ -1819,15 +1819,17 @@ GET /api/gestion-citas/reporte/excel           # Reporte Excel (incluye ID Solic
 - Acepta texto completo: `"Búsqueda de Antecedentes"` → `"Busqueda"`
 - Funciona con valores exactos y variaciones
 
-### Seguimiento ⭐ **ACTUALIZADO**
+### Seguimiento ⭐ **ACTUALIZADO - Ene 2026**
 ```http
-GET /api/seguimiento/historial/:idOrdenServicio        # Historial completo
+GET /api/seguimiento/historial/:idOrdenServicio        # Historial completo (admin/empleado)
 GET /api/seguimiento/:idOrdenServicio/estados-disponibles  # Estados permitidos
 POST /api/seguimiento/crear                           # Crear seguimiento
 GET /api/seguimiento/:id                              # Ver seguimiento específico
 PUT /api/seguimiento/:id                              # Actualizar seguimiento
 DELETE /api/seguimiento/:id                           # Eliminar seguimiento
 GET /api/seguimiento/buscar/:idOrdenServicio?titulo=  # Buscar por título
+GET /api/seguimiento/cliente/:idOrdenServicio          # Ver seguimientos de mi solicitud (solo clientes) ⭐ NUEVO
+GET /api/seguimiento/:id/descargar-archivos          # Descargar archivos adjuntos (admin/empleado) ⭐ NUEVO
 ```
 
 ### Archivos
@@ -2102,12 +2104,12 @@ Content-Type: application/json
 - `tipodeentidadrazonsocial`, `nombredelaempresa`, `nit`
 - `poderdelrepresentanteautorizado`, `poderparaelregistrodelamarca`
 
-### Seguimiento (`/api/seguimiento`) [auth, admin/empleado] ⭐ **ACTUALIZADO**
-- **GET /historial/:idOrdenServicio**: Historial por orden con datos de usuario
+### Seguimiento (`/api/seguimiento`) [auth, admin/empleado] ⭐ **ACTUALIZADO - Ene 2026**
+- **GET /historial/:idOrdenServicio**: Historial por orden con datos de usuario (admin/empleado)
 - **GET /:idOrdenServicio/estados-disponibles**: Ver estados permitidos por servicio
 - **POST /crear**: Crear seguimiento
   - Body requerido: `id_orden_servicio`, `titulo` (≤200 chars), `descripcion`
-  - Opcional: `documentos_adjuntos` (string con URLs separadas por comas)
+  - Opcional: `documentos_adjuntos` (string con URLs separadas por comas o JSON con Base64)
   - Opcional: `nuevo_proceso` (nombre del nuevo estado - cambia el estado de la solicitud)
   - Opcional: `observaciones`
   - **Nota**: Si incluyes `nuevo_proceso`, se enviará email automático al cliente
@@ -2115,6 +2117,15 @@ Content-Type: application/json
 - **PUT /:id**: Actualizar (al menos uno: `titulo`, `descripcion`, `documentos_adjuntos`)
 - **DELETE /:id**: Eliminar seguimiento
 - **GET /buscar/:idOrdenServicio?titulo=**: Buscar por título (query requerido)
+- **GET /cliente/:idOrdenServicio**: Ver seguimientos de mi solicitud (solo clientes) ⭐ **NUEVO**
+  - Permite a los clientes ver todos los seguimientos asociados a una de sus solicitudes
+  - Valida automáticamente que la solicitud pertenece al cliente autenticado
+  - Retorna: Array de seguimientos con información completa (titulo, descripcion, fecha_registro, usuario_registro, etc.)
+- **GET /:id/descargar-archivos**: Descargar archivos adjuntos de un seguimiento (admin/empleado) ⭐ **NUEVO**
+  - Descarga todos los archivos adjuntos de un seguimiento en un archivo ZIP
+  - Incluye un archivo README.txt con información del seguimiento
+  - Soporta archivos en formato Base64 y URLs (las URLs se guardan como archivos de texto)
+  - Retorna: Archivo ZIP con todos los documentos adjuntos
 
 ### Citas (`/api/citas`)
 - **GET /** (auth, administrador/empleado/cliente): Lista citas con Cliente y Empleado embebidos
@@ -3461,10 +3472,38 @@ El sistema envía automáticamente emails de confirmación en cada etapa del pro
 
 ### 📊 Seguimiento
 
-#### 30. Obtener historial de seguimiento
+#### 30. Obtener historial de seguimiento (admin/empleado)
 ```bash
 curl -X GET "http://localhost:3000/api/seguimiento/historial/1" \
   -H "Authorization: Bearer <TOKEN>"
+```
+
+#### 30.1. Obtener seguimientos de mi solicitud (cliente) ⭐ **NUEVO**
+```bash
+curl -X GET "http://localhost:3000/api/seguimiento/cliente/1" \
+  -H "Authorization: Bearer <TOKEN_CLIENTE>"
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id_seguimiento": 1,
+      "id_orden_servicio": 1,
+      "titulo": "Revisión de documentos",
+      "descripcion": "Se han revisado todos los documentos...",
+      "documentos_adjuntos": "...",
+      "fecha_registro": "2026-01-15T10:30:00.000Z",
+      "usuario_registro": {
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "correo": "juan@example.com"
+      }
+    }
+  ]
+}
 ```
 
 #### 31. Crear seguimiento
@@ -3477,8 +3516,8 @@ curl -X POST "http://localhost:3000/api/seguimiento/crear" \
     "titulo": "Revisión de documentos",
     "descripcion": "Se han revisado todos los documentos presentados. Faltan algunos anexos que se solicitarán al cliente.",                                   
     "documentos_adjuntos": {
-      "acta_revision": "documento1.pdf",
-      "observaciones": "observaciones.pdf"
+      "acta_revision": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "observaciones": "data:application/pdf;base64,JVBERi0xLjQK..."
     }
   }'
 ```
@@ -3492,9 +3531,9 @@ curl -X PUT "http://localhost:3000/api/seguimiento/1" \
     "titulo": "Revisión de documentos - Actualizada",
     "descripcion": "Se han revisado todos los documentos presentados. Los anexos faltantes han sido recibidos y están siendo procesados.",                     
     "documentos_adjuntos": {
-      "acta_revision": "documento1.pdf",
-      "observaciones": "observaciones.pdf",
-      "anexos_recibidos": "anexos.pdf"
+      "acta_revision": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "observaciones": "data:application/pdf;base64,JVBERi0xLjQK...",
+      "anexos_recibidos": "data:application/pdf;base64,JVBERi0xLjQK..."
     }
   }'
 ```
@@ -3504,6 +3543,21 @@ curl -X PUT "http://localhost:3000/api/seguimiento/1" \
 curl -X GET "http://localhost:3000/api/seguimiento/buscar/1?titulo=revisión" \
   -H "Authorization: Bearer <TOKEN>"
 ```
+
+#### 34. Descargar archivos adjuntos de un seguimiento ⭐ **NUEVO**
+```bash
+curl -X GET "http://localhost:3000/api/seguimiento/1/descargar-archivos" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -o seguimiento_archivos.zip
+```
+
+**Descripción:**
+- Descarga todos los archivos adjuntos de un seguimiento en un archivo ZIP
+- El ZIP incluye:
+  - Todos los archivos adjuntos (en formato Base64 convertidos a archivos)
+  - Un archivo README.txt con información del seguimiento
+- Solo disponible para administradores y empleados
+- Si el seguimiento no tiene archivos adjuntos, retorna error 404
 
 ### 📁 Archivos
 
