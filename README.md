@@ -31,7 +31,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
-| **Ene 2026** | 🔐 **Validaciones de Seguridad en Autenticación** | **Rate Limiting:** Protección contra fuerza bruta en login (5 intentos/15min), registro (3 intentos/15min), recuperación de contraseña (3 intentos/15min) y reset de contraseña (5 intentos/15min). **Validación de Contraseñas Comunes:** Bloqueo de más de 50 contraseñas comunes (123456, password, admin123, etc.). **Validación de Estado del Usuario:** Verificación de usuario activo en cada request con token JWT. **Sanitización de Inputs:** Prevención de XSS e inyección en campos de login. **Validación de Fortaleza:** Contraseñas deben tener mínimo 8 caracteres, mayúscula, número y carácter especial. |
+| **Ene 2026** | 🔐 **Validaciones de Seguridad en Autenticación** | **Rate Limiting Mejorado:** Protección contra fuerza bruta por email+IP (no solo IP) - Login: 5 intentos fallidos/5min (no cuenta logins exitosos), Registro: 3 intentos fallidos/5min. Esto evita que un dispositivo bloquee a otros usuarios en la misma red. **Validación de Contraseñas Comunes:** Bloqueo de más de 50 contraseñas comunes (123456, password, admin123, etc.). **Validación de Estado del Usuario:** Verificación de usuario activo en cada request con token JWT. **Sanitización de Inputs:** Prevención de XSS e inyección en campos de login. **Validación de Fortaleza:** Contraseñas deben tener mínimo 8 caracteres, mayúscula, número y carácter especial. |
 | **Ene 2026** | 👥 **Validaciones de Seguridad en Módulo de Empleados** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Integridad:** Previene eliminación/desactivación de empleados con asignaciones activas (citas programadas/reprogramadas y solicitudes activas). Rechazo explícito de clientes sin acceso. |
 | **Ene 2026** | 👤 **Validaciones de Seguridad en Módulo de Clientes** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Propiedad de Recursos:** Los clientes solo pueden ver/editar sus propios datos (implementado en `obtenerCliente`, `editarCliente`, `editarUsuarioCliente`, `editarEmpresaCliente`). Administradores y empleados tienen acceso completo. |
 | **Ene 2026** | 🏢 **Validaciones de Seguridad en Módulo de Empresas** | **Validación de IDs:** Protección contra SQL injection con validación estricta de formato numérico (`/^\d+$/`). **Sistema de Permisos Granular:** Control híbrido para roles principales (roleMiddleware + checkPermiso) y roles personalizados (solo checkPermiso). **Validación de Unicidad (NIT):** Verifica que el NIT sea único antes de crear empresas, previene duplicados, procesa NIT removiendo caracteres no numéricos, mensajes de error descriptivos con información de empresa existente. Clientes rechazados explícitamente (sin acceso a gestión de empresas). |
@@ -2281,11 +2281,16 @@ const headers = {
 
 #### Validaciones de Seguridad ⭐ **NUEVO - Ene 2026**
 
-**Rate Limiting:**
-- Login: 5 intentos por IP cada 15 minutos
-- Registro: 3 intentos por IP cada 15 minutos
-- Recuperación de contraseña: 3 intentos por IP cada 15 minutos
+**Rate Limiting (Mejorado - Enero 2026):**
+- Login: 5 intentos fallidos por email+IP cada 5 minutos (no cuenta logins exitosos) ✅
+- Registro: 3 intentos fallidos por email+IP cada 5 minutos ✅
+- Recuperación de contraseña: 3 solicitudes por IP cada 15 minutos
 - Reset de contraseña: 5 intentos por IP cada 15 minutos
+
+**✅ Mejoras implementadas:**
+- Rate limiting por email+IP (no solo IP) - Evita que un dispositivo bloquee a otros usuarios
+- Bloqueo reducido a 5 minutos para mejor experiencia de usuario
+- Logins exitosos no cuentan hacia el límite
 
 **Validaciones de Contraseña:**
 - Bloqueo de contraseñas comunes (123456, password, admin123, etc.)
@@ -6290,13 +6295,19 @@ Este script demuestra todas las mejoras en los mensajes de la API.
 
 ### Validaciones de Seguridad en Autenticación ⭐ **NUEVO - Ene 2026**
 
-#### 1. Rate Limiting (Protección contra Fuerza Bruta)
-- **Login:** 5 intentos por IP cada 15 minutos
-- **Registro:** 3 intentos por IP cada 15 minutos
-- **Recuperación de Contraseña:** 3 intentos por IP cada 15 minutos
+#### 1. Rate Limiting (Protección contra Fuerza Bruta) ⭐ **MEJORADO - Ene 2026**
+- **Login:** 5 intentos fallidos por email+IP cada 5 minutos (no cuenta logins exitosos) ✅
+- **Registro:** 3 intentos fallidos por email+IP cada 5 minutos ✅
+- **Recuperación de Contraseña:** 3 solicitudes por IP cada 15 minutos
 - **Reset de Contraseña:** 5 intentos por IP cada 15 minutos
 - **Respuesta:** Error 429 (Too Many Requests) con mensaje descriptivo
 - **Headers:** `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+
+**✅ Mejoras implementadas:**
+- **Rate limiting por email+IP:** No bloquea a otros usuarios en la misma red
+- **Bloqueo reducido:** 5 minutos en lugar de 15 para mejor UX
+- **Logins exitosos no cuentan:** Solo se cuentan intentos fallidos
+- **Protección mejorada:** Cada usuario tiene su propio contador independiente
 
 #### 2. Validación de Contraseñas Comunes
 - **Lista de 50+ contraseñas prohibidas:** 123456, password, admin123, qwerty, etc.

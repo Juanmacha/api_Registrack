@@ -1,11 +1,18 @@
 /**
  * Middleware de Rate Limiting para protección contra ataques de fuerza bruta
  * 
- * Implementa límites de solicitudes por IP para endpoints críticos:
- * - Login: 5 intentos por 15 minutos
- * - Registro: 3 intentos por 15 minutos
- * - Recuperación de contraseña: 3 intentos por 15 minutos
- * - Reset de contraseña: 5 intentos por 15 minutos
+ * ✅ MEJORADO (Enero 2026): Rate limiting por email + IP (no solo IP)
+ * 
+ * Implementa límites de solicitudes por email+IP para endpoints críticos:
+ * - Login: 5 intentos fallidos por email+IP en 5 minutos (no cuenta logins exitosos)
+ * - Registro: 3 intentos fallidos por email+IP en 5 minutos
+ * - Recuperación de contraseña: 3 solicitudes por IP en 15 minutos
+ * - Reset de contraseña: 5 intentos por IP en 15 minutos
+ * 
+ * Ventajas:
+ * - No bloquea a otros usuarios en la misma IP
+ * - Los logins exitosos no cuentan hacia el límite
+ * - Bloqueo más corto (5 minutos) para mejor UX
  */
 
 import rateLimit from 'express-rate-limit';
@@ -13,32 +20,42 @@ import rateLimit from 'express-rate-limit';
 /**
  * Rate Limiter para Login
  * Protege contra ataques de fuerza bruta en inicio de sesión
+ * ✅ MEJORADO: Rate limiting por email + IP (no solo IP)
+ * ✅ MEJORADO: No cuenta logins exitosos
+ * ✅ MEJORADO: Bloqueo de 5 minutos (reducido de 15)
  */
 export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos por IP en 15 minutos
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 5, // 5 intentos fallidos por email+IP en 5 minutos
   message: {
     success: false,
     error: {
-      message: 'Demasiados intentos de login. Por favor, intenta nuevamente en 15 minutos.',
+      message: 'Demasiados intentos de login. Por favor, intenta nuevamente en 5 minutos.',
       code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: '15 minutos',
+      retryAfter: '5 minutos',
       timestamp: new Date().toISOString()
     }
   },
   standardHeaders: true, // Retorna información de rate limit en headers `RateLimit-*`
   legacyHeaders: false, // No retorna `X-RateLimit-*` headers
-  skipSuccessfulRequests: false, // Contar todos los intentos, incluso los exitosos
-  skipFailedRequests: false, // Contar todos los intentos, incluso los fallidos
+  skipSuccessfulRequests: true, // ✅ No contar logins exitosos (solo fallidos)
+  skipFailedRequests: false, // Contar intentos fallidos
+  // ✅ Key personalizado: email + IP (no solo IP)
+  keyGenerator: (req) => {
+    const email = req.body?.correo || req.body?.email || 'unknown';
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    // Normalizar email a minúsculas para evitar duplicados
+    return `${email.toLowerCase()}_${ip}`;
+  },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
       error: {
-        message: 'Demasiados intentos de login. Por favor, intenta nuevamente en 15 minutos.',
+        message: 'Demasiados intentos de login. Por favor, intenta nuevamente en 5 minutos.',
         code: 'RATE_LIMIT_EXCEEDED',
-        retryAfter: '15 minutos',
+        retryAfter: '5 minutos',
         timestamp: new Date().toISOString(),
-        details: 'Has excedido el límite de 5 intentos de login por IP. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
+        details: 'Has excedido el límite de 5 intentos fallidos de login. Por seguridad, debes esperar 5 minutos antes de intentar nuevamente.'
       }
     });
   }
@@ -47,16 +64,18 @@ export const loginLimiter = rateLimit({
 /**
  * Rate Limiter para Registro
  * Protege contra creación masiva de cuentas
+ * ✅ MEJORADO: Rate limiting por email + IP (no solo IP)
+ * ✅ MEJORADO: Bloqueo de 5 minutos (reducido de 15)
  */
 export const registerLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 3, // 3 registros por IP en 15 minutos
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 3, // 3 intentos fallidos por email+IP en 5 minutos
   message: {
     success: false,
     error: {
-      message: 'Demasiados intentos de registro. Por favor, intenta nuevamente en 15 minutos.',
+      message: 'Demasiados intentos de registro. Por favor, intenta nuevamente en 5 minutos.',
       code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: '15 minutos',
+      retryAfter: '5 minutos',
       timestamp: new Date().toISOString()
     }
   },
@@ -64,15 +83,22 @@ export const registerLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: true, // No contar registros exitosos
   skipFailedRequests: false, // Contar intentos fallidos
+  // ✅ Key personalizado: email + IP (no solo IP)
+  keyGenerator: (req) => {
+    const email = req.body?.correo || req.body?.email || 'unknown';
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    // Normalizar email a minúsculas para evitar duplicados
+    return `${email.toLowerCase()}_${ip}`;
+  },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
       error: {
-        message: 'Demasiados intentos de registro. Por favor, intenta nuevamente en 15 minutos.',
+        message: 'Demasiados intentos de registro. Por favor, intenta nuevamente en 5 minutos.',
         code: 'RATE_LIMIT_EXCEEDED',
-        retryAfter: '15 minutos',
+        retryAfter: '5 minutos',
         timestamp: new Date().toISOString(),
-        details: 'Has excedido el límite de 3 intentos de registro por IP. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
+        details: 'Has excedido el límite de 3 intentos fallidos de registro. Por seguridad, debes esperar 5 minutos antes de intentar nuevamente.'
       }
     });
   }
