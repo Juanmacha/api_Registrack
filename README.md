@@ -2109,10 +2109,14 @@ Content-Type: application/json
 - **GET /:idOrdenServicio/estados-disponibles**: Ver estados permitidos por servicio
 - **POST /crear**: Crear seguimiento
   - Body requerido: `id_orden_servicio`, `titulo` (≤200 chars), `descripcion`
-  - Opcional: `documentos_adjuntos` (string con URLs separadas por comas o JSON con Base64)
+  - Opcional: `documentos_adjuntos` (objeto JSON con archivos en Base64 con prefijo `data:`)
+    - **Formato:** `{"nombre_archivo": "data:application/pdf;base64,JVBERi0x...", ...}`
+    - **⚠️ IMPORTANTE:** Debe ser un objeto JSON, NO un string. Cada archivo debe tener el prefijo `data:[mime-type];base64,`
+    - **Ejemplo:** `{"acta_revision": "data:application/pdf;base64,...", "observaciones": "data:application/pdf;base64,..."}`
   - Opcional: `nuevo_proceso` (nombre del nuevo estado - cambia el estado de la solicitud)
   - Opcional: `observaciones`
   - **Nota**: Si incluyes `nuevo_proceso`, se enviará email automático al cliente
+  - **📘 Ver:** `GUIA_FRONTEND_SEGUIMIENTO.md` para detalles de implementación en frontend
 - **GET /:id**: Obtener seguimiento por ID con datos de orden y usuario
 - **PUT /:id**: Actualizar (al menos uno: `titulo`, `descripcion`, `documentos_adjuntos`)
 - **DELETE /:id**: Eliminar seguimiento
@@ -2322,13 +2326,31 @@ fetch(`${API_URL}/usuarios/login`, {
 
 // Respuesta:
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "usuario": {
-    "id_usuario": 1,
-    "nombre": "Juan",
-    "apellido": "Pérez",
-    "correo": "cliente@example.com",
-    "rol": "cliente"
+  "success": true,
+  "message": "Login exitoso",
+  "data": {
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "correo": "cliente@example.com",
+      "telefono": "+57 300 123 4567",
+      "tipo_documento": "CC",
+      "documento": "1234567890",
+      "rol": {
+        "id": "3",
+        "nombre": "cliente",
+        "estado": "Activo",
+        "permisos": {}
+      },
+      "estado": true
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": "1h"
+  },
+  "meta": {
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "permissions": "Acceso limitado a datos propios"
   }
 }
 ```
@@ -2809,19 +2831,43 @@ curl -X POST "http://localhost:3000/api/usuarios/login" \
 **Respuesta esperada:**
 ```json
 {
-  "mensaje": "Login exitoso",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "usuario": {
-    "id_usuario": 1,
-    "nombre": "Admin",
-    "apellido": "Sistema",
-    "correo": "admin@registrack.com",
-    "tipo_documento": "CC",
-    "documento": "87654321",
-    "rol": "administrador"
+  "success": true,
+  "message": "Login exitoso",
+  "data": {
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Admin",
+      "apellido": "Sistema",
+      "correo": "admin@registrack.com",
+      "telefono": "+57 300 123 4567",
+      "tipo_documento": "CC",
+      "documento": "87654321",
+      "rol": {
+        "id": "1",
+        "nombre": "administrador",
+        "estado": "Activo",
+        "permisos": {
+          "gestion_usuarios": { "crear": true, "leer": true, "actualizar": true, "eliminar": true },
+          "gestion_solicitudes": { "crear": true, "leer": true, "actualizar": true, "eliminar": true }
+        }
+      },
+      "estado": true
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": "1h"
+  },
+  "meta": {
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "permissions": "Acceso completo"
   }
 }
 ```
+
+**Campos incluidos en la respuesta:**
+- ✅ `tipo_documento`: Tipo de documento del usuario (CC, CE, TI, RC, NIT, PAS) o `null`
+- ✅ `documento`: Número de documento del usuario o `null`
+- ✅ `telefono`: Teléfono del usuario o `null`
+- ✅ `rol`: Objeto con información del rol y permisos en formato granular
 
 #### 3. Recuperar contraseña
 ```bash
@@ -3514,13 +3560,20 @@ curl -X POST "http://localhost:3000/api/seguimiento/crear" \
   -d '{
     "id_orden_servicio": 1,
     "titulo": "Revisión de documentos",
-    "descripcion": "Se han revisado todos los documentos presentados. Faltan algunos anexos que se solicitarán al cliente.",                                   
+    "descripcion": "Se han revisado todos los documentos presentados. Faltan algunos anexos que se solicitarán al cliente.",
+    "observaciones": "Cliente respondió rápidamente",
     "documentos_adjuntos": {
       "acta_revision": "data:application/pdf;base64,JVBERi0xLjQK...",
       "observaciones": "data:application/pdf;base64,JVBERi0xLjQK..."
     }
   }'
 ```
+
+**⚠️ IMPORTANTE para Frontend:**
+- `documentos_adjuntos` debe ser un **objeto JSON**, NO un string
+- Cada archivo debe tener el prefijo `data:[mime-type];base64,`
+- Usar `FileReader.readAsDataURL()` para convertir archivos (incluye automáticamente el prefijo)
+- **📘 Ver guía completa:** `GUIA_FRONTEND_SEGUIMIENTO.md`
 
 #### 32. Actualizar seguimiento
 ```bash
@@ -4870,8 +4923,25 @@ Content-Type: application/json
       "nombre": "Admin",
       "apellido": "Sistema",
       "correo": "admin@registrack.com",
-      "rol": "administrador"
-    }
+      "telefono": "+57 300 123 4567",
+      "tipo_documento": "CC",
+      "documento": "87654321",
+      "rol": {
+        "id": "1",
+        "nombre": "administrador",
+        "estado": "Activo",
+        "permisos": {
+          "gestion_usuarios": { "crear": true, "leer": true, "actualizar": true, "eliminar": true }
+        }
+      },
+      "estado": true
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": "1h"
+  },
+  "meta": {
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "permissions": "Acceso completo"
   }
 }
 ```

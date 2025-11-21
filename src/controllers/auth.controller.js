@@ -130,6 +130,8 @@ export const login = async (req, res) => {
           apellido: usuario.apellido,
           correo: usuario.correo,
           telefono: usuario.telefono || null,
+          tipo_documento: usuario.tipo_documento || null,
+          documento: usuario.documento || null,
           rol: usuario.rol,  // ✅ Ahora incluye permisos en formato granular
           estado: usuario.estado
         },
