@@ -114,7 +114,7 @@ router.get(
  * Tabla de solicitudes con inactividad prolongada
  * Query params:
  *   - format: 'json' | 'excel' (default: 'json')
- *   - dias_minimos: número (default: 30)
+ *   - dias_minimos: número (default: 10)
  */
 router.get(
   "/inactivas",
@@ -158,6 +158,21 @@ router.get(
   authMiddleware,
   validateDashboardAccess('leer'),
   DashboardController.getPeriodos
+);
+
+/**
+ * GET /api/dashboard/ingresos-por-servicio
+ * Obtener distribución de ingresos agrupados por servicio
+ * Query params:
+ *   - periodo: '1mes' | '3meses' | '6meses' | '12meses' | '18meses' | '2anos' | '3anos' | '5anos' | 'todo' | 'custom' (default: '6meses')
+ *   - fecha_inicio: 'YYYY-MM-DD' (requerido si periodo=custom)
+ *   - fecha_fin: 'YYYY-MM-DD' (requerido si periodo=custom)
+ */
+router.get(
+  "/ingresos-por-servicio",
+  authMiddleware,
+  validateDashboardAccess('leer'),
+  DashboardController.getIngresosPorServicio
 );
 
 export default router;

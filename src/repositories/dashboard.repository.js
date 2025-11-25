@@ -214,10 +214,10 @@ export const DashboardRepository = {
 
   /**
    * 🔴 Obtener solicitudes inactivas (sin actualizaciones por X días)
-   * @param {number} diasMinimos - Días mínimos sin actualización (default: 30)
+   * @param {number} diasMinimos - Días mínimos sin actualización (default: 10)
    * @returns {Promise<Array>} Lista de solicitudes inactivas
    */
-  async obtenerSolicitudesInactivas(diasMinimos = 30) {
+  async obtenerSolicitudesInactivas(diasMinimos = 10) {
     try {
       const query = `
         SELECT 
@@ -346,7 +346,7 @@ export const DashboardRepository = {
             SELECT COUNT(*) 
             FROM ordenes_de_servicios 
             WHERE estado NOT IN ('Finalizado', 'Anulado')
-              AND DATEDIFF(NOW(), updated_at) >= 30
+              AND DATEDIFF(NOW(), updated_at) >= 10
           ) AS solicitudes_inactivas,
           
           (
@@ -598,6 +598,51 @@ export const DashboardRepository = {
       return result;
     } catch (error) {
       console.error('❌ Error en obtenerRenovacionesProximas:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 💰 Obtener ingresos agrupados por servicio
+   * @param {string|null} fechaInicio - Fecha de inicio del periodo (YYYY-MM-DD) o null para todos los datos
+   * @param {string|null} fechaFin - Fecha de fin del periodo (YYYY-MM-DD) o null para todos los datos
+   * @returns {Promise<Array>} Lista de servicios con sus ingresos totales
+   */
+  async obtenerIngresosPorServicio(fechaInicio, fechaFin) {
+    try {
+      const replacements = [];
+      let fechaCondition = "";
+
+      if (fechaInicio && fechaFin) {
+        fechaCondition = "AND p.fecha_pago >= ? AND p.fecha_pago <= ?";
+        replacements.push(fechaInicio, fechaFin);
+      }
+
+      const query = `
+        SELECT 
+          s.id_servicio,
+          s.nombre AS nombre_servicio,
+          COUNT(DISTINCT p.id_pago) AS total_transacciones,
+          CAST(COALESCE(SUM(p.monto), 0) AS DECIMAL(15,2)) AS total_ingresos,
+          CAST(COALESCE(AVG(p.monto), 0) AS DECIMAL(15,2)) AS promedio_transaccion
+        FROM pagos p
+        INNER JOIN ordenes_de_servicios os ON p.id_orden_servicio = os.id_orden_servicio
+        INNER JOIN servicios s ON os.id_servicio = s.id_servicio
+        WHERE p.estado = 'Pagado'
+          AND p.fecha_pago IS NOT NULL
+          ${fechaCondition}
+        GROUP BY s.id_servicio, s.nombre
+        ORDER BY total_ingresos DESC
+      `;
+
+      const result = await sequelize.query(query, {
+        replacements,
+        type: QueryTypes.SELECT
+      });
+
+      return result;
+    } catch (error) {
+      console.error('❌ Error en obtenerIngresosPorServicio:', error);
       throw error;
     }
   }

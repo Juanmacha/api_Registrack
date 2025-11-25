@@ -26,12 +26,18 @@ export class DashboardService {
       if (!ingresos || ingresos.length === 0) {
         return {
           periodo,
+          fecha_inicio: inicio,
+          fecha_fin: fin,
           total_ingresos: 0,
           total_transacciones: 0,
           promedio_transaccion: 0,
           crecimiento_mensual: 0,
           ingresos_por_mes: [],
-          metodos_pago: {}
+          metodos_pago: {},
+          distribucion_por_servicio: {
+            total_ingresos: 0,
+            servicios: []
+          }
         };
       }
 
@@ -49,6 +55,10 @@ export class DashboardService {
       // Agrupar por método de pago
       const metodosPago = this._agruparPorMetodo(ingresos);
 
+      // Obtener distribución por servicio (para gráfica de dona)
+      const ingresosPorServicio = await DashboardRepository.obtenerIngresosPorServicio(inicio, fin);
+      const distribucionServicios = this._procesarDistribucionServicios(ingresosPorServicio, totalIngresos);
+
       return {
         periodo,
         fecha_inicio: inicio,
@@ -58,7 +68,8 @@ export class DashboardService {
         promedio_transaccion: parseFloat(promedioTransaccion.toFixed(2)),
         crecimiento_mensual: crecimientoMensual,
         ingresos_por_mes: ingresosPorMes,
-        metodos_pago: metodosPago
+        metodos_pago: metodosPago,
+        distribucion_por_servicio: distribucionServicios
       };
     } catch (error) {
       console.error('❌ Error en calcularIngresos:', error);
@@ -231,10 +242,10 @@ export class DashboardService {
 
   /**
    * Obtener tabla de solicitudes inactivas
-   * @param {number} diasMinimos - Días mínimos de inactividad (default: 30)
+   * @param {number} diasMinimos - Días mínimos de inactividad (default: 10)
    * @returns {Promise<Object>} Lista de solicitudes inactivas
    */
-  async obtenerSolicitudesInactivas(diasMinimos = 30) {
+  async obtenerSolicitudesInactivas(diasMinimos = 10) {
     try {
       const inactivas = await DashboardRepository.obtenerSolicitudesInactivas(diasMinimos);
 
@@ -417,7 +428,7 @@ export class DashboardService {
         tipo: 'inactividad',
         nivel: kpis.solicitudes_inactivas > 10 ? 'alta' : 'media',
         cantidad: kpis.solicitudes_inactivas,
-        mensaje: `${kpis.solicitudes_inactivas} solicitudes sin actualizar por más de 30 días`
+        mensaje: `${kpis.solicitudes_inactivas} solicitudes sin actualizar por más de 10 días`
       });
     }
 
@@ -472,6 +483,111 @@ export class DashboardService {
       mes_anterior: parseFloat(mesAnterior.toFixed(2)),
       crecimiento
     };
+  }
+
+  /**
+   * Procesar distribución de servicios con porcentajes
+   * @private
+   */
+  _procesarDistribucionServicios(ingresosPorServicio, totalIngresos) {
+    if (!ingresosPorServicio || ingresosPorServicio.length === 0 || !totalIngresos || totalIngresos === 0) {
+      return {
+        total_ingresos: 0,
+        servicios: []
+      };
+    }
+
+    const servicios = ingresosPorServicio.map(servicio => {
+      const ingresos = parseFloat(servicio.total_ingresos || 0);
+      const porcentaje = totalIngresos > 0 
+        ? parseFloat(((ingresos / totalIngresos) * 100).toFixed(2))
+        : 0;
+
+      return {
+        id_servicio: servicio.id_servicio,
+        nombre_servicio: servicio.nombre_servicio,
+        total_ingresos: ingresos,
+        total_transacciones: parseInt(servicio.total_transacciones || 0),
+        porcentaje: porcentaje
+      };
+    });
+
+    return {
+      total_ingresos: parseFloat(totalIngresos.toFixed(2)),
+      servicios: servicios
+    };
+  }
+
+  /**
+   * Calcular distribución de ingresos por servicio
+   * @param {string} periodo - Período seleccionado (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
+   * @param {string} fechaInicio - Fecha inicio (YYYY-MM-DD) para periodo custom
+   * @param {string} fechaFin - Fecha fin (YYYY-MM-DD) para periodo custom
+   * @returns {Promise<Object>} Distribución de ingresos por servicio con porcentajes
+   */
+  async calcularIngresosPorServicio(periodo = PERIODO_DEFECTO, fechaInicio = null, fechaFin = null) {
+    try {
+      // Validar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
+      // Calcular fechas según periodo
+      const { inicio, fin } = calcularRangoFechas(periodo, fechaInicio, fechaFin);
+
+      // Obtener datos del repositorio
+      const ingresosPorServicio = await DashboardRepository.obtenerIngresosPorServicio(inicio, fin);
+
+      if (!ingresosPorServicio || ingresosPorServicio.length === 0) {
+        return {
+          periodo,
+          fecha_inicio: inicio,
+          fecha_fin: fin,
+          total_ingresos: 0,
+          total_transacciones: 0,
+          servicios: []
+        };
+      }
+
+      // Calcular totales
+      const totalIngresos = ingresosPorServicio.reduce(
+        (sum, item) => sum + parseFloat(item.total_ingresos || 0), 
+        0
+      );
+      const totalTransacciones = ingresosPorServicio.reduce(
+        (sum, item) => sum + parseInt(item.total_transacciones || 0), 
+        0
+      );
+
+      // Calcular porcentajes y formatear datos
+      const servicios = ingresosPorServicio.map(servicio => {
+        const ingresos = parseFloat(servicio.total_ingresos || 0);
+        const porcentaje = totalIngresos > 0 
+          ? parseFloat(((ingresos / totalIngresos) * 100).toFixed(2))
+          : 0;
+
+        return {
+          id_servicio: servicio.id_servicio,
+          nombre_servicio: servicio.nombre_servicio,
+          total_ingresos: ingresos,
+          total_transacciones: parseInt(servicio.total_transacciones || 0),
+          promedio_transaccion: parseFloat(servicio.promedio_transaccion || 0),
+          porcentaje: porcentaje
+        };
+      });
+
+      return {
+        periodo,
+        fecha_inicio: inicio,
+        fecha_fin: fin,
+        total_ingresos: parseFloat(totalIngresos.toFixed(2)),
+        total_transacciones: totalTransacciones,
+        servicios: servicios
+      };
+    } catch (error) {
+      console.error('❌ Error en calcularIngresosPorServicio:', error);
+      throw error;
+    }
   }
 }
 

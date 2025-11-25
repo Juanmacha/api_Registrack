@@ -1672,7 +1672,7 @@ Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devu
 - **Resumen de Servicios**: Estadísticas de uso, más/menos solicitados, distribución por estado real (process_states) ✅ CORREGIDO
 - **KPIs Generales**: Ingresos totales, solicitudes, tasa de finalización, clientes activos
 - **Servicios Pendientes**: Tabla filtrable con días en espera, exportación a Excel
-- **Solicitudes Inactivas**: Detección de procesos estancados (>30 días sin actualizar)
+- **Solicitudes Inactivas**: Detección de procesos estancados (por defecto: ≥10 días sin actualizar, configurable con parámetro `dias_minimos`)
 - **Renovaciones Próximas a Vencer**: Marcas que vencen en los próximos 90 días (5 años desde finalización)
 - **Sistema de Alertas**: Notificaciones automáticas según umbrales
 - **Reportes Excel**: Código de colores según urgencia (amarillo, naranja, rojo)
@@ -1856,8 +1856,8 @@ GET /api/dashboard/servicios?periodo=12meses                  # Resumen de servi
 GET /api/dashboard/resumen?periodo=12meses                    # KPIs generales (todos los períodos + custom)
 GET /api/dashboard/pendientes?format=json                     # Servicios pendientes (JSON)
 GET /api/dashboard/pendientes?format=excel                    # Servicios pendientes (Excel)
-GET /api/dashboard/inactivas?format=json                      # Solicitudes inactivas (JSON)
-GET /api/dashboard/inactivas?format=excel                     # Solicitudes inactivas (Excel)
+GET /api/dashboard/inactivas?format=json&dias_minimos=10      # Solicitudes inactivas (JSON, por defecto: 10 días)
+GET /api/dashboard/inactivas?format=excel&dias_minimos=10     # Solicitudes inactivas (Excel, por defecto: 10 días)
 GET /api/dashboard/renovaciones-proximas?format=json          # Renovaciones próximas (JSON)
 GET /api/dashboard/renovaciones-proximas?format=excel         # Renovaciones próximas (Excel)
 POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de alertas
@@ -1871,6 +1871,390 @@ POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de
 - Se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden
 - "Anulado" se maneja por separado (estado de orden, no de proceso)
 - Ejemplos: "Solicitud Recibida", "Revisión de Documentos", "Publicación", "Certificado Emitido", "Finalizado", etc.
+
+### 📊 Ejemplos de Respuesta del Dashboard
+
+#### Ejemplo 1: Gráfica de Ingresos por Mes (`GET /api/dashboard/ingresos?periodo=6meses`)
+```json
+{
+  "success": true,
+  "data": {
+    "periodo": "6meses",
+    "periodo_seleccionado": "6meses",
+    "fecha_inicio": "2024-06-01",
+    "fecha_fin": "2024-11-30",
+    "total_ingresos": 15250000.00,
+    "total_transacciones": 45,
+    "promedio_transaccion": 338888.89,
+    "crecimiento_mensual": 12.5,
+    "distribucion_por_servicio": {
+      "total_ingresos": 15250000.00,
+      "servicios": [
+        {
+          "id_servicio": 1,
+          "nombre_servicio": "Búsqueda de Antecedentes",
+          "total_ingresos": 5000000.00,
+          "total_transacciones": 15,
+          "porcentaje": 32.79
+        },
+        {
+          "id_servicio": 2,
+          "nombre_servicio": "Registro de Marca (Certificación de marca)",
+          "total_ingresos": 4500000.00,
+          "total_transacciones": 12,
+          "porcentaje": 29.51
+        },
+        {
+          "id_servicio": 3,
+          "nombre_servicio": "Renovación de Marca",
+          "total_ingresos": 3500000.00,
+          "total_transacciones": 10,
+          "porcentaje": 22.95
+        },
+        {
+          "id_servicio": 4,
+          "nombre_servicio": "Cesión de Marca",
+          "total_ingresos": 2250000.00,
+          "total_transacciones": 8,
+          "porcentaje": 14.75
+        }
+      ]
+    },
+    "ingresos_por_mes": [
+      {
+        "mes": "2024-11",
+        "mes_nombre": "Noviembre 2024",
+        "total": 3250000.00,
+        "transacciones": 12,
+        "metodos": {
+          "Efectivo": 500000.00,
+          "Transferencia": 2000000.00,
+          "Tarjeta": 600000.00,
+          "Cheque": 150000.00
+        }
+      },
+      {
+        "mes": "2024-10",
+        "mes_nombre": "Octubre 2024",
+        "total": 2900000.00,
+        "transacciones": 10,
+        "metodos": {
+          "Efectivo": 400000.00,
+          "Transferencia": 1800000.00,
+          "Tarjeta": 550000.00,
+          "Cheque": 150000.00
+        }
+      },
+      {
+        "mes": "2024-09",
+        "mes_nombre": "Septiembre 2024",
+        "total": 2650000.00,
+        "transacciones": 8,
+        "metodos": {
+          "Efectivo": 300000.00,
+          "Transferencia": 1600000.00,
+          "Tarjeta": 600000.00,
+          "Cheque": 150000.00
+        }
+      },
+      {
+        "mes": "2024-08",
+        "mes_nombre": "Agosto 2024",
+        "total": 2400000.00,
+        "transacciones": 7,
+        "metodos": {
+          "Efectivo": 350000.00,
+          "Transferencia": 1400000.00,
+          "Tarjeta": 500000.00,
+          "Cheque": 150000.00
+        }
+      },
+      {
+        "mes": "2024-07",
+        "mes_nombre": "Julio 2024",
+        "total": 2250000.00,
+        "transacciones": 5,
+        "metodos": {
+          "Efectivo": 250000.00,
+          "Transferencia": 1300000.00,
+          "Tarjeta": 550000.00,
+          "Cheque": 150000.00
+        }
+      },
+      {
+        "mes": "2024-06",
+        "mes_nombre": "Junio 2024",
+        "total": 1800000.00,
+        "transacciones": 3,
+        "metodos": {
+          "Efectivo": 200000.00,
+          "Transferencia": 1000000.00,
+          "Tarjeta": 500000.00,
+          "Cheque": 100000.00
+        }
+      }
+    ],
+    "metodos_pago": {
+      "Efectivo": 2000000.00,
+      "Transferencia": 9100000.00,
+      "Tarjeta": 3300000.00,
+      "Cheque": 850000.00
+    }
+  }
+}
+```
+
+**📊 Uso del campo `distribucion_por_servicio` para la gráfica de dona:**
+
+El campo `distribucion_por_servicio` contiene los datos necesarios para mostrar la gráfica "Distribución de Ingresos por Servicio". Este campo está disponible en el endpoint `/api/dashboard/ingresos` y agrupa los ingresos por cada servicio (Búsqueda de Antecedentes, Registro de Marca, Renovación de Marca, etc.).
+
+**Ejemplo de uso en el frontend:**
+
+```javascript
+// 1. Obtener datos del endpoint
+const response = await fetch('/api/dashboard/ingresos?periodo=12meses', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+const data = await response.json();
+
+// 2. Acceder a la distribución por servicio
+const distribucion = data.data.distribucion_por_servicio;
+
+// 3. Obtener el total general (para mostrar en la parte inferior)
+const totalIngresos = distribucion.total_ingresos; // $800.000
+
+// 4. Obtener array de servicios para la gráfica de dona
+const servicios = distribucion.servicios;
+
+// 5. Mapear para la gráfica (ejemplo con Chart.js o similar)
+const chartData = servicios.map(servicio => ({
+  label: servicio.nombre_servicio, // "Búsqueda de Antecedentes"
+  value: servicio.total_ingresos,  // 5000000.00
+  percentage: servicio.porcentaje,  // 32.79
+  transactions: servicio.total_transacciones // 15
+}));
+
+// 6. Usar chartData para renderizar la gráfica de dona
+// Cada servicio aparecerá como un segmento con su porcentaje
+```
+
+**Estructura completa del campo `distribucion_por_servicio`:**
+
+```json
+{
+  "distribucion_por_servicio": {
+    "total_ingresos": 15250000.00,
+    "servicios": [
+      {
+        "id_servicio": 1,
+        "nombre_servicio": "Búsqueda de Antecedentes",
+        "total_ingresos": 5000000.00,
+        "total_transacciones": 15,
+        "porcentaje": 32.79
+      },
+      {
+        "id_servicio": 2,
+        "nombre_servicio": "Registro de Marca (Certificación de marca)",
+        "total_ingresos": 4500000.00,
+        "total_transacciones": 12,
+        "porcentaje": 29.51
+      }
+      // ... más servicios
+    ]
+  }
+}
+```
+
+**Campos disponibles en cada servicio:**
+- `id_servicio`: ID único del servicio
+- `nombre_servicio`: Nombre completo del servicio (ej: "Búsqueda de Antecedentes", "Registro de Marca (Certificación de marca)", "Renovación de Marca")
+- `total_ingresos`: Suma de todos los pagos recibidos por ese servicio en el período
+- `total_transacciones`: Cantidad de pagos realizados para ese servicio
+- `porcentaje`: Porcentaje que representa del total (calculado automáticamente, suma 100%)
+
+**Nota importante:** 
+- Solo aparecen servicios que tienen al menos un pago con estado `'Pagado'` en el período seleccionado
+- Los servicios se ordenan por `total_ingresos` de mayor a menor
+- El `porcentaje` se calcula automáticamente basado en el total de ingresos
+
+**📊 ¿Cómo funciona la Gráfica de Ingresos por Mes?**
+
+La gráfica de ingresos muestra los ingresos mensuales de la empresa con un desglose por método de pago. Aquí te explico paso a paso cómo funciona:
+
+#### **1. Fuente de Datos:**
+- **Tabla:** `pagos` de la base de datos
+- **Filtro:** Solo pagos con estado `'Pagado'` y que tengan `fecha_pago` registrada
+- **Agrupación:** Por mes (formato: `YYYY-MM`)
+
+#### **2. Query SQL que se ejecuta:**
+```sql
+SELECT 
+  DATE_FORMAT(fecha_pago, '%Y-%m') AS mes,
+  COUNT(*) AS total_transacciones,
+  SUM(monto) AS total_ingresos,
+  AVG(monto) AS promedio_transaccion,
+  SUM(CASE WHEN metodo_pago = 'Efectivo' THEN monto ELSE 0 END) AS efectivo,
+  SUM(CASE WHEN metodo_pago = 'Transferencia' THEN monto ELSE 0 END) AS transferencia,
+  SUM(CASE WHEN metodo_pago = 'Tarjeta' THEN monto ELSE 0 END) AS tarjeta,
+  SUM(CASE WHEN metodo_pago = 'Cheque' THEN monto ELSE 0 END) AS cheque
+FROM pagos
+WHERE estado = 'Pagado' AND fecha_pago IS NOT NULL
+  AND fecha_pago >= ? AND fecha_pago <= ?  -- Rango del periodo seleccionado
+GROUP BY mes
+ORDER BY mes DESC
+```
+
+#### **3. Procesamiento de Datos:**
+
+**a) Agrupación por Mes:**
+- Los datos se agrupan automáticamente por mes (ej: `2024-11`, `2024-10`, etc.)
+- Se formatea el nombre del mes: `"2024-11"` → `"Noviembre 2024"`
+
+**b) Cálculo de Totales:**
+- **Total de Ingresos:** Suma de todos los montos en el periodo
+- **Total de Transacciones:** Conteo de todos los pagos realizados
+- **Promedio por Transacción:** `total_ingresos / total_transacciones`
+
+**c) Desglose por Método de Pago:**
+Para cada mes se calcula cuánto se recibió por cada método:
+- **Efectivo:** Suma de pagos en efectivo
+- **Transferencia:** Suma de transferencias bancarias
+- **Tarjeta:** Suma de pagos con tarjeta
+- **Cheque:** Suma de pagos con cheque
+
+**d) Cálculo de Crecimiento Mensual:**
+- Compara el último mes con el mes anterior
+- Fórmula: `((mes_actual - mes_anterior) / mes_anterior) * 100`
+- Ejemplo: Si noviembre tuvo $3,250,000 y octubre tuvo $2,900,000:
+  - Crecimiento = `((3,250,000 - 2,900,000) / 2,900,000) * 100 = 12.07%`
+
+#### **4. Períodos Disponibles:**
+Puedes filtrar por diferentes períodos usando el parámetro `periodo`:
+- **Cortos:** `1mes`, `3meses`
+- **Medios:** `6meses`, `12meses` (por defecto)
+- **Largos:** `18meses`, `2anos`, `3anos`, `5anos`
+- **Especiales:** 
+  - `todo` - Todos los pagos registrados
+  - `custom` - Rango personalizado (requiere `fecha_inicio` y `fecha_fin`)
+
+#### **5. Estructura de la Respuesta:**
+
+```javascript
+{
+  periodo: "6meses",                    // Periodo seleccionado
+  fecha_inicio: "2024-06-01",          // Fecha de inicio del rango
+  fecha_fin: "2024-11-30",             // Fecha de fin del rango
+  total_ingresos: 15250000.00,         // Suma total en todo el periodo
+  total_transacciones: 45,              // Total de pagos realizados
+  promedio_transaccion: 338888.89,     // Promedio por pago
+  crecimiento_mensual: 12.5,            // % de crecimiento vs mes anterior
+  ingresos_por_mes: [...],              // Array con datos por cada mes
+  metodos_pago: {                       // Totales por método en todo el periodo
+    Efectivo: 2000000.00,
+    Transferencia: 9100000.00,
+    Tarjeta: 3300000.00,
+    Cheque: 850000.00
+  }
+}
+```
+
+#### **6. ¿Qué se puede visualizar con esta gráfica?**
+- **Tendencia de ingresos:** Ver si los ingresos están subiendo o bajando mes a mes
+- **Método de pago preferido:** Identificar qué método usan más los clientes
+- **Estacionalidad:** Detectar meses con más o menos actividad
+- **Crecimiento:** Porcentaje de crecimiento comparado con el mes anterior
+- **Comparación mensual:** Comparar ingresos entre diferentes meses
+
+#### **7. Ejemplo de Uso en el Frontend:**
+```javascript
+// Llamada a la API
+GET /api/dashboard/ingresos?periodo=6meses
+
+// La respuesta se puede usar para:
+// - Crear un gráfico de barras con ingresos_por_mes
+// - Mostrar un gráfico de pastel con metodos_pago
+// - Mostrar tarjetas con total_ingresos, total_transacciones, etc.
+// - Mostrar indicador de crecimiento_mensual
+```
+
+#### Ejemplo 2: Tabla de Servicios Pendientes (`GET /api/dashboard/pendientes?format=json`)
+```json
+{
+  "success": true,
+  "total": 2,
+  "filtro_dias": 0,
+  "data": [
+    {
+      "id_orden_servicio": 125,
+      "numero_expediente": "EXP-2024-00125",
+      "cliente": "Juan Carlos Pérez López",
+      "cliente_email": "juan.perez@example.com",
+      "servicio": "Registro de Marca (Certificación de marca)",
+      "fecha_creacion": "2024-11-15T10:30:00.000Z",
+      "dias_en_espera": 9,
+      "empleado_asignado": "María González",
+      "ultima_actualizacion": "2024-11-15T10:30:00.000Z"
+    },
+    {
+      "id_orden_servicio": 128,
+      "numero_expediente": "EXP-2024-00128",
+      "cliente": "Carlos Rodríguez Martínez",
+      "cliente_email": "carlos.rodriguez@example.com",
+      "servicio": "Renovación de Marca",
+      "fecha_creacion": "2024-11-20T14:20:00.000Z",
+      "dias_en_espera": 4,
+      "empleado_asignado": "Sin asignar",
+      "ultima_actualizacion": "2024-11-20T14:20:00.000Z"
+    }
+  ]
+}
+```
+
+#### Ejemplo 3: Tabla de Solicitudes Inactivas (`GET /api/dashboard/inactivas?format=json&dias_minimos=10`)
+
+**⚠️ Nota:** El parámetro `dias_minimos` controla el tiempo mínimo de inactividad para aparecer en la tabla:
+- **Por defecto:** `10` días (si no se especifica)
+- **Personalizable:** Puedes usar cualquier número (ej: `dias_minimos=5`, `dias_minimos=30`, `dias_minimos=60`)
+- **Mide desde:** La última actualización (`updated_at`) de la orden de servicio
+- **Excluye:** Solicitudes con estado "Finalizado" o "Anulado"
+
+```json
+{
+  "success": true,
+  "total": 2,
+  "filtro_dias": 30,
+  "data": [
+    {
+      "id_orden_servicio": 98,
+      "numero_expediente": "EXP-2024-00098",
+      "cliente": "Ana María Silva",
+      "cliente_email": "ana.silva@example.com",
+      "servicio": "Búsqueda de Antecedentes",
+      "estado": "En Proceso",
+      "fecha_creacion": "2024-09-10T08:15:00.000Z",
+      "ultima_actualizacion": "2024-09-25T16:45:00.000Z",
+      "dias_inactivos": 60,
+      "ultimo_movimiento": "Revisión de documentos completada",
+      "empleado_asignado": "Pedro Sánchez"
+    },
+    {
+      "id_orden_servicio": 102,
+      "numero_expediente": "EXP-2024-00102",
+      "cliente": "Roberto Fernández",
+      "cliente_email": "roberto.fernandez@example.com",
+      "servicio": "Cesión de Marca",
+      "estado": "En Proceso",
+      "fecha_creacion": "2024-08-20T11:30:00.000Z",
+      "ultima_actualizacion": "2024-09-15T09:20:00.000Z",
+      "dias_inactivos": 70,
+      "ultimo_movimiento": "Documentos pendientes de revisión legal",
+      "empleado_asignado": "Laura Martínez"
+    }
+  ]
+}
+```
 
 ## 📋 Detalles de endpoints y validaciones
 
@@ -2010,25 +2394,32 @@ Ver sección de **Sistema de Pagos** para más detalles sobre pagos de clientes.
 #### Renovación de marca
 ```json
 {
-  "tipo_titular": "string",
-  "numero_registro_marca": "string",
-  "nombre_marca": "string",
-  "clase_niza": "string",
-  "nombre_razon_social": "string",
-  "documento_nit": "number (entre 1000000000 y 9999999999, sin guión)",
+  "tipo_solicitante": "Natural" | "Jurídica",
+  "nombres_apellidos": "string",
+  "tipo_documento": "string",
+  "numero_documento": "string",
   "direccion": "string",
-  "ciudad": "string",
-  "pais": "string",
-  "correo": "email",
   "telefono": "string",
-  "nombre_representante": "string",
-  "documento_representante": "string",
-  "poder": "base64_string",
-  "logo_marca": "base64_string"
+  "correo": "email",
+  "pais": "string",
+  "nombre_marca": "string",
+  "numero_expediente_marca": "string",
+  "poder_autorizacion": "base64_string",
+  "certificado_renovacion": "base64_string",
+  "logotipo": "base64_string",
+  
+  // Campos condicionales si tipo_solicitante es "Jurídica"
+  "tipo_entidad": "string",
+  "razon_social": "string",
+  "nit_empresa": "number (entre 1000000000 y 9999999999, sin guión)",
+  "representante_legal": "string"
 }
 ```
 
-**⚠️ IMPORTANTE:** El campo `documento_nit` debe ser un **número entero** entre 1000000000 y 9999999999 (10 dígitos). **NO incluir el dígito de verificación con guión**. Ejemplo correcto: `9001234567` (no `"900123456-1"`).
+**⚠️ IMPORTANTE:**
+- `tipo_solicitante` debe ser **"Natural"** o **"Jurídica"**
+- Si `tipo_solicitante` es **"Jurídica"**, los campos `tipo_entidad`, `razon_social`, `nit_empresa` y `representante_legal` son **OBLIGATORIOS**
+- El campo `nit_empresa` debe ser un **número entero** entre 1000000000 y 9999999999 (10 dígitos). **NO incluir el dígito de verificación con guión**. Ejemplo correcto: `9001234567` (no `"900123456-1"`)
 
 **Otros endpoints de solicitudes:**
 - **GET /mias** (auth, cliente): Lista solo las solicitudes del cliente autenticado
@@ -3098,27 +3489,54 @@ curl -X POST "http://localhost:3000/api/gestion-solicitudes/crear/Certificación
 
 #### 14. Crear solicitud - Renovación de marca ⭐ **ACTUALIZADO**
 ```bash
+# Ejemplo para Persona Natural
 curl -X POST "http://localhost:3000/api/gestion-solicitudes/crear/Renovación%20de%20marca" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
-    "tipo_titular": "Persona Jurídica",
-    "numero_registro_marca": "12345",
-    "nombre_marca": "MiMarca",
-    "clase_niza": "35",
-    "nombre_razon_social": "Mi Empresa SAS",
-    "documento_nit": "900123456-1",
+    "id_cliente": 1,
+    "tipo_solicitante": "Natural",
+    "nombres_apellidos": "Juan Carlos Pérez López",
+    "tipo_documento": "Cédula de Ciudadanía",
+    "numero_documento": "1234567890",
     "direccion": "Calle 123 #45-67",
-    "ciudad": "Bogotá",
-    "pais": "Colombia",
-    "correo": "empresa@example.com",
     "telefono": "3001234567",
-    "nombre_representante": "Juan Carlos Pérez López",
-    "documento_representante": "12345678",
-    "poder": "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...",
-    "logo_marca": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+    "correo": "juan.perez@example.com",
+    "pais": "Colombia",
+    "nombre_marca": "MiMarca",
+    "numero_expediente_marca": "12345",
+    "poder_autorizacion": "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...",
+    "certificado_renovacion": "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...",
+    "logotipo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+  }'
+
+# Ejemplo para Persona Jurídica
+curl -X POST "http://localhost:3000/api/gestion-solicitudes/crear/Renovación%20de%20marca" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "id_cliente": 1,
+    "tipo_solicitante": "Jurídica",
+    "nombres_apellidos": "Juan Carlos Pérez López",
+    "tipo_documento": "Cédula de Ciudadanía",
+    "numero_documento": "1234567890",
+    "direccion": "Calle 123 #45-67",
+    "telefono": "3001234567",
+    "correo": "empresa@example.com",
+    "pais": "Colombia",
+    "nombre_marca": "MiMarca",
+    "numero_expediente_marca": "12345",
+    "poder_autorizacion": "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...",
+    "certificado_renovacion": "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...",
+    "logotipo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "tipo_entidad": "SAS",
+    "razon_social": "Mi Empresa SAS",
+    "nit_empresa": 9001234567,
+    "representante_legal": "Juan Carlos Pérez López"
   }'
 ```
+
+**⚠️ NOTA:** Los campos `tipo_entidad`, `razon_social`, `nit_empresa` y `representante_legal` son **OBLIGATORIOS** solo si `tipo_solicitante` es `"Jurídica"`.
 
 #### 15. Obtener mis solicitudes (Cliente) ⭐ **ACTUALIZADO**
 ```bash

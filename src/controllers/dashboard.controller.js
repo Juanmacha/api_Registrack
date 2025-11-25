@@ -175,7 +175,7 @@ export const DashboardController = {
    */
   async getInactivas(req, res) {
     try {
-      const { format = 'json', dias_minimos = '30' } = req.query;
+      const { format = 'json', dias_minimos = '10' } = req.query;
       const diasMinimos = parseInt(dias_minimos);
 
       if (isNaN(diasMinimos) || diasMinimos < 0) {
@@ -669,6 +669,48 @@ export const DashboardController = {
       res.status(500).json({
         success: false,
         mensaje: 'Error al obtener períodos disponibles',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * GET /api/dashboard/ingresos-por-servicio
+   * Obtener distribución de ingresos agrupados por servicio
+   */
+  async getIngresosPorServicio(req, res) {
+    try {
+      let { periodo = PERIODO_DEFECTO, fecha_inicio, fecha_fin } = req.query;
+
+      // Validar y normalizar período
+      if (!validarPeriodo(periodo)) {
+        periodo = PERIODO_DEFECTO;
+      }
+
+      // Validar fechas para periodo custom
+      if (periodo === 'custom' && (!fecha_inicio || !fecha_fin)) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'Para periodo "custom" se requieren fecha_inicio y fecha_fin',
+          error: 'Fechas requeridas para período personalizado'
+        });
+      }
+
+      const data = await dashboardService.calcularIngresosPorServicio(periodo, fecha_inicio, fecha_fin);
+
+      res.json({
+        success: true,
+        data: {
+          ...data,
+          periodo: periodo,
+          periodo_seleccionado: periodo
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error en getIngresosPorServicio:', error);
+      res.status(500).json({
+        success: false,
+        mensaje: 'Error al obtener ingresos por servicio',
         error: error.message
       });
     }

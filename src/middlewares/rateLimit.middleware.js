@@ -6,8 +6,8 @@
  * Implementa límites de solicitudes por email+IP para endpoints críticos:
  * - Login: 5 intentos fallidos por email+IP en 5 minutos (no cuenta logins exitosos)
  * - Registro: 3 intentos fallidos por email+IP en 5 minutos
- * - Recuperación de contraseña: 3 solicitudes por IP en 15 minutos
- * - Reset de contraseña: 5 intentos por IP en 15 minutos
+ * - Recuperación de contraseña: 3 solicitudes por email+IP en 15 minutos
+ * - Reset de contraseña: 5 intentos por email+IP en 15 minutos
  * 
  * Ventajas:
  * - No bloquea a otros usuarios en la misma IP
@@ -15,7 +15,7 @@
  * - Bloqueo más corto (5 minutos) para mejor UX
  */
 
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 /**
  * Rate Limiter para Login
@@ -41,9 +41,10 @@ export const loginLimiter = rateLimit({
   skipSuccessfulRequests: true, // ✅ No contar logins exitosos (solo fallidos)
   skipFailedRequests: false, // Contar intentos fallidos
   // ✅ Key personalizado: email + IP (no solo IP)
+  // ✅ Usa ipKeyGenerator para soporte IPv6 correcto
   keyGenerator: (req) => {
     const email = req.body?.correo || req.body?.email || 'unknown';
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const ip = ipKeyGenerator(req);
     // Normalizar email a minúsculas para evitar duplicados
     return `${email.toLowerCase()}_${ip}`;
   },
@@ -84,9 +85,10 @@ export const registerLimiter = rateLimit({
   skipSuccessfulRequests: true, // No contar registros exitosos
   skipFailedRequests: false, // Contar intentos fallidos
   // ✅ Key personalizado: email + IP (no solo IP)
+  // ✅ Usa ipKeyGenerator para soporte IPv6 correcto
   keyGenerator: (req) => {
     const email = req.body?.correo || req.body?.email || 'unknown';
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const ip = ipKeyGenerator(req);
     // Normalizar email a minúsculas para evitar duplicados
     return `${email.toLowerCase()}_${ip}`;
   },
@@ -107,13 +109,14 @@ export const registerLimiter = rateLimit({
 /**
  * Rate Limiter para Recuperación de Contraseña (Forgot Password)
  * Protege contra spam de emails de recuperación
+ * ✅ MEJORADO: Rate limiting por email + IP (no solo IP)
  * 
  * IMPORTANTE: Cuenta TODAS las solicitudes (exitosas y fallidas) porque
  * el endpoint siempre retorna 200 para no revelar si el email existe.
  */
 export const forgotPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 3, // 3 solicitudes por IP en 15 minutos
+  max: 3, // 3 solicitudes por email+IP en 15 minutos
   message: {
     success: false,
     error: {
@@ -127,6 +130,14 @@ export const forgotPasswordLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false, // ✅ CONTAR TODAS las solicitudes (exitosas y fallidas)
   skipFailedRequests: false,    // ✅ CONTAR TODAS las solicitudes
+  // ✅ Key personalizado: email + IP (no solo IP)
+  // ✅ Usa ipKeyGenerator para soporte IPv6 correcto
+  keyGenerator: (req) => {
+    const email = req.body?.correo || req.body?.email || 'unknown';
+    const ip = ipKeyGenerator(req);
+    // Normalizar email a minúsculas para evitar duplicados
+    return `${email.toLowerCase()}_${ip}`;
+  },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -135,7 +146,7 @@ export const forgotPasswordLimiter = rateLimit({
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: '15 minutos',
         timestamp: new Date().toISOString(),
-        details: 'Has excedido el límite de 3 solicitudes de recuperación por IP. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
+        details: 'Has excedido el límite de 3 solicitudes de recuperación por email. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
       }
     });
   }
@@ -144,10 +155,12 @@ export const forgotPasswordLimiter = rateLimit({
 /**
  * Rate Limiter para Reset de Contraseña
  * Protege contra intentos de fuerza bruta en reset de contraseña
+ * ✅ MEJORADO: Rate limiting por código + IP (no solo IP)
+ * El código identifica al usuario, así que código+IP = usuario+IP
  */
 export const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos por IP en 15 minutos
+  max: 5, // 5 intentos por código+IP en 15 minutos (cada código está asociado a un usuario)
   message: {
     success: false,
     error: {
@@ -161,6 +174,15 @@ export const resetPasswordLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false,
   skipFailedRequests: false,
+  // ✅ Key personalizado: código + IP (el código identifica al usuario)
+  // ✅ Usa ipKeyGenerator para soporte IPv6 correcto
+  // El código de reset está asociado a un usuario específico (por email)
+  keyGenerator: (req) => {
+    const code = req.body?.code || req.body?.token || 'unknown';
+    const ip = ipKeyGenerator(req);
+    // Usar código+IP para identificar al usuario (cada código está asociado a un email específico)
+    return `reset_${code}_${ip}`;
+  },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -169,7 +191,7 @@ export const resetPasswordLimiter = rateLimit({
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: '15 minutos',
         timestamp: new Date().toISOString(),
-        details: 'Has excedido el límite de 5 intentos de reset por IP. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
+        details: 'Has excedido el límite de 5 intentos de reset. Por seguridad, debes esperar 15 minutos antes de intentar nuevamente.'
       }
     });
   }
