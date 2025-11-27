@@ -372,47 +372,28 @@ export const createCita = async (req, res) => {
         req.body.tipo = tipoNormalizado; // Actualizar el body con el valor normalizado
     }
     
-    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_cliente, id_empleado, observacion, documento, nombre, apellido, correo, tipo_documento, telefono } = req.body;
+    const { fecha, hora_inicio, hora_fin, tipo, modalidad, id_usuario, id_empleado, observacion } = req.body;
     let { estado } = req.body;
 
     // ✅ VALIDAR PROPIEDAD: Si es cliente, solo puede crear citas para sí mismo
     if (req.user.rol === 'cliente') {
-        // Si envía id_cliente, debe ser su propio ID (pero primero necesitamos buscar el id_cliente PK)
-        if (id_cliente) {
-            // Buscar el cliente por id_cliente (PK) y verificar que el id_usuario coincida
-            const clienteVerificacion = await Cliente.findByPk(id_cliente);
-            if (!clienteVerificacion || clienteVerificacion.id_usuario !== req.user.id_usuario) {
-                return res.status(403).json({ 
-                    success: false,
-                    message: "No tienes permiso para crear citas para otros clientes",
-                    error: {
-                        code: 'PERMISSION_DENIED',
-                        details: 'Los clientes solo pueden crear citas para sí mismos'
-                    }
-                });
-            }
-        }
-        // Si no envía id_cliente ni documento, buscar su cliente y usar su id_cliente (PK)
-        if (!id_cliente && !documento) {
-            const cliente = await Cliente.findOne({
-                where: { id_usuario: req.user.id_usuario }
+        // Si no envía id_usuario, usar su propio id_usuario
+        if (!id_usuario) {
+            req.body.id_usuario = req.user.id_usuario;
+        } else if (id_usuario !== req.user.id_usuario) {
+            // Si envía id_usuario, debe ser su propio ID
+            return res.status(403).json({ 
+                success: false,
+                message: "No tienes permiso para crear citas para otros clientes",
+                error: {
+                    code: 'PERMISSION_DENIED',
+                    details: 'Los clientes solo pueden crear citas para sí mismos'
+                }
             });
-            if (!cliente) {
-                return res.status(400).json({ 
-                    success: false,
-                    message: "No se encontró un cliente asociado a tu usuario",
-                    error: {
-                        code: 'CLIENT_NOT_FOUND',
-                        details: 'Tu usuario no está asociado a un cliente en el sistema'
-                    }
-                });
-            }
-            // Usar el id_cliente (PK) del cliente encontrado
-            req.body.id_cliente = cliente.id_cliente;
         }
     }
 
-    // 1. Field Validation - Modificado para aceptar documento o id_cliente
+    // 1. Field Validation - Requiere id_usuario directamente
     const requiredFields = ['fecha', 'hora_inicio', 'hora_fin', 'tipo', 'modalidad', 'id_empleado'];
     const missingFields = [];
     for (const field of requiredFields) {
@@ -421,19 +402,60 @@ export const createCita = async (req, res) => {
         }
     }
     
-    // Validar que se proporcione id_cliente O documento (no ambos requeridos)
-    // Nota: Si es cliente y no envió ninguno, ya se asignó automáticamente arriba
-    if (!req.body.id_cliente && !documento) {
-        missingFields.push('id_cliente o documento');
+    // Validar que se proporcione id_usuario (o se haya asignado automáticamente para clientes)
+    if (!req.body.id_usuario) {
+        missingFields.push('id_usuario');
     }
     
     if (missingFields.length > 0) {
         return res.status(400).json({
             message: "Los siguientes campos son obligatorios:",
             campos_faltantes: missingFields,
-            nota: "Debe proporcionar 'id_cliente' o 'documento' (no ambos)"
+            nota: "El id_usuario debe ser el ID de un usuario con rol 'cliente'"
         });
     }
+
+    // ✅ NUEVO: Validar que id_usuario corresponda a un usuario con rol "cliente"
+    const id_usuario_cliente = req.body.id_usuario || id_usuario;
+    console.log('🔍 Validando que id_usuario corresponda a un cliente:', id_usuario_cliente);
+    
+    const usuarioCliente = await User.findByPk(id_usuario_cliente, {
+        include: [{ 
+            model: Rol, 
+            as: 'rol',
+            attributes: ['id_rol', 'nombre']
+        }]
+    });
+
+    if (!usuarioCliente) {
+        return res.status(400).json({ 
+            success: false,
+            message: "No se encontró un usuario con ese id_usuario",
+            id_usuario: id_usuario_cliente
+        });
+    }
+
+    // Validar que el usuario tenga rol "cliente"
+    if (!usuarioCliente.rol || usuarioCliente.rol.nombre !== 'cliente') {
+        return res.status(400).json({ 
+            success: false,
+            message: "El usuario proporcionado no tiene rol 'cliente'",
+            id_usuario: id_usuario_cliente,
+            rol_actual: usuarioCliente.rol ? usuarioCliente.rol.nombre : 'no asignado',
+            nota: "Solo se pueden crear citas para usuarios con rol 'cliente'"
+        });
+    }
+
+    // Validar que el usuario esté activo
+    if (!usuarioCliente.estado) {
+        return res.status(400).json({ 
+            success: false,
+            message: "El usuario cliente está inactivo",
+            id_usuario: id_usuario_cliente
+        });
+    }
+
+    console.log('✅ Usuario cliente validado:', `${usuarioCliente.nombre} ${usuarioCliente.apellido} (id_usuario: ${id_usuario_cliente}, Email: ${usuarioCliente.correo}, Rol: ${usuarioCliente.rol.nombre})`);
     
     // ✅ VALIDAR TIPO con mensaje mejorado
     const tiposPermitidos = ['General', 'Busqueda', 'Ampliacion', 'Certificacion', 'Renovacion', 'Cesion', 'Oposicion', 'Respuesta de oposicion'];
@@ -487,119 +509,10 @@ export const createCita = async (req, res) => {
     console.log("Creating cita with data:", req.body);
 
     try {
-        // ✅ CORREGIDO: Si se envía id_cliente, buscar el cliente por id_cliente (PK) y obtener su id_usuario
-        let clienteId = null; // Este será el id_usuario del cliente
-        
-        if (id_cliente && !documento) {
-            // Si se envía id_cliente, buscar en la tabla clientes por id_cliente (PK)
-            console.log('🔍 Buscando cliente por id_cliente (PK):', id_cliente);
-            const clientePorId = await Cliente.findByPk(id_cliente, {
-                include: [{ model: User, as: 'Usuario' }]
-            });
-            
-            if (!clientePorId) {
-                return res.status(400).json({ 
-                    success: false,
-                    message: "No se encontró un cliente con ese id_cliente",
-                    id_cliente: id_cliente,
-                    nota: "El id_cliente debe ser el ID de la tabla clientes (PK), no el id_usuario"
-                });
-            }
-            
-            // Obtener el id_usuario del cliente
-            clienteId = clientePorId.id_usuario;
-            console.log('✅ Cliente encontrado por id_cliente:', clientePorId.Usuario ? `${clientePorId.Usuario.nombre} ${clientePorId.Usuario.apellido} (id_cliente: ${id_cliente}, id_usuario: ${clienteId})` : 'Cliente encontrado');
-        } else if (documento && !id_cliente) {
-            console.log('🔍 Buscando usuario por documento:', documento);
-            const usuario = await User.findOne({
-                where: { documento: BigInt(documento) }
-            });
-            
-            if (!usuario) {
-                return res.status(400).json({ 
-                    success: false,
-                    message: "No se encontró un usuario con ese documento",
-                    documento: documento.toString()
-                });
-            }
-            
-            // Verificar que el usuario sea un cliente
-            const cliente = await Cliente.findOne({
-                where: { id_usuario: usuario.id_usuario }
-            });
-            
-            if (!cliente) {
-                return res.status(400).json({ 
-                    success: false,
-                    message: "El usuario no es un cliente registrado",
-                    documento: documento.toString(),
-                    id_usuario: usuario.id_usuario
-                });
-            }
-            
-            // ✅ VALIDAR INTEGRIDAD DE DATOS: Verificar que los datos enviados coincidan con los datos reales
-            const datosEnviados = {
-                nombre: nombre || null,
-                apellido: apellido || null,
-                correo: correo || null,
-                tipo_documento: tipo_documento || null,
-                telefono: telefono || null
-            };
-            
-            const discrepancias = validarDatosUsuarioConDocumento(usuario, datosEnviados);
-            
-            if (discrepancias.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Los datos enviados no coinciden con los datos registrados del usuario",
-                    documento: documento.toString(),
-                    discrepancias: discrepancias,
-                    datos_reales: {
-                        nombre: usuario.nombre,
-                        apellido: usuario.apellido,
-                        correo: usuario.correo,
-                        tipo_documento: usuario.tipo_documento,
-                        telefono: usuario.telefono || null
-                    },
-                    instrucciones: "Por favor, verifique los datos y vuelva a intentar. Los datos deben coincidir exactamente con los registrados en el sistema."
-                });
-            }
-            
-            clienteId = usuario.id_usuario;
-            console.log('✅ Usuario encontrado y datos validados:', usuario.nombre, usuario.apellido, 'ID:', clienteId);
-        }
+        // Usar el id_usuario_cliente ya validado
+        const clienteId = id_usuario_cliente;
 
-        if (!clienteId) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Se requiere id_cliente o documento válido" 
-            });
-        }
-
-        // ✅ VALIDAR que el clienteId (id_usuario) corresponda a un cliente real (no empleado/admin)
-        // Nota: clienteId ya es el id_usuario en este punto
-        console.log('🔍 Validando que clienteId (id_usuario) corresponda a un cliente válido:', clienteId);
-        const clienteValidacion = await Cliente.findOne({
-            where: { id_usuario: clienteId },
-            include: [{ model: User, as: 'Usuario' }] // ✅ Usar 'Usuario' con mayúscula según associations.js
-        });
-
-        if (!clienteValidacion) {
-            console.error('❌ Cliente no encontrado en tabla clientes para id_usuario:', clienteId);
-            console.error('   Esto significa que el ID proporcionado no corresponde a un cliente registrado.');
-            console.error('   Verifica que el id_cliente sea de un cliente, no de un empleado o administrador.');
-            return res.status(400).json({ 
-                success: false,
-                message: "El id_cliente proporcionado no corresponde a un cliente registrado",
-                id_cliente: id_cliente, // Mostrar el id_cliente original que se envió
-                id_usuario_obtenido: clienteId,
-                nota: "Asegúrate de que el id_cliente corresponde a un cliente válido en la tabla clientes"
-            });
-        }
-
-        console.log('✅ Cliente validado:', clienteValidacion.Usuario ? `${clienteValidacion.Usuario.nombre} ${clienteValidacion.Usuario.apellido} (id_cliente: ${clienteValidacion.id_cliente}, id_usuario: ${clienteId}, Email: ${clienteValidacion.Usuario.correo})` : 'Cliente encontrado');
-
-        // ✅ NUEVO: Validar que el cliente no tenga una cita activa en ese horario
+        // ✅ Validar que el cliente no tenga una cita activa en ese horario
         console.log('🔍 Validando citas duplicadas para cliente:', clienteId);
         const citaExistenteCliente = await Cita.findOne({
             where: {

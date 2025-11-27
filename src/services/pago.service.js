@@ -121,26 +121,44 @@ export const PagoService = {
       // Generar comprobante (por ahora simulamos)
       const comprobanteUrl = await comprobanteService.generarPDFSimple(pagoId);
       
-      // Obtener datos del pago
-      const pago = await this.obtenerPago(pagoId);
+      // Obtener datos completos del pago (incluye información del cliente)
+      const pagoCompleto = await this.obtenerPagoConDetalles(pagoId);
       
-      // TODO: Aquí necesitarías obtener datos del cliente
-      // Por ahora usamos datos mock para email
+      if (!pagoCompleto) {
+        throw new Error(`Pago con ID ${pagoId} no encontrado`);
+      }
+      
+      // Obtener datos del cliente desde el pago completo
+      const clienteEmail = pagoCompleto.correo_usuario;
+      const clienteNombre = `${pagoCompleto.nombre_usuario || ''} ${pagoCompleto.apellido_usuario || ''}`.trim();
+      
+      // Validar que tengamos datos del cliente
+      if (!clienteEmail) {
+        console.error('⚠️ No se encontró correo del cliente para el pago:', pagoId);
+        return comprobanteUrl; // Retornar comprobante aunque no se pueda enviar email
+      }
+      
       const { sendPaymentConfirmationEmail } = await import('./email.service.js');
       
-      // Obtener datos del cliente (simulado por ahora)
-      const clienteEmail = 'cliente@example.com';
-      const clienteNombre = 'Cliente Test';
+      // Preparar datos del pago para el email
+      const paymentData = {
+        monto: pagoCompleto.monto_pagado || pagoCompleto.monto,
+        metodo_pago: pagoCompleto.metodo_pago,
+        estado: pagoCompleto.estado_pago || 'Pagado',
+        transaction_id: pagoCompleto.transaction_id,
+        gateway: pagoCompleto.gateway,
+        created_at: pagoCompleto.fecha_pago || pagoCompleto.created_at
+      };
       
-      // Enviar email
+      // Enviar email con datos reales del cliente
       await sendPaymentConfirmationEmail(
         clienteEmail,
-        clienteNombre,
-        pago,
+        clienteNombre || 'Cliente',
+        paymentData,
         comprobanteUrl
       );
       
-      console.log('✅ Comprobante y email enviados exitosamente');
+      console.log(`✅ Email de confirmación de pago enviado a cliente: ${clienteEmail}`);
       
       return comprobanteUrl;
     } catch (error) {

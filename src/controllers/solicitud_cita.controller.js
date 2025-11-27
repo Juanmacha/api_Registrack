@@ -2,6 +2,7 @@ import SolicitudCita from "../models/solicitud_cita.js";
 import User from "../models/user.js";
 import Cita from "../models/citas.js"; // Importar Cita
 import Empleado from "../models/Empleado.js"; // Importar Empleado para validaciones
+import Rol from "../models/Role.js"; // Importar Rol para validación de rol
 import { Op } from "sequelize";
 import {
   sendSolicitudCitaCreada,
@@ -162,6 +163,49 @@ export const gestionarSolicitud = async (req, res) => {
                 return res.status(400).json({ message: "Conflicto de horario. Ya existe una cita agendada en ese horario para el empleado seleccionado." });
             }
 
+            // ✅ VALIDAR que el cliente (id_usuario) tenga rol "cliente" y esté activo
+            const id_usuario_cliente = solicitud.id_cliente; // Ya es id_usuario según el modelo
+            console.log('🔍 Validando que el cliente tenga rol "cliente":', id_usuario_cliente);
+            
+            const usuarioCliente = await User.findByPk(id_usuario_cliente, {
+                include: [{ 
+                    model: Rol, 
+                    as: 'rol',
+                    attributes: ['id_rol', 'nombre']
+                }]
+            });
+
+            if (!usuarioCliente) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "No se encontró el usuario cliente asociado a la solicitud",
+                    id_usuario: id_usuario_cliente
+                });
+            }
+
+            // Validar que el usuario tenga rol "cliente"
+            if (!usuarioCliente.rol || usuarioCliente.rol.nombre !== 'cliente') {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "El usuario asociado a la solicitud no tiene rol 'cliente'",
+                    id_usuario: id_usuario_cliente,
+                    rol_actual: usuarioCliente.rol ? usuarioCliente.rol.nombre : 'no asignado',
+                    nota: "No se puede crear una cita para un usuario que no sea cliente"
+                });
+            }
+
+            // Validar que el usuario esté activo
+            if (!usuarioCliente.estado) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "El usuario cliente está inactivo",
+                    id_usuario: id_usuario_cliente,
+                    nota: "No se puede crear una cita para un usuario inactivo"
+                });
+            }
+
+            console.log('✅ Usuario cliente validado:', `${usuarioCliente.nombre} ${usuarioCliente.apellido} (id_usuario: ${id_usuario_cliente}, Rol: ${usuarioCliente.rol.nombre})`);
+
             const nuevaCita = await Cita.create({
                 fecha: solicitud.fecha_solicitada,
                 hora_inicio: solicitud.hora_solicitada,
@@ -169,7 +213,7 @@ export const gestionarSolicitud = async (req, res) => {
                 tipo: solicitud.tipo,
                 modalidad: solicitud.modalidad,
                 estado: 'Programada',
-                id_cliente: solicitud.id_cliente,
+                id_cliente: id_usuario_cliente, // ✅ Ya validado que es id_usuario con rol "cliente"
                 id_empleado: id_usuario_empleado, // ✅ Guardar id_usuario
                 observacion: solicitud.descripcion
             });

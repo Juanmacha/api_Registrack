@@ -4,6 +4,7 @@ import Rol from "../models/Role.js";
 import ExcelJS from "exceljs";
 import { Op } from "sequelize";
 import { Cita, OrdenServicio } from "../models/associations.js";
+import sequelize from "../config/db.js";
 
 /**
  * Validar que un empleado no tenga citas o solicitudes asignadas antes de eliminarlo/desactivarlo
@@ -304,10 +305,21 @@ export const updateEmpleado = async (req, res) => {
         await validarAsignacionesEmpleado(id, empleado.id_usuario);
       } catch (error) {
         if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+          const tipoError = error.message.includes('cita(s) activa(s)') ? 'citas_activas' : 'solicitudes_activas';
+          const cantidad = error.message.match(/\d+/)?.[0] || '0';
+          
           return res.status(400).json({ 
             success: false,
-            message: error.message,
-            detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado."
+            error: {
+              codigo: 'EMPLEADO_CON_ASIGNACIONES',
+              tipo: tipoError,
+              message: error.message,
+              detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado.",
+              cantidad_asignaciones: parseInt(cantidad),
+              acciones_requeridas: tipoError === 'citas_activas' 
+                ? ['Reprogramar o cancelar todas las citas activas']
+                : ['Reasignar las solicitudes a otro empleado', 'Finalizar o anular las solicitudes activas']
+            }
           });
         }
         throw error;
@@ -406,10 +418,21 @@ export const changeEmpleadoState = async (req, res) => {
         await validarAsignacionesEmpleado(id, empleado.id_usuario);
       } catch (error) {
         if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+          const tipoError = error.message.includes('cita(s) activa(s)') ? 'citas_activas' : 'solicitudes_activas';
+          const cantidad = error.message.match(/\d+/)?.[0] || '0';
+          
           return res.status(400).json({ 
             success: false,
-            message: error.message,
-            detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado."
+            error: {
+              codigo: 'EMPLEADO_CON_ASIGNACIONES',
+              tipo: tipoError,
+              message: error.message,
+              detalles: "Debe resolver todas las asignaciones activas antes de desactivar el empleado.",
+              cantidad_asignaciones: parseInt(cantidad),
+              acciones_requeridas: tipoError === 'citas_activas' 
+                ? ['Reprogramar o cancelar todas las citas activas']
+                : ['Reasignar las solicitudes a otro empleado', 'Finalizar o anular las solicitudes activas']
+            }
           });
         }
         throw error;
@@ -478,10 +501,21 @@ export const deleteEmpleado = async (req, res) => {
       await validarAsignacionesEmpleado(id, empleado.id_usuario);
     } catch (error) {
       if (error.message.includes('cita(s) activa(s)') || error.message.includes('solicitud(es) activa(s)')) {
+        const tipoError = error.message.includes('cita(s) activa(s)') ? 'citas_activas' : 'solicitudes_activas';
+        const cantidad = error.message.match(/\d+/)?.[0] || '0';
+        
         return res.status(400).json({ 
           success: false,
-          message: error.message,
-          detalles: "Debe resolver todas las asignaciones activas antes de eliminar el empleado."
+          error: {
+            codigo: 'EMPLEADO_CON_ASIGNACIONES',
+            tipo: tipoError,
+            message: error.message,
+            detalles: "Debe resolver todas las asignaciones activas antes de eliminar el empleado.",
+            cantidad_asignaciones: parseInt(cantidad),
+            acciones_requeridas: tipoError === 'citas_activas' 
+              ? ['Reprogramar o cancelar todas las citas activas']
+              : ['Reasignar las solicitudes a otro empleado', 'Finalizar o anular las solicitudes activas']
+          }
         });
       }
       throw error;
@@ -489,19 +523,48 @@ export const deleteEmpleado = async (req, res) => {
 
     const id_usuario = empleado.id_usuario;
 
-    // Eliminar el empleado
-    await Empleado.destroy({ where: { id_empleado: id } });
+    // ✅ Usar transacción para garantizar atomicidad
+    const transaction = await sequelize.transaction();
+    
+    try {
+      // Eliminar el empleado primero
+      await Empleado.destroy({ 
+        where: { id_empleado: id },
+        transaction 
+      });
 
-    // Eliminar el usuario asociado
-    await User.destroy({ where: { id_usuario: id_usuario } });
+      // Eliminar el usuario asociado
+      // Nota: Dado que empleados tiene ON DELETE CASCADE, si eliminamos el usuario primero,
+      // el empleado se eliminaría automáticamente. Pero eliminamos primero el empleado
+      // para tener más control sobre el proceso.
+      await User.destroy({ 
+        where: { id_usuario: id_usuario },
+        transaction 
+      });
 
-    res.status(200).json({ 
-      message: "Empleado y usuario asociado eliminados correctamente.",
-      id_empleado_eliminado: parseInt(id),
-      id_usuario_eliminado: id_usuario
-    });
+      // Confirmar la transacción
+      await transaction.commit();
+
+      res.status(200).json({ 
+        success: true,
+        message: "Empleado y usuario asociado eliminados correctamente.",
+        data: {
+          id_empleado_eliminado: parseInt(id),
+          id_usuario_eliminado: id_usuario
+        }
+      });
+    } catch (error) {
+      // Revertir la transacción en caso de error
+      await transaction.rollback();
+      throw error; // Re-lanzar el error para que sea manejado por el catch externo
+    }
   } catch (error) {
-    res.status(500).json({ message: "Error al eliminar el empleado y usuario.", error: error.message });
+    console.error('❌ Error al eliminar el empleado:', error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error al eliminar el empleado y usuario.", 
+      error: error.message 
+    });
   }
 };
 

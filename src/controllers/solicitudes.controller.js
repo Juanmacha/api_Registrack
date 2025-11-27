@@ -1406,7 +1406,7 @@ export const activarSolicitudDespuesPago = async (idOrdenServicio) => {
     console.log('✅ Solicitud activada con estado:', primerProceso.nombre);
     console.log('🔍 Debug - DetalleOrden ID:', detalleOrden.id_detalle_orden);
     
-    // 5. Enviar email de confirmación de activación (opcional)
+    // 5. Enviar email al cliente sobre la activación de la solicitud
     try {
       const ordenCompleta = await OrdenServicio.findByPk(idOrdenServicio, {
         include: [
@@ -1426,11 +1426,29 @@ export const activarSolicitudDespuesPago = async (idOrdenServicio) => {
         ]
       });
       
-      if (ordenCompleta.cliente?.Usuario?.correo) {
-        // Email de confirmación de activación (puedes personalizar este email)
-        console.log('📧 Enviando email de confirmación de activación...');
-        // Aquí puedes agregar un nuevo tipo de email si lo deseas
-        // Por ahora solo logueamos
+      if (ordenCompleta?.cliente?.Usuario?.correo) {
+        console.log('📧 Enviando email de activación de solicitud al cliente:', ordenCompleta.cliente.Usuario.correo);
+        
+        // Importar función de email
+        const { sendCambioEstadoCliente } = await import('../services/email.service.js');
+        
+        // Enviar email notificando el cambio de estado (de "Pendiente" a el primer proceso)
+        await sendCambioEstadoCliente(
+          ordenCompleta.cliente.Usuario.correo,
+          `${ordenCompleta.cliente.Usuario.nombre} ${ordenCompleta.cliente.Usuario.apellido}`,
+          {
+            orden_id: ordenCompleta.id_orden_servicio,
+            servicio_nombre: ordenCompleta.servicio.nombre,
+            estado_anterior: 'Pendiente',
+            nuevo_estado: primerProceso.nombre,
+            fecha_cambio: new Date().toISOString(),
+            comentarios: 'Tu solicitud ha sido activada después del pago. El proceso ha comenzado.'
+          }
+        );
+        
+        console.log('✅ Email de activación enviado al cliente');
+      } else {
+        console.log('⚠️ No se pudo obtener correo del cliente para enviar notificación de activación');
       }
     } catch (emailError) {
       console.error('⚠️ Error al enviar email de activación:', emailError);

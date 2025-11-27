@@ -31,7 +31,7 @@ router.post("/",
     hora_fin: 'string',
     tipo: 'string',
     modalidad: 'string',
-    id_cliente: 'number',
+    id_usuario: 'number',
     id_empleado: 'number',
     observacion: 'string'
   }),
