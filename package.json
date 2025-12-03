@@ -19,8 +19,8 @@
   },
   "description": "API Registrack - Sistema de gestión de solicitudes",
   "engines": {
-    "node": "20.x",
-    "npm": "10.x"
+    "node": "18.x",
+    "npm": "9.x"
   },
   "dependencies": {
     "archiver": "^7.0.1",
