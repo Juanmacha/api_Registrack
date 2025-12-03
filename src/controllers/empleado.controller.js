@@ -5,6 +5,10 @@ import ExcelJS from "exceljs";
 import { Op } from "sequelize";
 import { Cita, OrdenServicio } from "../models/associations.js";
 import sequelize from "../config/db.js";
+import {
+  sendBienvenidaEmpleado,
+  sendCambioEstadoEmpleado
+} from "../services/email.service.js";
 
 /**
  * Validar que un empleado no tenga citas o solicitudes asignadas antes de eliminarlo/desactivarlo
@@ -241,6 +245,20 @@ export const createEmpleado = async (req, res) => {
       estado: estado !== undefined ? estado : true 
     });
 
+    // Enviar email de bienvenida al empleado
+    if (usuario.correo) {
+      try {
+        await sendBienvenidaEmpleado(
+          usuario.correo,
+          usuario.nombre
+        );
+        console.log('✅ Email de bienvenida enviado al empleado:', usuario.correo);
+      } catch (emailError) {
+        console.error('❌ Error al enviar email de bienvenida:', emailError);
+        // No fallar la operación por error de email
+      }
+    }
+
     // Formatear respuesta similar al getAllEmpleados
     const resultado = {
       id_usuario: usuario.id_usuario,
@@ -439,6 +457,9 @@ export const changeEmpleadoState = async (req, res) => {
       }
     }
     
+    // Guardar estado anterior para el email
+    const estadoAnterior = empleado.estado;
+
     // Actualizar estado del empleado
     empleado.estado = estado;
     await empleado.save();
@@ -447,6 +468,23 @@ export const changeEmpleadoState = async (req, res) => {
     if (empleado.usuario) {
       empleado.usuario.estado = estado;
       await empleado.usuario.save();
+    }
+
+    // Enviar email de cambio de estado al empleado
+    if (empleado.usuario && empleado.usuario.correo) {
+      try {
+        await sendCambioEstadoEmpleado(
+          empleado.usuario.correo,
+          empleado.usuario.nombre,
+          {
+            estado: estado
+          }
+        );
+        console.log('✅ Email de cambio de estado enviado al empleado:', empleado.usuario.correo);
+      } catch (emailError) {
+        console.error('❌ Error al enviar email de cambio de estado:', emailError);
+        // No fallar la operación por error de email
+      }
     }
 
     // Obtener datos actualizados para la respuesta

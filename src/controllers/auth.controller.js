@@ -11,10 +11,25 @@ import {
   ERROR_CODES 
 } from "../constants/messages.js";
 import { sanitizeLoginEmail, sanitizePassword } from '../utils/inputSanitizer.js';
+import { sendBienvenidaCliente } from '../services/email.service.js';
 
 export const register = async (req, res) => {
   try {
     const nuevoUsuario = await registerUser(req.body);
+
+    // Enviar email de bienvenida si es cliente (id_rol = 1)
+    if (nuevoUsuario.id_rol === 1 && nuevoUsuario.correo) {
+      try {
+        await sendBienvenidaCliente(
+          nuevoUsuario.correo,
+          nuevoUsuario.nombre
+        );
+        console.log('✅ Email de bienvenida enviado al cliente:', nuevoUsuario.correo);
+      } catch (emailError) {
+        console.error('❌ Error al enviar email de bienvenida:', emailError);
+        // No fallar la operación por error de email
+      }
+    }
     
     res.status(201).json({
       success: true,

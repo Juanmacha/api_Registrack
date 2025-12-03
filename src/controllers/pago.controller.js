@@ -446,6 +446,13 @@ export const PagoController = {
       
       const ordenServicio = validacionOrden.ordenServicio;
 
+      // ✅ Obtener precio del servicio (precio_base_servicio o total_estimado)
+      const precioBaseServicio = parseFloat(ordenServicio.precio_base_servicio || 0);
+      const totalEstimado = parseFloat(ordenServicio.total_estimado || 0);
+      
+      // ✅ Preferir precio_base_servicio si está disponible, sino usar total_estimado
+      const precioServicio = precioBaseServicio > 0 ? precioBaseServicio : totalEstimado;
+
       // ✅ VALIDAR MONTO: Si se envía monto, validar formato, rango y precisión
       let montoFinal;
       if (monto !== undefined && monto !== null) {
@@ -463,30 +470,31 @@ export const PagoController = {
         }
         
         montoFinal = validacionMonto.monto;
-        const totalEstimado = parseFloat(ordenServicio.total_estimado);
         
-        // Validar que el monto coincida con el total_estimado (tolerancia de 0.01 para decimales)
-        if (Math.abs(montoFinal - totalEstimado) > 0.01) {
+        // Validar que el monto coincida con el precio del servicio (tolerancia de 0.01 para decimales)
+        if (Math.abs(montoFinal - precioServicio) > 0.01) {
           return res.status(400).json({
             success: false,
             error: {
-              message: `El monto enviado ($${montoFinal.toLocaleString()}) no coincide con el total estimado de la orden ($${totalEstimado.toLocaleString()}). Use el monto correcto o omita el campo 'monto' para usar el precio automático.`,
+              message: `El monto enviado ($${montoFinal.toLocaleString()}) no coincide con el precio del servicio ($${precioServicio.toLocaleString()}). Use el monto correcto o omita el campo 'monto' para usar el precio automático.`,
               code: 'AMOUNT_MISMATCH',
               details: {
                 monto_enviado: montoFinal,
+                precio_servicio: precioServicio,
+                precio_base_servicio: precioBaseServicio > 0 ? precioBaseServicio : null,
                 total_estimado: totalEstimado,
-                diferencia: Math.abs(montoFinal - totalEstimado)
+                diferencia: Math.abs(montoFinal - precioServicio)
               },
               timestamp: new Date().toISOString()
             }
           });
         }
       } else {
-        // Si no se envía monto, usar automáticamente el total_estimado
-        montoFinal = parseFloat(ordenServicio.total_estimado);
+        // Si no se envía monto, usar automáticamente el precio del servicio
+        montoFinal = precioServicio;
       }
 
-      console.log(`💰 Procesando pago: Monto automático = ${montoFinal} (total_estimado de la orden)`);
+      console.log(`💰 Procesando pago: Monto = $${montoFinal.toLocaleString()} (precio del servicio: $${precioServicio.toLocaleString()})`);
 
       const resultado = await PagoService.procesarPagoMock({
         monto: montoFinal, // ✅ Usar monto automático del servicio

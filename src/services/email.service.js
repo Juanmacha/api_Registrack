@@ -1609,3 +1609,702 @@ export const sendSolicitudCitaRechazada = async (clienteEmail, clienteNombre, so
     throw error;
   }
 };
+
+// ---------------------------
+// EMAILS EXPANDIDOS: REPROGRAMACIÓN DE CITAS
+// ---------------------------
+
+// Email al cliente sobre cita reprogramada
+export const sendCitaReprogramadaCliente = async (clienteEmail, clienteNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "🔄 Cita Reprogramada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #ffc107; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        🔄 Cita Reprogramada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${clienteNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que tu cita ha sido reprogramada:</p>
+        
+        <div style="background-color: #fff3cd; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <h3 style="color: #856404; margin-top: 0;">⚠️ Nueva Información de la Cita</h3>
+          <ul style="color: #856404; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Nueva Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Nueva Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.empleado_nombre ? `<li style="margin: 10px 0;"><strong>Empleado:</strong> ${citaData.empleado_nombre}</li>` : ''}
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Observación:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <p style="color: #0c5460; margin: 0; font-size: 14px;">
+            <strong>📌 Importante:</strong> Por favor, toma nota de la nueva fecha y hora de tu cita.
+            ${citaData.modalidad === 'Virtual' ? ' Recibirás el link de la videollamada antes de la cita.' : ''}
+          </p>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          Si no puedes presentarte, comunícate para cancelar.<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita reprogramada enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita reprogramada a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email al empleado sobre cita reprogramada
+export const sendCitaReprogramadaEmpleado = async (empleadoEmail, empleadoNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "🔄 Cita Reprogramada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #ffc107; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        🔄 Cita Reprogramada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que una cita ha sido reprogramada:</p>
+        
+        <div style="background-color: #fff3cd; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <h3 style="color: #856404; margin-top: 0;">⚠️ Nueva Información de la Cita</h3>
+          <ul style="color: #856404; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Nueva Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Nueva Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.cliente_nombre ? `<li style="margin: 10px 0;"><strong>Cliente:</strong> ${citaData.cliente_nombre}</li>` : ''}
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Observación:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita reprogramada enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita reprogramada a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAILS EXPANDIDOS: ANULACIÓN DE CITAS
+// ---------------------------
+
+// Email al cliente sobre cita anulada
+export const sendCitaAnuladaCliente = async (clienteEmail, clienteNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "❌ Cita Anulada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #dc3545; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        ❌ Cita Anulada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${clienteNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que tu cita ha sido anulada:</p>
+        
+        <div style="background-color: #f8d7da; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+          <h3 style="color: #721c24; margin-top: 0;">📋 Información de la Cita Anulada</h3>
+          <ul style="color: #721c24; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Motivo:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <p style="color: #0c5460; margin: 0; font-size: 14px;">
+            <strong>💡 Próximo paso:</strong> Si necesitas programar una nueva cita, puedes hacerlo a través de nuestra plataforma o contactándonos directamente.
+          </p>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          Si tienes alguna pregunta, no dudes en contactarnos.<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita anulada enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita anulada a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email al empleado sobre cita anulada
+export const sendCitaAnuladaEmpleado = async (empleadoEmail, empleadoNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "❌ Cita Anulada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #dc3545; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        ❌ Cita Anulada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que una cita ha sido anulada:</p>
+        
+        <div style="background-color: #f8d7da; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+          <h3 style="color: #721c24; margin-top: 0;">📋 Información de la Cita Anulada</h3>
+          <ul style="color: #721c24; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.cliente_nombre ? `<li style="margin: 10px 0;"><strong>Cliente:</strong> ${citaData.cliente_nombre}</li>` : ''}
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Motivo:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita anulada enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita anulada a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAILS EXPANDIDOS: FINALIZACIÓN DE CITAS
+// ---------------------------
+
+// Email al cliente sobre cita finalizada
+export const sendCitaFinalizadaCliente = async (clienteEmail, clienteNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "✅ Cita Finalizada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #28a745; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        ✅ Cita Finalizada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${clienteNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que tu cita ha sido finalizada:</p>
+        
+        <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">📋 Información de la Cita</h3>
+          <ul style="color: #155724; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.empleado_nombre ? `<li style="margin: 10px 0;"><strong>Empleado:</strong> ${citaData.empleado_nombre}</li>` : ''}
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Observación:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <p style="color: #0c5460; margin: 0; font-size: 14px;">
+            <strong>💡 Próximo paso:</strong> Si tienes alguna consulta adicional o necesitas programar otra cita, no dudes en contactarnos.
+          </p>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          ¡Gracias por confiar en nosotros!<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita finalizada enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita finalizada a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email al empleado sobre cita finalizada
+export const sendCitaFinalizadaEmpleado = async (empleadoEmail, empleadoNombre, citaData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "✅ Cita Finalizada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #28a745; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        ✅ Cita Finalizada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que una cita ha sido finalizada:</p>
+        
+        <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">📋 Información de la Cita</h3>
+          <ul style="color: #155724; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Cita:</strong> ${citaData.id_cita}</li>
+            <li style="margin: 10px 0;"><strong>Fecha:</strong> ${citaData.fecha}</li>
+            <li style="margin: 10px 0;"><strong>Hora:</strong> ${citaData.hora_inicio} - ${citaData.hora_fin}</li>
+            <li style="margin: 10px 0;"><strong>Tipo:</strong> ${citaData.tipo}</li>
+            <li style="margin: 10px 0;"><strong>Modalidad:</strong> ${citaData.modalidad}</li>
+            ${citaData.cliente_nombre ? `<li style="margin: 10px 0;"><strong>Cliente:</strong> ${citaData.cliente_nombre}</li>` : ''}
+            ${citaData.observacion ? `<li style="margin: 10px 0;"><strong>Observación:</strong> ${citaData.observacion}</li>` : ''}
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cita finalizada enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cita finalizada a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAILS EXPANDIDOS: FINALIZACIÓN DE SOLICITUDES
+// ---------------------------
+
+// Email al cliente sobre solicitud finalizada
+export const sendSolicitudFinalizadaCliente = async (clienteEmail, clienteNombre, solicitudData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "🎉 Solicitud Finalizada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #28a745; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        🎉 Solicitud Finalizada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">¡Felicitaciones ${clienteNombre}!</h2>
+        <p style="color: #555; font-size: 15px;">Tu solicitud ha sido completada exitosamente:</p>
+        
+        <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">📋 Detalles de la Solicitud</h3>
+          <ul style="color: #155724; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Solicitud:</strong> ${solicitudData.orden_id}</li>
+            <li style="margin: 10px 0;"><strong>Servicio:</strong> ${solicitudData.servicio_nombre}</li>
+            ${solicitudData.numero_expediente ? `<li style="margin: 10px 0;"><strong>Número de Expediente:</strong> ${solicitudData.numero_expediente}</li>` : ''}
+            <li style="margin: 10px 0;"><strong>Estado:</strong> Finalizado</li>
+          </ul>
+        </div>
+        
+        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <p style="color: #0c5460; margin: 0; font-size: 14px;">
+            <strong>💡 Próximo paso:</strong> Recibirás los documentos correspondientes y cualquier información adicional por parte de nuestro equipo.
+          </p>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          ¡Gracias por confiar en nosotros!<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de solicitud finalizada enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de solicitud finalizada a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email al empleado sobre solicitud finalizada
+export const sendSolicitudFinalizadaEmpleado = async (empleadoEmail, empleadoNombre, solicitudData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "✅ Solicitud Finalizada - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #28a745; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        ✅ Solicitud Finalizada
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que una solicitud ha sido finalizada:</p>
+        
+        <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">📋 Detalles de la Solicitud</h3>
+          <ul style="color: #155724; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>ID Solicitud:</strong> ${solicitudData.orden_id}</li>
+            <li style="margin: 10px 0;"><strong>Servicio:</strong> ${solicitudData.servicio_nombre}</li>
+            ${solicitudData.numero_expediente ? `<li style="margin: 10px 0;"><strong>Número de Expediente:</strong> ${solicitudData.numero_expediente}</li>` : ''}
+            ${solicitudData.cliente_nombre ? `<li style="margin: 10px 0;"><strong>Cliente:</strong> ${solicitudData.cliente_nombre}</li>` : ''}
+            <li style="margin: 10px 0;"><strong>Estado:</strong> Finalizado</li>
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de solicitud finalizada enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de solicitud finalizada a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAILS EXPANDIDOS: SUBIDA DE ARCHIVOS
+// ---------------------------
+
+// Email al cliente sobre archivo subido
+export const sendArchivoSubidoCliente = async (clienteEmail, clienteNombre, archivoData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "📎 Archivo Subido - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #17a2b8; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        📎 Archivo Subido
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${clienteNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que se ha subido un archivo relacionado con tu solicitud:</p>
+        
+        <div style="background-color: #d1ecf1; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <h3 style="color: #0c5460; margin-top: 0;">📋 Detalles del Archivo</h3>
+          <ul style="color: #0c5460; list-style: none; padding: 0;">
+            ${archivoData.tipo_archivo ? `<li style="margin: 10px 0;"><strong>Tipo:</strong> ${archivoData.tipo_archivo}</li>` : ''}
+            ${archivoData.descripcion ? `<li style="margin: 10px 0;"><strong>Descripción:</strong> ${archivoData.descripcion}</li>` : ''}
+            ${archivoData.orden_id ? `<li style="margin: 10px 0;"><strong>ID Solicitud:</strong> ${archivoData.orden_id}</li>` : ''}
+            <li style="margin: 10px 0;"><strong>Fecha de subida:</strong> ${new Date().toLocaleDateString('es-CO')}</li>
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          Puedes consultar tus archivos en cualquier momento desde la plataforma.<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de archivo subido enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de archivo subido a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email al empleado sobre archivo subido
+export const sendArchivoSubidoEmpleado = async (empleadoEmail, empleadoNombre, archivoData) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "📎 Nuevo Archivo Subido - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #17a2b8; padding: 15px; text-align: center; color: white; font-size: 20px; font-weight: bold;">
+        📎 Nuevo Archivo Subido
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 15px;">Te informamos que se ha subido un nuevo archivo:</p>
+        
+        <div style="background-color: #d1ecf1; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+          <h3 style="color: #0c5460; margin-top: 0;">📋 Detalles del Archivo</h3>
+          <ul style="color: #0c5460; list-style: none; padding: 0;">
+            ${archivoData.tipo_archivo ? `<li style="margin: 10px 0;"><strong>Tipo:</strong> ${archivoData.tipo_archivo}</li>` : ''}
+            ${archivoData.descripcion ? `<li style="margin: 10px 0;"><strong>Descripción:</strong> ${archivoData.descripcion}</li>` : ''}
+            ${archivoData.orden_id ? `<li style="margin: 10px 0;"><strong>ID Solicitud:</strong> ${archivoData.orden_id}</li>` : ''}
+            ${archivoData.cliente_nombre ? `<li style="margin: 10px 0;"><strong>Cliente:</strong> ${archivoData.cliente_nombre}</li>` : ''}
+            <li style="margin: 10px 0;"><strong>Fecha de subida:</strong> ${new Date().toLocaleDateString('es-CO')}</li>
+          </ul>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de archivo subido enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de archivo subido a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// ---------------------------
+// EMAILS EXPANDIDOS: BIENVENIDA Y CREDENCIALES
+// ---------------------------
+
+// Email de bienvenida al cliente
+export const sendBienvenidaCliente = async (clienteEmail, clienteNombre) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: clienteEmail,
+    subject: "🎉 ¡Bienvenido a Registrack!",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #007bff; padding: 20px; text-align: center; color: white; font-size: 24px; font-weight: bold;">
+        🎉 ¡Bienvenido a Registrack!
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${clienteNombre},</h2>
+        <p style="color: #555; font-size: 16px;">¡Estamos emocionados de tenerte con nosotros!</p>
+        <p style="color: #555; font-size: 15px;">Tu cuenta ha sido creada exitosamente. Ahora puedes:</p>
+        
+        <div style="background-color: #e7f3ff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff;">
+          <h3 style="color: #004085; margin-top: 0;">✨ ¿Qué puedes hacer ahora?</h3>
+          <ul style="color: #004085; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;">✅ Crear solicitudes de servicios</li>
+            <li style="margin: 10px 0;">✅ Programar citas</li>
+            <li style="margin: 10px 0;">✅ Realizar seguimiento de tus solicitudes</li>
+            <li style="margin: 10px 0;">✅ Subir documentos importantes</li>
+            <li style="margin: 10px 0;">✅ Gestionar tus pagos</li>
+          </ul>
+        </div>
+        
+        <p style="color: #555; font-size: 15px;">Si tienes alguna pregunta, no dudes en contactarnos. ¡Estamos aquí para ayudarte!</p>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          ¡Gracias por confiar en Registrack!<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de bienvenida enviado a cliente: ${clienteEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de bienvenida a cliente ${clienteEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email con credenciales de nuevo usuario
+export const sendCredencialesNuevoUsuario = async (usuarioEmail, usuarioNombre, credenciales) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: usuarioEmail,
+    subject: "🔐 Credenciales de Acceso - Registrack",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #6c757d; padding: 20px; text-align: center; color: white; font-size: 24px; font-weight: bold;">
+        🔐 Credenciales de Acceso
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${usuarioNombre},</h2>
+        <p style="color: #555; font-size: 16px;">Se ha creado una cuenta para ti en Registrack.</p>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #6c757d;">
+          <h3 style="color: #495057; margin-top: 0;">🔑 Tus Credenciales</h3>
+          <ul style="color: #495057; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>Email:</strong> ${usuarioEmail}</li>
+            <li style="margin: 10px 0;"><strong>Contraseña temporal:</strong> <code style="background-color: #e9ecef; padding: 2px 6px; border-radius: 3px;">${credenciales.password}</code></li>
+          </ul>
+        </div>
+        
+        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <p style="color: #856404; margin: 0; font-size: 14px;">
+            <strong>⚠️ Importante:</strong> Por seguridad, te recomendamos cambiar tu contraseña después de iniciar sesión por primera vez.
+          </p>
+        </div>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          ¡Bienvenido a Registrack!<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email con credenciales enviado a usuario: ${usuarioEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email con credenciales a usuario ${usuarioEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email de bienvenida al empleado
+export const sendBienvenidaEmpleado = async (empleadoEmail, empleadoNombre) => {
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: "👋 ¡Bienvenido al Equipo de Registrack!",
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: #28a745; padding: 20px; text-align: center; color: white; font-size: 24px; font-weight: bold;">
+        👋 ¡Bienvenido al Equipo!
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 16px;">¡Bienvenido al equipo de Registrack!</p>
+        <p style="color: #555; font-size: 15px;">Tu cuenta de empleado ha sido creada exitosamente. Ahora puedes:</p>
+        
+        <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">✨ Funcionalidades Disponibles</h3>
+          <ul style="color: #155724; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;">✅ Ver solicitudes asignadas</li>
+            <li style="margin: 10px 0;">✅ Actualizar seguimientos</li>
+            <li style="margin: 10px 0;">✅ Gestionar citas</li>
+            <li style="margin: 10px 0;">✅ Comunicarte con clientes</li>
+          </ul>
+        </div>
+        
+        <p style="color: #555; font-size: 15px;">Si tienes alguna pregunta, contacta al administrador del sistema.</p>
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          ¡Bienvenido al equipo!<br>
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de bienvenida enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de bienvenida a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};
+
+// Email sobre cambio de estado de empleado
+export const sendCambioEstadoEmpleado = async (empleadoEmail, empleadoNombre, estadoData) => {
+  const estadoTexto = estadoData.estado ? 'Activado' : 'Desactivado';
+  const colorEstado = estadoData.estado ? '#28a745' : '#dc3545';
+  const bgColor = estadoData.estado ? '#d4edda' : '#f8d7da';
+  const textColor = estadoData.estado ? '#155724' : '#721c24';
+
+  const mailOptions = {
+    from: `"Registrack" <${emailUser}>`,
+    to: empleadoEmail,
+    subject: `📋 Cambio de Estado - Tu cuenta ha sido ${estadoTexto.toLowerCase()}`,
+    html: `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 0; margin: 0;">
+      <div style="background-color: ${colorEstado}; padding: 20px; text-align: center; color: white; font-size: 24px; font-weight: bold;">
+        📋 Estado ${estadoTexto}
+      </div>
+      <div style="background-color: #ffffff; max-width: 600px; margin: 20px auto; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #333;">Hola ${empleadoNombre},</h2>
+        <p style="color: #555; font-size: 16px;">Te informamos que tu estado de empleado ha sido cambiado:</p>
+        
+        <div style="background-color: ${bgColor}; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid ${colorEstado};">
+          <h3 style="color: ${textColor}; margin-top: 0;">📊 Estado Actual</h3>
+          <p style="color: ${textColor}; font-size: 18px; font-weight: bold; margin: 0;">
+            ${estadoData.estado ? '✅ Activo' : '❌ Inactivo'}
+          </p>
+        </div>
+        
+        ${!estadoData.estado ? `
+        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <p style="color: #856404; margin: 0; font-size: 14px;">
+            <strong>ℹ️ Información:</strong> Si tu cuenta fue desactivada y necesitas reactivarla, contacta al administrador del sistema.
+          </p>
+        </div>
+        ` : ''}
+        
+        <p style="color: #777; font-size: 13px; text-align: center; margin-top: 30px;">
+          <em>El equipo de Registrack</em>
+        </p>
+      </div>
+    </div>
+    `
+  };
+
+  try {
+    await sendEmail(mailOptions);
+    console.log(`✅ Email de cambio de estado enviado a empleado: ${empleadoEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error al enviar email de cambio de estado a empleado ${empleadoEmail}:`, error);
+    throw error;
+  }
+};

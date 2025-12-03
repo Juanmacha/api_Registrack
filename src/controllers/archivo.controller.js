@@ -2,12 +2,17 @@ import Archivo from "../models/Archivo.js";
 import TipoArchivo from "../models/TipoArchivo.js";
 import Cliente from "../models/Cliente.js";
 import OrdenServicio from "../models/OrdenServicio.js";
+import User from "../models/user.js";
 import { 
   SUCCESS_MESSAGES, 
   ERROR_MESSAGES, 
   VALIDATION_MESSAGES,
   ERROR_CODES 
 } from "../constants/messages.js";
+import {
+  sendArchivoSubidoCliente,
+  sendArchivoSubidoEmpleado
+} from "../services/email.service.js";
 
 export const upload = async (req, res) => {
   try {
@@ -95,6 +100,62 @@ export const upload = async (req, res) => {
       id_cliente, 
       id_orden_servicio 
     });
+
+    // Enviar emails de notificación de subida de archivo
+    try {
+      // Obtener información del cliente y su usuario
+      const clienteCompleto = await Cliente.findByPk(id_cliente);
+      let clienteUser = null;
+      if (clienteCompleto && clienteCompleto.id_usuario) {
+        clienteUser = await User.findByPk(clienteCompleto.id_usuario);
+      }
+
+      // Obtener información de la orden de servicio si existe
+      let ordenCompleta = null;
+      let empleadoAsignado = null;
+      if (id_orden_servicio) {
+        ordenCompleta = await OrdenServicio.findByPk(id_orden_servicio);
+
+        // Obtener empleado asignado si existe
+        if (ordenCompleta && ordenCompleta.id_empleado_asignado) {
+          empleadoAsignado = await User.findByPk(ordenCompleta.id_empleado_asignado);
+        }
+      }
+
+      // Email al cliente
+      if (clienteUser && clienteUser.correo) {
+        await sendArchivoSubidoCliente(
+          clienteUser.correo,
+          `${clienteUser.nombre} ${clienteUser.apellido}`,
+          {
+            tipo_archivo: tipo.descripcion,
+            descripcion: req.body.descripcion || 'Archivo subido',
+            orden_id: id_orden_servicio || null
+          }
+        );
+        console.log('✅ Email de archivo subido enviado al cliente:', clienteUser.correo);
+      }
+
+      // Email al empleado asignado (si existe orden y empleado)
+      if (empleadoAsignado && empleadoAsignado.correo && ordenCompleta) {
+        await sendArchivoSubidoEmpleado(
+          empleadoAsignado.correo,
+          `${empleadoAsignado.nombre} ${empleadoAsignado.apellido}`,
+          {
+            tipo_archivo: tipo.descripcion,
+            descripcion: req.body.descripcion || 'Archivo subido',
+            orden_id: id_orden_servicio,
+            cliente_nombre: clienteUser ? 
+              `${clienteUser.nombre} ${clienteUser.apellido}` : 
+              'No asignado'
+          }
+        );
+        console.log('✅ Email de archivo subido enviado al empleado:', empleadoAsignado.correo);
+      }
+    } catch (emailError) {
+      console.error('❌ Error al enviar emails de archivo subido:', emailError);
+      // No fallar la operación por error de email
+    }
     
     res.status(201).json({
       success: true,

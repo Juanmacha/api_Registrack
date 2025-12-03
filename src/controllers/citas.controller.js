@@ -13,7 +13,13 @@ import {
 } from "../constants/messages.js";
 import {
   sendCitaProgramadaCliente,
-  sendCitaProgramadaEmpleado
+  sendCitaProgramadaEmpleado,
+  sendCitaReprogramadaCliente,
+  sendCitaReprogramadaEmpleado,
+  sendCitaAnuladaCliente,
+  sendCitaAnuladaEmpleado,
+  sendCitaFinalizadaCliente,
+  sendCitaFinalizadaEmpleado
 } from "../services/email.service.js";
 import xss from 'xss'; // Para sanitización XSS
 
@@ -893,6 +899,40 @@ export const reprogramarCita = async (req, res) => {
         cita.estado = 'Reprogramada';
         await cita.save();
 
+        // Enviar emails de reprogramación
+        try {
+            const cliente = await User.findByPk(cita.id_cliente);
+            const empleado = cita.id_empleado ? await User.findByPk(cita.id_empleado) : null;
+            
+            if (cliente && cliente.correo) {
+                await sendCitaReprogramadaCliente(cliente.correo, cliente.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion,
+                    empleado_nombre: empleado ? `${empleado.nombre} ${empleado.apellido}` : 'No asignado'
+                });
+            }
+            
+            if (empleado && empleado.correo) {
+                await sendCitaReprogramadaEmpleado(empleado.correo, empleado.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion,
+                    cliente_nombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : 'No asignado'
+                });
+            }
+        } catch (emailError) {
+            console.error('❌ Error al enviar emails de reprogramación:', emailError);
+        }
+
         res.status(200).json({
             success: true,
             message: SUCCESS_MESSAGES.APPOINTMENT_RESCHEDULED,
@@ -964,6 +1004,39 @@ export const anularCita = async (req, res) => {
         cita.estado = 'Anulada';
         cita.observacion = observacion;
         await cita.save();
+
+        // Enviar emails de anulación
+        try {
+            const cliente = await User.findByPk(cita.id_cliente);
+            const empleado = cita.id_empleado ? await User.findByPk(cita.id_empleado) : null;
+            
+            if (cliente && cliente.correo) {
+                await sendCitaAnuladaCliente(cliente.correo, cliente.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion
+                });
+            }
+            
+            if (empleado && empleado.correo) {
+                await sendCitaAnuladaEmpleado(empleado.correo, empleado.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion,
+                    cliente_nombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : 'No asignado'
+                });
+            }
+        } catch (emailError) {
+            console.error('❌ Error al enviar emails de anulación:', emailError);
+        }
 
         res.status(200).json({
             success: true,
@@ -1125,6 +1198,40 @@ export const finalizarCita = async (req, res) => {
             cita.observacion = sanitizarObservacion(req.body.observacion);
         }
         await cita.save();
+
+        // Enviar emails de finalización
+        try {
+            const cliente = await User.findByPk(cita.id_cliente);
+            const empleado = cita.id_empleado ? await User.findByPk(cita.id_empleado) : null;
+            
+            if (cliente && cliente.correo) {
+                await sendCitaFinalizadaCliente(cliente.correo, cliente.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion,
+                    empleado_nombre: empleado ? `${empleado.nombre} ${empleado.apellido}` : 'No asignado'
+                });
+            }
+            
+            if (empleado && empleado.correo) {
+                await sendCitaFinalizadaEmpleado(empleado.correo, empleado.nombre, {
+                    id_cita: cita.id_cita,
+                    fecha: cita.fecha,
+                    hora_inicio: cita.hora_inicio,
+                    hora_fin: cita.hora_fin,
+                    tipo: cita.tipo,
+                    modalidad: cita.modalidad,
+                    observacion: cita.observacion,
+                    cliente_nombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : 'No asignado'
+                });
+            }
+        } catch (emailError) {
+            console.error('❌ Error al enviar emails de finalización:', emailError);
+        }
         
         res.status(200).json({
             success: true,

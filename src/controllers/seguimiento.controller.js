@@ -6,7 +6,11 @@ import Servicio from "../models/Servicio.js";
 import Proceso from "../models/Proceso.js";
 import Cliente from "../models/Cliente.js";
 import User from "../models/user.js";
-import { sendCambioEstadoCliente } from "../services/email.service.js";
+import { 
+  sendCambioEstadoCliente,
+  sendSolicitudFinalizadaCliente,
+  sendSolicitudFinalizadaEmpleado
+} from "../services/email.service.js";
 import archiver from "archiver";
 
 const seguimientoService = new SeguimientoService();
@@ -134,6 +138,46 @@ export const crearSeguimiento = async (req, res) => {
       } catch (emailError) {
         console.error('❌ Error al enviar email de cambio de estado:', emailError);
         // No fallar la operación por error de email
+      }
+
+      // 🚀 NUEVA FUNCIONALIDAD: Si el nuevo proceso es "Finalizado", enviar emails especiales
+      if (req.body.nuevo_proceso === 'Finalizado') {
+        try {
+          const cliente = ordenServicio.cliente?.Usuario;
+          const empleadoAsignado = ordenServicio.id_empleado_asignado ? await User.findByPk(ordenServicio.id_empleado_asignado) : null;
+          
+          // Email al cliente sobre solicitud finalizada
+          if (cliente && cliente.correo) {
+            await sendSolicitudFinalizadaCliente(
+              cliente.correo,
+              `${cliente.nombre} ${cliente.apellido}`,
+              {
+                orden_id: ordenServicio.id_orden_servicio,
+                servicio_nombre: ordenServicio.servicio.nombre,
+                numero_expediente: ordenServicio.numero_expediente || null
+              }
+            );
+            console.log('✅ Email de solicitud finalizada enviado al cliente:', cliente.correo);
+          }
+          
+          // Email al empleado sobre solicitud finalizada
+          if (empleadoAsignado && empleadoAsignado.correo) {
+            await sendSolicitudFinalizadaEmpleado(
+              empleadoAsignado.correo,
+              `${empleadoAsignado.nombre} ${empleadoAsignado.apellido}`,
+              {
+                orden_id: ordenServicio.id_orden_servicio,
+                servicio_nombre: ordenServicio.servicio.nombre,
+                numero_expediente: ordenServicio.numero_expediente || null,
+                cliente_nombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : 'No asignado'
+              }
+            );
+            console.log('✅ Email de solicitud finalizada enviado al empleado:', empleadoAsignado.correo);
+          }
+        } catch (finalizacionEmailError) {
+          console.error('❌ Error al enviar emails de finalización:', finalizacionEmailError);
+          // No fallar la operación por error de email
+        }
       }
       
       // Agregar información del cambio de proceso a la respuesta

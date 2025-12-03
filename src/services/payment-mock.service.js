@@ -52,11 +52,41 @@ export class MockPaymentService {
 
   /**
    * Simular proceso de pago completo
-   * @param {Object} paymentData - Datos del pago
+   * @param {Object} paymentData - Datos del pago (debe incluir monto y precio_base_servicio)
    * @returns {Object} Resultado del pago
    */
   async processPayment(paymentData) {
     console.log('🎭 [MOCK] Procesando pago...', paymentData);
+    
+    // ✅ Obtener monto del pago (puede venir como 'monto' o 'amount')
+    const montoPago = paymentData.monto || paymentData.amount;
+    const precioBaseServicio = paymentData.precio_base_servicio;
+    
+    // ✅ Validar que tengamos un monto
+    if (!montoPago || (typeof montoPago !== 'number' && isNaN(parseFloat(montoPago)))) {
+      console.log('❌ [MOCK] Error: No se proporcionó un monto válido');
+      return {
+        success: false,
+        status: 'rejected',
+        error: 'Monto no válido o no proporcionado',
+        error_code: 'INVALID_AMOUNT',
+        mock_notice: 'El monto es requerido para procesar el pago'
+      };
+    }
+    
+    // ✅ Convertir monto a número
+    const montoFinal = parseFloat(montoPago);
+    
+    // ✅ Si tenemos precio_base_servicio, asegurar que el monto coincida
+    let montoAjustado = montoFinal;
+    if (precioBaseServicio !== undefined && precioBaseServicio !== null) {
+      const precioServicio = parseFloat(precioBaseServicio);
+      if (!isNaN(precioServicio) && precioServicio > 0) {
+        // Ajustar monto para que coincida con el precio del servicio
+        montoAjustado = precioServicio;
+        console.log(`💰 [MOCK] Ajustando monto de $${montoFinal.toLocaleString()} a $${montoAjustado.toLocaleString()} (precio del servicio)`);
+      }
+    }
     
     // Simular delay de procesamiento (como una pasarela real)
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -77,8 +107,10 @@ export class MockPaymentService {
         gateway: 'mock',
         verified: true,
         verified_at: new Date().toISOString(),
-        amount: paymentData.amount,
+        monto: montoAjustado, // ✅ Incluir monto (que coincide con precio del servicio)
+        amount: montoAjustado, // ✅ También como amount para compatibilidad
         currency: paymentData.currency || 'COP',
+        precio_base_servicio: precioBaseServicio || null, // ✅ Incluir precio del servicio
         mock_notice: 'Pago simulado exitosamente',
         mock_warning: 'Esta es una simulación, no hay dinero real involucrado'
       };

@@ -174,18 +174,20 @@ export const PagoRepository = {
   },
 
   /**
-   * ✅ NUEVO: Obtener orden de servicio con total_estimado
+   * ✅ NUEVO: Obtener orden de servicio con total_estimado y precio_base del servicio
    */
   async getOrdenServicioById(idOrdenServicio) {
     const result = await sequelize.query(
       `SELECT 
-        id_orden_servicio,
-        total_estimado,
-        estado,
-        id_servicio,
-        id_cliente
-      FROM ordenes_de_servicios 
-      WHERE id_orden_servicio = ?`,
+        os.id_orden_servicio,
+        os.total_estimado,
+        os.estado,
+        os.id_servicio,
+        os.id_cliente,
+        s.precio_base as precio_base_servicio
+      FROM ordenes_de_servicios os
+      INNER JOIN servicios s ON os.id_servicio = s.id_servicio
+      WHERE os.id_orden_servicio = ?`,
       { replacements: [idOrdenServicio], type: QueryTypes.SELECT }
     );
     return result[0];

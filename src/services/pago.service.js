@@ -38,8 +38,26 @@ export const PagoService = {
     try {
       console.log('💰 Procesando pago con mock...', paymentData);
       
-      // 1. Procesar pago con mock
-      const paymentResult = await this.paymentGateway.processPayment(paymentData);
+      // ✅ Obtener información de la orden de servicio para incluir precio del servicio
+      let precioBaseServicio = null;
+      if (paymentData.id_orden_servicio) {
+        try {
+          const ordenServicio = await PagoRepository.getOrdenServicioById(paymentData.id_orden_servicio);
+          if (ordenServicio && ordenServicio.precio_base_servicio) {
+            precioBaseServicio = parseFloat(ordenServicio.precio_base_servicio);
+            console.log(`💰 Precio base del servicio obtenido: $${precioBaseServicio.toLocaleString()}`);
+          }
+        } catch (error) {
+          console.error('⚠️ Error al obtener precio del servicio:', error);
+          // Continuar sin precio base si hay error
+        }
+      }
+      
+      // 1. Procesar pago con mock (pasar precio_base_servicio)
+      const paymentResult = await this.paymentGateway.processPayment({
+        ...paymentData,
+        precio_base_servicio: precioBaseServicio
+      });
       
       if (!paymentResult.success) {
         return {
@@ -50,8 +68,12 @@ export const PagoService = {
       }
 
       // 2. Crear registro de pago - Siempre con estado "Pagado" para demo
+      // ✅ Usar el monto del resultado del mock (que coincide con el precio del servicio)
+      const montoFinal = paymentResult.monto || paymentResult.amount || paymentData.monto;
+      
       const pago = await this.crearPago({
         ...paymentData,
+        monto: montoFinal, // ✅ Usar monto del mock que coincide con precio del servicio
         transaction_id: paymentResult.transaction_id,
         gateway: paymentResult.gateway || 'mock',
         estado: 'Pagado', // ✅ Siempre "Pagado" para demo

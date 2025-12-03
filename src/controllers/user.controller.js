@@ -1,5 +1,6 @@
 import * as userService from "../services/user.services.js";
 import { createUserWithRole } from "../services/auth.services.js";
+import { sendCredencialesNuevoUsuario } from "../services/email.service.js";
 
 // Crear usuario por administrador (con rol específico)
 export const createUserByAdmin = async (req, res) => {
@@ -27,6 +28,23 @@ export const createUserByAdmin = async (req, res) => {
     });
     
     const nuevoUsuario = await createUserWithRole(req.body);
+
+    // Enviar email con credenciales al nuevo usuario
+    if (nuevoUsuario.correo && req.body.contrasena) {
+      try {
+        await sendCredencialesNuevoUsuario(
+          nuevoUsuario.correo,
+          nuevoUsuario.nombre,
+          {
+            password: req.body.contrasena // Contraseña antes de hashearse
+          }
+        );
+        console.log('✅ Email con credenciales enviado al usuario:', nuevoUsuario.correo);
+      } catch (emailError) {
+        console.error('❌ Error al enviar email con credenciales:', emailError);
+        // No fallar la operación por error de email
+      }
+    }
     
     console.log('✅ [Backend] Usuario creado exitosamente:', nuevoUsuario.id_usuario);
     
