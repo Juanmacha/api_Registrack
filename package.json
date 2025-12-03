@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
+    "archiver-utils": "^5.0.2",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -41,6 +42,7 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
     "pdfkit": "^0.17.1",
+    "readable-stream": "^4.7.0",
     "sequelize": "^6.37.7",
     "xss": "^1.0.15"
   },
