@@ -21,6 +21,10 @@
   "author": "",
   "license": "ISC",
   "description": "API Registrack - Sistema de gestión de solicitudes",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "archiver": "^7.0.1",
     "axios": "^1.12.2",
