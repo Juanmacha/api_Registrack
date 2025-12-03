@@ -17,18 +17,14 @@
     "setup": "npm run sync-db && npm run seed-roles && npm run create-admin",
     "reset-db": "npm run sync-db:force && npm run seed-roles && npm run create-admin"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "description": "API Registrack - Sistema de gestión de solicitudes",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "dependencies": {
     "archiver": "^7.0.1",
     "axios": "^1.12.2",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
@@ -44,7 +40,6 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
     "pdfkit": "^0.17.1",
-    "readable-stream": "^4.7.0",
     "sequelize": "^6.37.7",
     "xss": "^1.0.15"
   },
