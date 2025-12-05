@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { register, login, forgotPassword, resetPassword } from '../controllers/auth.controller.js';
-import { getUsuarios, getUsuarioPorId, updateUsuario, deleteUsuario, createUserByAdmin, changeUserStatus } from '../controllers/user.controller.js';
+import { getUsuarios, getUsuarioPorId, updateUsuario, deleteUsuario, createUserByAdmin, changeUserStatus, updateOwnProfile } from '../controllers/user.controller.js';
 import { validarNuevoUsuario, validarActualizarUsuario } from '../middlewares/validarUsuario.js';
 import { validarCrearUsuarioPorAdmin } from '../middlewares/validarUsuarioAdmin.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
@@ -38,6 +38,9 @@ router.post('/forgot-password', forgotPasswordLimiter, validateForgotPassword, v
 router.post('/reset-password', resetPasswordLimiter, validateResetPassword, validarResetPassword, resetPassword);
 
 // Rutas protegidas - Con validación granular de permisos
+// ✅ PUT /perfil - Actualizar propio perfil: cualquier usuario autenticado puede actualizar sus propios datos
+router.put('/perfil', authMiddleware, validateUpdateUser, validarActualizarUsuario, updateOwnProfile);
+
 // ✅ GET / - Listar usuarios: requiere gestion_usuarios + leer
 router.get('/', authMiddleware, checkPermiso('gestion_usuarios', 'leer'), getUsuarios);
 

@@ -223,7 +223,7 @@ export const changeUserStatus = async (req, res) => {
   try {
     // ✅ RESTRICCIÓN: Clientes no pueden cambiar estados de usuarios
     if (req.user.rol === 'cliente') {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
         mensaje: "No tienes permiso para cambiar el estado de usuarios",
         error: {
@@ -245,5 +245,42 @@ export const changeUserStatus = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Controlador para que los usuarios actualicen su propio perfil
+export const updateOwnProfile = async (req, res) => {
+  try {
+    const userId = req.user.id_usuario; // ID del usuario autenticado
+
+    console.log('📝 [Backend] Usuario actualizando su propio perfil:', {
+      userId,
+      rol: req.user.rol,
+      campos: Object.keys(req.body)
+    });
+
+    // Usar la lógica existente de updateUsuario pero con el ID del usuario autenticado
+    const usuarioActualizado = await userService.updateUsuarioById(userId, req.body);
+
+    if (!usuarioActualizado) {
+      return res.status(404).json({
+        success: false,
+        mensaje: "Usuario no encontrado"
+      });
+    }
+
+    console.log('✅ [Backend] Perfil actualizado exitosamente:', usuarioActualizado.id_usuario);
+
+    res.json({
+      success: true,
+      mensaje: "Perfil actualizado exitosamente",
+      usuario: usuarioActualizado
+    });
+  } catch (error) {
+    console.error('❌ [Backend] Error al actualizar perfil propio:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };

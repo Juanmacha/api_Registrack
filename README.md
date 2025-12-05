@@ -2429,6 +2429,7 @@ GET /api/dashboard/ingresos?periodo=6meses
 - **POST /login** (autenticación)
 - **POST /forgot-password** (enviar código/link de recuperación)
 - **POST /reset-password** (restablecer contraseña)
+- **PUT /perfil** (actualización de perfil propio - requiere autenticación JWT)
 - **GET /, GET /:id, DELETE /:id, PUT /:id** (protegidos: admin/empleado)
 - **POST /crear** (crear usuario por admin)
 
