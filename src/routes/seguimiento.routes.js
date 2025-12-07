@@ -9,6 +9,7 @@ import {
   obtenerEstadosDisponibles,
   obtenerSeguimientosCliente,
   descargarArchivosSeguimiento,
+  descargarArchivosSeguimientoCliente,
 } from "../controllers/seguimiento.controller.js";
 
 // Middlewares de seguridad
@@ -93,6 +94,15 @@ router.get(
   authMiddleware,
   validateId('idOrdenServicio'),
   obtenerSeguimientosCliente
+);
+
+// 🚀 NUEVO: GET /cliente/descargar/:idSeguimiento - Descargar archivos de un seguimiento (solo clientes)
+// IMPORTANTE: Esta ruta debe ir ANTES de /:id para evitar conflictos
+router.get(
+  "/cliente/descargar/:idSeguimiento",
+  authMiddleware,
+  validateId('idSeguimiento'),
+  descargarArchivosSeguimientoCliente
 );
 
 // ✅ GET /:id - Obtener seguimiento por ID (requiere leer + validación de ID)

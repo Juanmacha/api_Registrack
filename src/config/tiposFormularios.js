@@ -15,7 +15,6 @@ export const CAMPOS_OBLIGATORIOS_POR_SERVICIO = {
     "pais",
     "nombre_a_buscar",
     "tipo_producto_servicio",
-    "logotipo",
   ],
 
   // 2. Registro de Marca (Certificación de marca)

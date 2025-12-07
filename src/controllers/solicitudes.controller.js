@@ -193,7 +193,6 @@ const requiredFields = {
     "pais",
     "nombre_a_buscar",
     "tipo_producto_servicio",
-    "logotipo",
   ],
   "Registro de Marca (Certificación de marca)": [
     "tipo_solicitante",
